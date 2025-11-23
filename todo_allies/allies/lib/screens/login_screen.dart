@@ -1,0 +1,315 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../config.dart';
+import 'otp_screen.dart';
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+// Estado del LoginScreen
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController(text: 'cosmodavid2009@gmail.com');
+  bool _isLoading = false;
+  String _email = 'cosmodavid2009@gmail.com';
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  void _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      // Verificar que el campo de email tenga contenido
+      if (_emailController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor ingresa tu correo electrónico'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final response = await http.post(
+          Uri.parse('${Config.baseUrl}/send-otp'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'email': _emailController.text}),
+        ).timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200) {
+          // Navegar a la pantalla OTP
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OtpScreen(email: _emailController.text),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error enviando el código de verificación'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error de conexión. Verifica tu conexión a internet.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } else {
+      // Mostrar mensaje si la validación falla
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ingresa un correo electrónico válido para continuar'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _loginWithGoogle() {
+    // Implementar login con Google
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Login con Google - Próximamente'),
+        backgroundColor: Colors.blue,
+      ),
+    );
+  }
+
+  void _loginWithFacebook() {
+    // Implementar login con Facebook
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Login con Facebook - Próximamente'),
+        backgroundColor: Colors.blue,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        color: Color(0xFFF4F2F2),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 40.0),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Logo/Title
+                    Column(
+                      children: [
+                        Text(
+                          'To',
+                          style: TextStyle(
+                            fontFamily: 'TitanOne',
+                            fontSize: 90,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF78BF32),
+                            height: 0.8,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Do',
+                          style: TextStyle(
+                            fontFamily: 'TitanOne',
+                            fontSize: 90,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF78BF32),
+                            height: 0.8,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 50),
+
+                    // Email Field
+                    TextFormField(
+                      controller: _emailController,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: 'Ingresa tu correo electrónico',
+                        labelStyle: TextStyle(color: Colors.black.withOpacity(0.7)),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.black, width: 2),
+                        ),
+                        errorStyle: TextStyle(
+                          color: Colors.red,
+                          fontSize: 14,
+                        ),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      onChanged: (value) {
+                        setState(() {
+                          _email = value;
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return null; // Dejar que el SnackBar maneje este caso
+                        }
+                        // Validación básica de email
+                        if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                          return 'Ingresa un correo electrónico válido';
+                        }
+                        return null;
+                      },
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9@._-]')),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Submit Button
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _submitForm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF78BF32),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 4,
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text(
+                              'Continuar',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Separator
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: Colors.black.withOpacity(0.3),
+                            thickness: 1,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'ó',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            color: Colors.black.withOpacity(0.3),
+                            thickness: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Social Login Buttons
+                    ElevatedButton.icon(
+                      onPressed: _loginWithGoogle,
+                      icon: Image.asset(
+                        'assets/images/logos/google_logo.png',
+                        height: 24,
+                        width: 24,
+                      ),
+                      label: const Text('Continuar con Google'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF595959),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+
+                    ElevatedButton.icon(
+                      onPressed: _loginWithFacebook,
+                      icon: Image.asset(
+                        'assets/images/logos/facebook_logo.png',
+                        height: 24,
+                        width: 24,
+                      ),
+                      label: const Text('Continuar con Facebook'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF595959),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

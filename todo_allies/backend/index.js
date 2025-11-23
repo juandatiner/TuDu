@@ -20,13 +20,13 @@ app.use(express.json());
 // Almacenamiento temporal de OTPs (en producción usar Redis o DB)
 const otpStore = new Map();
 
-// Base de datos SQLite para usuarios
-const db = new sqlite3.Database('../../databases/users.db', (err) => {
+// Base de datos SQLite para aliados
+const db = new sqlite3.Database('../../databases/allies.db', (err) => {
   if (err) {
-    console.error('Error abriendo DB usuarios:', err.message);
+    console.error('Error abriendo DB aliados:', err.message);
   } else {
-    console.log('Conectado a SQLite DB usuarios.');
-    db.run(`CREATE TABLE IF NOT EXISTS users (
+    console.log('Conectado a SQLite DB aliados.');
+    db.run(`CREATE TABLE IF NOT EXISTS allies (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT UNIQUE NOT NULL,
       nombre TEXT NOT NULL,
@@ -34,9 +34,9 @@ const db = new sqlite3.Database('../../databases/users.db', (err) => {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`, (err) => {
       if (err) {
-        console.error('Error creando tabla users:', err);
+        console.error('Error creando tabla allies:', err);
       } else {
-        console.log('Tabla users verificada/creada.');
+        console.log('Tabla allies verificada/creada.');
       }
     });
   }
@@ -175,7 +175,7 @@ app.post('/verify-otp', (req, res) => {
   }
 });
 
-// Endpoint para verificar si usuario existe
+// Endpoint para verificar si aliado existe
 app.post('/check-user', (req, res) => {
   const { email } = req.body;
 
@@ -183,9 +183,9 @@ app.post('/check-user', (req, res) => {
     return res.status(400).json({ error: 'Email es requerido' });
   }
 
-  db.get(`SELECT id, nombre, apellido FROM users WHERE email = ?`, [email], (err, row) => {
+  db.get(`SELECT id, nombre, apellido FROM allies WHERE email = ?`, [email], (err, row) => {
     if (err) {
-      return res.status(500).json({ error: 'Error verificando usuario' });
+      return res.status(500).json({ error: 'Error verificando aliado' });
     }
     if (row) {
       res.json({ exists: true, user: row });
@@ -195,7 +195,7 @@ app.post('/check-user', (req, res) => {
   });
 });
 
-// Endpoint para registrar usuario
+// Endpoint para registrar aliado
 app.post('/register-user', (req, res) => {
   const { email, nombre, apellido } = req.body;
 
@@ -203,14 +203,14 @@ app.post('/register-user', (req, res) => {
     return res.status(400).json({ error: 'Email, nombre y apellido son requeridos' });
   }
 
-  db.run(`INSERT INTO users (email, nombre, apellido) VALUES (?, ?, ?)`, [email, nombre, apellido], function(err) {
+  db.run(`INSERT INTO allies (email, nombre, apellido) VALUES (?, ?, ?)`, [email, nombre, apellido], function(err) {
     if (err) {
       if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-        return res.status(400).json({ error: 'Usuario ya registrado' });
+        return res.status(400).json({ error: 'Aliado ya registrado' });
       }
-      return res.status(500).json({ error: 'Error registrando usuario' });
+      return res.status(500).json({ error: 'Error registrando aliado' });
     }
-    res.json({ message: 'Usuario registrado exitosamente', id: this.lastID });
+    res.json({ message: 'Aliado registrado exitosamente', id: this.lastID });
   });
 });
 
