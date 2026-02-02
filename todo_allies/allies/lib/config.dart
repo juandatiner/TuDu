@@ -8,7 +8,7 @@ class Config {
     if (Platform.isAndroid) {
       return 'http://10.0.2.2:3002'; // Para Android emulator
     } else if (Platform.isIOS) {
-      return 'http://192.168.1.14:3002'; // Para iOS simulator
+      return 'http://10.150.102.246:3002'; // Para iOS simulator
     } else {
       return 'http://localhost:3002'; // Para otros (web, desktop)
     }
