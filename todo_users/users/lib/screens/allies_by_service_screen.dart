@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 import '../models/service.dart';
 
-class ServiceDetailScreen extends StatelessWidget {
+class AlliesByServiceScreen extends StatelessWidget {
   final Service service;
 
-  const ServiceDetailScreen({super.key, required this.service});
+  const AlliesByServiceScreen({super.key, required this.service});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(service.name),
+        title: Text(
+          service.name,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
         backgroundColor: const Color(0xFFF4F2F2),
         elevation: 0,
       ),
@@ -22,30 +29,6 @@ class ServiceDetailScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Imagen del servicio
-                Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.blue, // Placeholder
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'Imagen del servicio',
-                      style: TextStyle(color: Colors.white, fontSize: 20),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Título del servicio
-                Text(
-                  service.name,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
                 const SizedBox(height: 10),
                 // Descripción del servicio
                 const Text(

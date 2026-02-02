@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/service.dart';
+import 'allies_by_service_screen.dart';
 
 class AllServicesScreen extends StatefulWidget {
   final List<Service> services;
@@ -27,10 +28,33 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
     super.dispose();
   }
 
+  String _removeDiacritics(String text) {
+    const accentMap = {
+      'á': 'a',
+      'é': 'e',
+      'í': 'i',
+      'ó': 'o',
+      'ú': 'u',
+      'Á': 'a',
+      'É': 'e',
+      'Í': 'i',
+      'Ó': 'o',
+      'Ú': 'u',
+      'ñ': 'n',
+      'Ñ': 'n',
+    };
+    return text.split('').map((char) => accentMap[char] ?? char).join('');
+  }
+
   void _filterServices() {
-    final query = _searchController.text.toLowerCase();
+    final query = _removeDiacritics(_searchController.text.toLowerCase());
     setState(() {
-      _filteredServices = widget.services.where((service) => service.name.toLowerCase().contains(query)).toList();
+      _filteredServices = widget.services
+          .where(
+            (service) =>
+                _removeDiacritics(service.name.toLowerCase()).contains(query),
+          )
+          .toList();
     });
   }
 
@@ -55,7 +79,11 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                         top: 0,
                         bottom: 0,
                         child: IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.green, size: 28),
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.green,
+                            size: 28,
+                          ),
                           onPressed: () {
                             Navigator.pop(context);
                           },
@@ -102,7 +130,10 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                         },
                       ),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 15,
+                      ),
                     ),
                   ),
                 ),
@@ -120,53 +151,64 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                   itemCount: _filteredServices.length,
                   itemBuilder: (context, index) {
                     final service = _filteredServices[index];
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.2),
-                            spreadRadius: 1,
-                            blurRadius: 3,
-                            offset: const Offset(0, 2),
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                AlliesByServiceScreen(service: service),
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                color: Colors.blue, // Placeholder
-                                borderRadius: BorderRadius.only(
-                                  topLeft: Radius.circular(10),
-                                  topRight: Radius.circular(10),
+                        );
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.2),
+                              spreadRadius: 1,
+                              blurRadius: 3,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.blue, // Placeholder
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(10),
+                                    topRight: Radius.circular(10),
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    'Imagen',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
                                 ),
                               ),
-                              child: const Center(
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Center(
                                 child: Text(
-                                  'Imagen',
-                                  style: TextStyle(color: Colors.white),
+                                  service.name,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
                               ),
                             ),
-                          ),
-                          Expanded(
-                            flex: 1,
-                            child: Center(
-                              child: Text(
-                                service.name,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -211,9 +253,14 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                         // Acción para publicar solicitud
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF78BF32), // Verde #78BF32
+                        backgroundColor: const Color(
+                          0xFF78BF32,
+                        ), // Verde #78BF32
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 100, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 100,
+                          vertical: 14,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
@@ -221,7 +268,10 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                       ),
                       child: const Text(
                         'Publicar',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
