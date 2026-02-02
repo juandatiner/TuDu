@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import '../models/service.dart';
 import 'allies_by_service_screen.dart';
+import 'publish_service_screen.dart';
 
 class AllServicesScreen extends StatefulWidget {
   final List<Service> services;
+  final String initialSearchQuery;
 
-  const AllServicesScreen({super.key, required this.services});
+  const AllServicesScreen({
+    super.key,
+    required this.services,
+    this.initialSearchQuery = '',
+  });
 
   @override
   State<AllServicesScreen> createState() => _AllServicesScreenState();
@@ -20,6 +26,12 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
     super.initState();
     _filteredServices = widget.services;
     _searchController.addListener(_filterServices);
+    // Establecer el query de búsqueda inicial si existe
+    if (widget.initialSearchQuery.isNotEmpty) {
+      _searchController.text = widget.initialSearchQuery;
+      // Ejecutar el filtrado manualmente ya que el listener no se activa al establecer el texto programáticamente
+      _filterServices();
+    }
   }
 
   @override
@@ -250,7 +262,12 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                     ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context); // Cerrar el modal
-                        // Acción para publicar solicitud
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PublishServiceScreen(),
+                          ),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(

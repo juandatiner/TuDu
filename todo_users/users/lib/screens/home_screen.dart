@@ -5,6 +5,8 @@ import '../config.dart';
 import '../models/service.dart';
 import 'all_services_screen.dart';
 import 'allies_by_service_screen.dart';
+import 'publish_service_screen.dart';
+import 'user_services_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,7 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Service> _services = [];
   List<Service> _suggestedServices = [];
   List<Service> _newServices = [];
-  List<Service> _filteredServices = [];
 
   @override
   void initState() {
@@ -38,7 +39,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _newServicesCurrentPage = _newServicesController.page!.round();
       });
     });
-    _searchController.addListener(_filterServices);
     _fetchServices();
   }
 
@@ -54,26 +54,13 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedIndex = index;
     });
-    // Navegación placeholder para otros índices
-    if (index != 0) {
-      // Navigator.push... para otras pantallas
+    // Navegación para el botón de Servicios
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const UserServicesScreen()),
+      );
     }
-  }
-
-  void _filterServices() {
-    final query = _removeDiacritics(_searchController.text.toLowerCase());
-    setState(() {
-      if (query.isEmpty) {
-        _filteredServices = _services;
-      } else {
-        _filteredServices = _services
-            .where(
-              (service) =>
-                  _removeDiacritics(service.name.toLowerCase()).contains(query),
-            )
-            .toList();
-      }
-    });
   }
 
   String _removeDiacritics(String text) {
@@ -110,7 +97,6 @@ class _HomeScreenState extends State<HomeScreen> {
           _suggestedServices = List.from(_services)
             ..shuffle()
             ..take(5).toList();
-          _filteredServices = _services;
         });
       } else {
         // Manejar error
@@ -152,80 +138,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         TextField(
                           controller: _searchController,
                           onSubmitted: (value) {
-                            if (_filteredServices.isEmpty) {
-                              // Mostrar modal de publicar servicio si no hay resultados
-                              showModalBottomSheet(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return Container(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Text(
-                                          'No encontramos resultados',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        const Text(
-                                          'Publica tu solicitud y deja que los expertos vengan a ti.',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        ElevatedButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(
-                                              0xFF78BF32,
-                                            ),
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 100,
-                                              vertical: 14,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(30),
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            'Publicar',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              );
-                            } else {
-                              // Navegar a AllServicesScreen con los servicios filtrados
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => AllServicesScreen(
-                                    services: _filteredServices,
-                                  ),
+                            // Navegar a AllServicesScreen con el query de búsqueda
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AllServicesScreen(
+                                  services: _services,
+                                  initialSearchQuery: value,
                                 ),
-                              ).then((_) {
-                                // Limpiar el search controller cuando regrese al inicio
-                                _searchController.clear();
-                                _filterServices();
-                              });
-                            }
+                              ),
+                            ).then((_) {
+                              // Limpiar el search controller cuando regrese al inicio
+                              _searchController.clear();
+                            });
                           },
                           decoration: InputDecoration(
                             hintText: '¿Qué servicio necesitas hoy?',
@@ -247,53 +172,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                        // Lista de sugerencias de búsqueda
-                        if (_searchController.text.isNotEmpty &&
-                            _filteredServices.isNotEmpty)
-                          Container(
-                            constraints: const BoxConstraints(maxHeight: 200),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: const BorderRadius.only(
-                                bottomLeft: Radius.circular(25.0),
-                                bottomRight: Radius.circular(25.0),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.2),
-                                  spreadRadius: 2,
-                                  blurRadius: 5,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: ListView.builder(
-                              shrinkWrap: true,
-                              physics: const ClampingScrollPhysics(),
-                              itemCount: _filteredServices.length,
-                              itemBuilder: (context, index) {
-                                final service = _filteredServices[index];
-                                return ListTile(
-                                  title: Text(service.name),
-                                  onTap: () {
-                                    // Limpiar el search controller
-                                    _searchController.clear();
-                                    _filterServices();
-                                    // Navegar al detalle del servicio
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            AlliesByServiceScreen(
-                                              service: service,
-                                            ),
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -600,7 +478,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () {
-                            // Acción para publicar solicitud
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const PublishServiceScreen(),
+                              ),
+                            );
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(

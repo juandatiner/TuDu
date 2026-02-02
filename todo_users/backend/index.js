@@ -42,48 +42,88 @@ const db = new sqlite3.Database('../../databases/users.db', (err) => {
   }
 });
 
-// Base de datos SQLite para servicios
+ // Base de datos SQLite para servicios
 const servicesDb = new sqlite3.Database('../../databases/services.db', (err) => {
-  if (err) {
-    console.error('Error abriendo DB servicios:', err.message);
-  } else {
-    console.log('Conectado a SQLite DB servicios.');
-    servicesDb.run(`CREATE TABLE IF NOT EXISTS services (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`, (err) => {
-      if (err) {
-        console.error('Error creando tabla services:', err);
-      } else {
-        console.log('Tabla services verificada/creada.');
-        // Insertar datos de ejemplo si no existen
-        const sampleServices = [
-          'Servicio de hogar',
-          'Reparaciones eléctricas',
-          'Jardinería',
-          'Limpieza',
-          'Plomería',
-          'Pintura',
-          'Carpintería',
-          'Electricidad',
-          'Fontanería',
-          'Mantenimiento general',
-        ];
-        sampleServices.forEach(name => {
-          servicesDb.get(`SELECT id FROM services WHERE name = ?`, [name], (err, row) => {
-            if (err) {
-              console.error('Error verificando servicio:', err);
-            } else if (!row) {
-              servicesDb.run(`INSERT INTO services (name) VALUES (?)`, [name]);
-            }
+    if (err) {
+      console.error('Error abriendo DB servicios:', err.message);
+    } else {
+      console.log('Conectado a SQLite DB servicios.');
+      servicesDb.run(`CREATE TABLE IF NOT EXISTS services (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`, (err) => {
+        if (err) {
+          console.error('Error creando tabla services:', err);
+        } else {
+          console.log('Tabla services verificada/creada.');
+          // Insertar datos de ejemplo si no existen
+          const sampleServices = [
+            'Servicio de hogar',
+            'Reparaciones eléctricas',
+            'Jardinería',
+            'Limpieza',
+            'Plomería',
+            'Pintura',
+            'Carpintería',
+            'Electricidad',
+            'Fontanería',
+            'Mantenimiento general',
+          ];
+          sampleServices.forEach(name => {
+            servicesDb.get(`SELECT id FROM services WHERE name = ?`, [name], (err, row) => {
+              if (err) {
+                console.error('Error verificando servicio:', err);
+              } else if (!row) {
+                servicesDb.run(`INSERT INTO services (name) VALUES (?)`, [name]);
+              }
+            });
           });
-        });
-        console.log('Verificación de datos de ejemplo completada.');
-      }
-    });
-  }
-});
+          console.log('Verificación de datos de ejemplo completada.');
+        }
+      });
+      
+       // Crear tabla para servicios en busca de aliados
+   servicesDb.run(`CREATE TABLE IF NOT EXISTS services_in_search (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         title TEXT NOT NULL,
+         description TEXT NOT NULL,
+         time_quantity INTEGER NOT NULL,
+         time_unit TEXT NOT NULL,
+         budget TEXT NOT NULL,
+         worker_info TEXT NOT NULL,
+         additional_info TEXT NOT NULL,
+         status TEXT DEFAULT 'EN ESPERA',
+         assigned BOOLEAN DEFAULT 0,
+         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+       )`, (err) => {
+         if (err) {
+           console.error('Error creando tabla services_in_search:', err);
+         } else {
+           console.log('Tabla services_in_search verificada/creada.');
+           // Insertar datos de ejemplo si no existen
+           const sampleServices = [
+             { title: 'Juanito el programador', description: 'Página web 50 productos', status: 'TERMINADO', createdAt: '2023-10-05' },
+             { title: 'Todo Color', description: 'Pintada frente de la casa', status: 'EN PROCESO', createdAt: '2025-05-15' },
+             { title: 'Decoraciones lindas', description: 'Decoración de evento 15 años para ...', status: 'CANCELADO', createdAt: '2025-02-13' },
+             { title: 'Juanito el programador', description: 'Videojuego para una barbería', status: 'RETRASADO', createdAt: '2025-03-30' },
+             { title: 'Decoraciones lindas', description: 'Decoración de evento 30 años para ...', status: 'FINALIZADO', createdAt: '2024-02-08' },
+             { title: 'Cámara para perros', description: 'En madera de color rosa', status: 'EN ESPERA', createdAt: '2025-04-10' },
+           ];
+           sampleServices.forEach(service => {
+             servicesDb.get(`SELECT id FROM services_in_search WHERE title = ?`, [service.title], (err, row) => {
+               if (err) {
+                 console.error('Error verificando servicio:', err);
+               } else if (!row) {
+                 servicesDb.run(`INSERT INTO services_in_search (title, description, time_quantity, time_unit, budget, worker_info, additional_info, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                   [service.title, service.description, 1, 'días', '0', ' ', ' ', service.status, service.createdAt]);
+               }
+             });
+           });
+         }
+       });
+    }
+  });
 
 // Generar OTP de 6 dígitos
 function generateOTP() {
@@ -221,6 +261,72 @@ app.get('/services', (req, res) => {
       return res.status(500).json({ error: 'Error obteniendo servicios' });
     }
     res.json({ services: rows });
+  });
+});
+
+// Endpoint para publicar servicio en busca de aliado
+app.post('/publish-service', (req, res) => {
+  const { title, description, time_quantity, time_unit, budget, worker_info, additional_info } = req.body;
+
+  if (!title || !description || !time_quantity || !time_unit || !budget || !worker_info || !additional_info) {
+    return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+  }
+
+  servicesDb.run(`INSERT INTO services_in_search (title, description, time_quantity, time_unit, budget, worker_info, additional_info, status) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
+                  [title, description, time_quantity, time_unit, budget, worker_info, additional_info, 'EN ESPERA'], function(err) {
+    if (err) {
+      console.error('Error publicando servicio:', err);
+      return res.status(500).json({ error: 'Error publicando servicio' });
+    }
+    res.json({ message: 'Servicio publicado exitosamente', id: this.lastID });
+  });
+});
+
+// Endpoint para obtener servicios en busca de aliados (sin asignar)
+app.get('/services-in-search', (req, res) => {
+  servicesDb.all(`SELECT * FROM services_in_search WHERE assigned = 0 ORDER BY created_at DESC`, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error obteniendo servicios en busca de aliados' });
+    }
+    res.json({ services_in_search: rows });
+  });
+});
+
+// Endpoint para marcar un servicio como asignado
+app.put('/services-in-search/:id/assign', (req, res) => {
+  const { id } = req.params;
+
+  servicesDb.run(`UPDATE services_in_search SET assigned = 1, status = 'En Proceso' WHERE id = ?`, [id], function(err) {
+    if (err) {
+      console.error('Error asignando servicio:', err);
+      return res.status(500).json({ error: 'Error asignando servicio' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Servicio no encontrado' });
+    }
+    res.json({ message: 'Servicio asignado exitosamente' });
+  });
+});
+
+// Endpoint para actualizar el estado de un servicio
+app.put('/services-in-search/:id/status', (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status) {
+    return res.status(400).json({ error: 'Estado es requerido' });
+  }
+
+  servicesDb.run(`UPDATE services_in_search SET status = ? WHERE id = ?`, [status, id], function(err) {
+    if (err) {
+      console.error('Error actualizando estado:', err);
+      return res.status(500).json({ error: 'Error actualizando estado' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Servicio no encontrado' });
+    }
+    res.json({ message: 'Estado actualizado exitosamente' });
   });
 });
 
