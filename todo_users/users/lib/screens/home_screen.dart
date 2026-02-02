@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../config.dart';
 import '../models/service.dart';
 import 'all_services_screen.dart';
+import 'service_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,12 +16,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final PageController _suggestionsController = PageController();
   final PageController _newServicesController = PageController();
+  final TextEditingController _searchController = TextEditingController();
   int _suggestionsCurrentPage = 0;
   int _newServicesCurrentPage = 0;
   int _selectedIndex = 0;
   List<Service> _services = [];
   List<Service> _suggestedServices = [];
   List<Service> _newServices = [];
+  List<Service> _filteredServices = [];
 
   @override
   void initState() {
@@ -35,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _newServicesCurrentPage = _newServicesController.page!.round();
       });
     });
+    _searchController.addListener(_filterServices);
     _fetchServices();
   }
 
@@ -42,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _suggestionsController.dispose();
     _newServicesController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -55,6 +60,40 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _filterServices() {
+    final query = _removeDiacritics(_searchController.text.toLowerCase());
+    setState(() {
+      if (query.isEmpty) {
+        _filteredServices = _services;
+      } else {
+        _filteredServices = _services
+            .where(
+              (service) =>
+                  _removeDiacritics(service.name.toLowerCase()).contains(query),
+            )
+            .toList();
+      }
+    });
+  }
+
+  String _removeDiacritics(String text) {
+    const accentMap = {
+      'á': 'a',
+      'é': 'e',
+      'í': 'i',
+      'ó': 'o',
+      'ú': 'u',
+      'Á': 'a',
+      'É': 'e',
+      'Í': 'i',
+      'Ó': 'o',
+      'Ú': 'u',
+      'ñ': 'n',
+      'Ñ': 'n',
+    };
+    return text.split('').map((char) => accentMap[char] ?? char).join('');
+  }
+
   Future<void> _fetchServices() async {
     try {
       final response = await http.get(Uri.parse('${Config.baseUrl}/services'));
@@ -62,9 +101,16 @@ class _HomeScreenState extends State<HomeScreen> {
         final data = json.decode(response.body);
         final List<dynamic> servicesJson = data['services'];
         setState(() {
-          _services = servicesJson.map((json) => Service.fromJson(json)).toList();
-          _newServices = _services.length > 5 ? _services.sublist(_services.length - 5) : _services;
-          _suggestedServices = List.from(_services)..shuffle()..take(5).toList();
+          _services = servicesJson
+              .map((json) => Service.fromJson(json))
+              .toList();
+          _newServices = _services.length > 5
+              ? _services.sublist(_services.length - 5)
+              : _services;
+          _suggestedServices = List.from(_services)
+            ..shuffle()
+            ..take(5).toList();
+          _filteredServices = _services;
         });
       } else {
         // Manejar error
@@ -87,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Barra de búsqueda
+                  // Barra de búsqueda con autocompletado
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -101,20 +147,154 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: '¿Qué servicio necesitas hoy?',
-                        hintStyle: const TextStyle(color: Colors.grey),
-                        prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.mic, color: Colors.grey),
-                          onPressed: () {
-                            // Funcionalidad de micrófono (placeholder)
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _searchController,
+                          onSubmitted: (value) {
+                            if (_filteredServices.isEmpty) {
+                              // Mostrar modal de publicar servicio si no hay resultados
+                              showModalBottomSheet(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return Container(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          'No encontramos resultados',
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        const Text(
+                                          'Publica tu solicitud y deja que los expertos vengan a ti.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(
+                                              0xFF78BF32,
+                                            ),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 100,
+                                              vertical: 14,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(30),
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'Publicar',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            } else {
+                              // Navegar a AllServicesScreen con los servicios filtrados
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AllServicesScreen(
+                                    services: _filteredServices,
+                                  ),
+                                ),
+                              ).then((_) {
+                                // Limpiar el search controller cuando regrese al inicio
+                                _searchController.clear();
+                                _filterServices();
+                              });
+                            }
                           },
+                          decoration: InputDecoration(
+                            hintText: '¿Qué servicio necesitas hoy?',
+                            hintStyle: const TextStyle(color: Colors.grey),
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              color: Colors.grey,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.mic, color: Colors.grey),
+                              onPressed: () {
+                                // Funcionalidad de micrófono (placeholder)
+                              },
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 15,
+                            ),
+                          ),
                         ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                      ),
+                        // Lista de sugerencias de búsqueda
+                        if (_searchController.text.isNotEmpty &&
+                            _filteredServices.isNotEmpty)
+                          Container(
+                            constraints: const BoxConstraints(maxHeight: 200),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: const BorderRadius.only(
+                                bottomLeft: Radius.circular(25.0),
+                                bottomRight: Radius.circular(25.0),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.2),
+                                  spreadRadius: 2,
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _filteredServices.length,
+                              itemBuilder: (context, index) {
+                                final service = _filteredServices[index];
+                                return ListTile(
+                                  title: Text(service.name),
+                                  onTap: () {
+                                    // Limpiar el search controller
+                                    _searchController.clear();
+                                    _filterServices();
+                                    // Navegar al detalle del servicio
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            ServiceDetailScreen(
+                                              service: service,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -141,7 +321,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => AllServicesScreen(services: _services),
+                              builder: (context) =>
+                                  AllServicesScreen(services: _services),
                             ),
                           );
                         },
@@ -164,7 +345,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller: _suggestionsController,
                       itemCount: 5,
                       itemBuilder: (context, index) {
-                        final service = index < _suggestedServices.length ? _suggestedServices[index] : null;
+                        final service = index < _suggestedServices.length
+                            ? _suggestedServices[index]
+                            : null;
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 5),
                           decoration: BoxDecoration(
@@ -205,7 +388,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   padding: const EdgeInsets.all(16.0),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         service?.name ?? 'Servicio de hogar',
@@ -235,7 +419,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 8,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _suggestionsCurrentPage == index ? Colors.blue : Colors.grey,
+                          color: _suggestionsCurrentPage == index
+                              ? Colors.blue
+                              : Colors.grey,
                         ),
                       );
                     }),
@@ -264,7 +450,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller: _newServicesController,
                       itemCount: 5,
                       itemBuilder: (context, index) {
-                        final service = index < _newServices.length ? _newServices[index] : null;
+                        final service = index < _newServices.length
+                            ? _newServices[index]
+                            : null;
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 5),
                           decoration: BoxDecoration(
@@ -305,7 +493,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   padding: const EdgeInsets.all(16.0),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         service?.name ?? 'Servicio de hogar',
@@ -335,7 +524,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 8,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _newServicesCurrentPage == index ? Colors.green : Colors.grey,
+                          color: _newServicesCurrentPage == index
+                              ? Colors.green
+                              : Colors.grey,
                         ),
                       );
                     }),
@@ -384,9 +575,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             // Acción para publicar solicitud
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF78BF32), // Verde #78BF32
+                            backgroundColor: const Color(
+                              0xFF78BF32,
+                            ), // Verde #78BF32
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 100, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 100,
+                              vertical: 14,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
                             ),
@@ -394,7 +590,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           child: const Text(
                             'Publicar',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -408,22 +607,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Inicio',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.message),
-            label: 'Mensajes',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.work),
-            label: 'Servicios',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Mensajes'),
+          BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Servicios'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
