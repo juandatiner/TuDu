@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "firebase-tools": "^13.35.1"
+    "firebase-tools": "^13.35.1",
+    "sqlite3": "^5.1.7"
   }
 }

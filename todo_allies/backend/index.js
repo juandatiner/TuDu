@@ -20,70 +20,17 @@ app.use(express.json());
 // Almacenamiento temporal de OTPs (en producción usar Redis o DB)
 const otpStore = new Map();
 
-// Base de datos SQLite para aliados
-const db = new sqlite3.Database('../../databases/allies.db', (err) => {
+// Base de datos SQLite unificada
+const db = new sqlite3.Database('../../databases/todo.db', (err) => {
   if (err) {
-    console.error('Error abriendo DB aliados:', err.message);
+    console.error('Error abriendo DB unificada:', err.message);
   } else {
-    console.log('Conectado a SQLite DB aliados.');
-    db.run(`CREATE TABLE IF NOT EXISTS allies (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      nombre TEXT NOT NULL,
-      apellido TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`, (err) => {
-      if (err) {
-        console.error('Error creando tabla allies:', err);
-      } else {
-        console.log('Tabla allies verificada/creada.');
-      }
-    });
+    console.log('Conectado a SQLite DB unificada.');
   }
 });
 
-// Base de datos SQLite para servicios
-const servicesDb = new sqlite3.Database('../../databases/services.db', (err) => {
-  if (err) {
-    console.error('Error abriendo DB servicios:', err.message);
-  } else {
-    console.log('Conectado a SQLite DB servicios.');
-    servicesDb.run(`CREATE TABLE IF NOT EXISTS services (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`, (err) => {
-      if (err) {
-        console.error('Error creando tabla services:', err);
-      } else {
-        console.log('Tabla services verificada/creada.');
-        // Insertar datos de ejemplo si no existen
-        const sampleServices = [
-          'Servicio de hogar',
-          'Reparaciones eléctricas',
-          'Jardinería',
-          'Limpieza',
-          'Plomería',
-          'Pintura',
-          'Carpintería',
-          'Electricidad',
-          'Fontanería',
-          'Mantenimiento general',
-        ];
-        sampleServices.forEach(name => {
-          servicesDb.get(`SELECT id FROM services WHERE name = ?`, [name], (err, row) => {
-            if (err) {
-              console.error('Error verificando servicio:', err);
-            } else if (!row) {
-              servicesDb.run(`INSERT INTO services (name) VALUES (?)`, [name]);
-            }
-          });
-        });
-        console.log('Verificación de datos de ejemplo completada.');
-      }
-    });
-  }
-});
+// No se necesita una conexión separada para servicios, usamos la unificada
+const servicesDb = db;
 
 // Generar OTP de 6 dígitos
 function generateOTP() {
@@ -224,6 +171,97 @@ app.get('/services', (req, res) => {
   });
 });
 
+// Endpoint para obtener servicios en busca de aliados (sin asignar)
+app.get('/services-in-search', (req, res) => {
+  servicesDb.all(`SELECT * FROM services_in_search WHERE assigned = 0 ORDER BY created_at DESC`, (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error obteniendo servicios en busca de aliados' });
+    }
+    res.json({ services_in_search: rows });
+  });
+});
+
+// Endpoint para marcar un servicio como asignado
+app.put('/services-in-search/:id/assign', (req, res) => {
+  const { id } = req.params;
+  const { ally_email } = req.body;
+
+  if (!ally_email) {
+    return res.status(400).json({ error: 'Email del aliado es requerido' });
+  }
+
+  // Obtener el ally_id a partir del email
+  db.get(`SELECT id FROM allies WHERE email = ?`, [ally_email], (err, ally) => {
+    if (err) {
+      console.error('Error buscando aliado:', err);
+      return res.status(500).json({ error: 'Error buscando aliado' });
+    }
+
+    if (!ally) {
+      return res.status(404).json({ error: 'Aliado no encontrado' });
+    }
+
+    servicesDb.run(`UPDATE services_in_search SET assigned = 1, status = 'EN PROCESO', ally_id = ? WHERE id = ?`, [ally.id, id], function(err) {
+      if (err) {
+        console.error('Error asignando servicio:', err);
+        return res.status(500).json({ error: 'Error asignando servicio' });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Servicio no encontrado' });
+      }
+      res.json({ message: 'Servicio asignado exitosamente' });
+    });
+  });
+});
+
+// Endpoint para actualizar el estado de un servicio
+app.put('/services-in-search/:id/status', (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status) {
+    return res.status(400).json({ error: 'Estado es requerido' });
+  }
+
+  servicesDb.run(`UPDATE services_in_search SET status = ? WHERE id = ?`, [status, id], function(err) {
+    if (err) {
+      console.error('Error actualizando estado:', err);
+      return res.status(500).json({ error: 'Error actualizando estado' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Servicio no encontrado' });
+    }
+    res.json({ message: 'Estado actualizado exitosamente' });
+  });
+});
+
+// Endpoint para obtener servicios asignados a un aliado
+app.get('/my-services', (req, res) => {
+  const { ally_email } = req.query;
+
+  if (!ally_email) {
+    return res.status(400).json({ error: 'Email del aliado es requerido' });
+  }
+
+  db.get(`SELECT id FROM allies WHERE email = ?`, [ally_email], (err, ally) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error buscando aliado' });
+    }
+
+    if (!ally) {
+      return res.status(404).json({ error: 'Aliado no encontrado' });
+    }
+
+    servicesDb.all(`SELECT * FROM services_in_search WHERE ally_id = ? ORDER BY created_at DESC`, [ally.id], (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error obteniendo servicios' });
+      }
+      res.json({ my_services: rows });
+    });
+  });
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor corriendo en puerto ${PORT} (accesible desde red)`);
+  console.log(`Para acceder a la base de datos: http://localhost:${PORT}/services-in-search`);
 });

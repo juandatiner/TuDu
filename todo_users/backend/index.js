@@ -20,93 +20,17 @@ app.use(express.json());
 // Almacenamiento temporal de OTPs (en producción usar Redis o DB)
 const otpStore = new Map();
 
-// Base de datos SQLite para usuarios
-const db = new sqlite3.Database('../../databases/users.db', (err) => {
+// Base de datos SQLite unificada
+const db = new sqlite3.Database('../../databases/todo.db', (err) => {
   if (err) {
-    console.error('Error abriendo DB usuarios:', err.message);
+    console.error('Error abriendo DB unificada:', err.message);
   } else {
-    console.log('Conectado a SQLite DB usuarios.');
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      nombre TEXT NOT NULL,
-      apellido TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`, (err) => {
-      if (err) {
-        console.error('Error creando tabla users:', err);
-      } else {
-        console.log('Tabla users verificada/creada.');
-      }
-    });
+    console.log('Conectado a SQLite DB unificada.');
   }
 });
 
- // Base de datos SQLite para servicios
-const servicesDb = new sqlite3.Database('../../databases/services.db', (err) => {
-    if (err) {
-      console.error('Error abriendo DB servicios:', err.message);
-    } else {
-      console.log('Conectado a SQLite DB servicios.');
-      servicesDb.run(`CREATE TABLE IF NOT EXISTS services (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`, (err) => {
-        if (err) {
-          console.error('Error creando tabla services:', err);
-        } else {
-          console.log('Tabla services verificada/creada.');
-          // Insertar datos de ejemplo si no existen
-          const sampleServices = [
-            'Servicio de hogar',
-            'Reparaciones eléctricas',
-            'Jardinería',
-            'Limpieza',
-            'Plomería',
-            'Pintura',
-            'Carpintería',
-            'Electricidad',
-            'Fontanería',
-            'Mantenimiento general',
-          ];
-          sampleServices.forEach(name => {
-            servicesDb.get(`SELECT id FROM services WHERE name = ?`, [name], (err, row) => {
-              if (err) {
-                console.error('Error verificando servicio:', err);
-              } else if (!row) {
-                servicesDb.run(`INSERT INTO services (name) VALUES (?)`, [name]);
-              }
-            });
-          });
-          console.log('Verificación de datos de ejemplo completada.');
-        }
-      });
-      
-        // Crear tabla para servicios en busca de aliados
-    servicesDb.run(`CREATE TABLE IF NOT EXISTS services_in_search (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_email TEXT NOT NULL,
-          title TEXT NOT NULL,
-          description TEXT NOT NULL,
-          time_quantity INTEGER NOT NULL,
-          time_unit TEXT NOT NULL,
-          budget TEXT NOT NULL,
-          worker_info TEXT NOT NULL,
-          additional_info TEXT NOT NULL,
-          status TEXT DEFAULT 'EN ESPERA',
-          assigned BOOLEAN DEFAULT 0,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`, (err) => {
-         if (err) {
-           console.error('Error creando tabla services_in_search:', err);
-         } else {
-           console.log('Tabla services_in_search verificada/creada.');
-
-         }
-       });
-    }
-  });
+// No se necesita una conexión separada para servicios, usamos la unificada
+const servicesDb = db;
 
 // Generar OTP de 6 dígitos
 function generateOTP() {
@@ -255,14 +179,26 @@ app.post('/publish-service', (req, res) => {
     return res.status(400).json({ error: 'Todos los campos son obligatorios' });
   }
 
-  servicesDb.run(`INSERT INTO services_in_search (user_email, title, description, time_quantity, time_unit, budget, worker_info, additional_info, status) 
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                  [user_email, title, description, time_quantity, time_unit, budget, worker_info, additional_info, 'EN ESPERA'], function(err) {
+  // Obtener el user_id a partir del email
+  db.get(`SELECT id FROM users WHERE email = ?`, [user_email], (err, user) => {
     if (err) {
-      console.error('Error publicando servicio:', err);
-      return res.status(500).json({ error: 'Error publicando servicio' });
+      console.error('Error buscando usuario:', err);
+      return res.status(500).json({ error: 'Error buscando usuario' });
     }
-    res.json({ message: 'Servicio publicado exitosamente', id: this.lastID });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    servicesDb.run(`INSERT INTO services_in_search (user_id, title, description, time_quantity, time_unit, budget, worker_info, additional_info, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                    [user.id, title, description, time_quantity, time_unit, budget, worker_info, additional_info, 'EN ESPERA'], function(err) {
+      if (err) {
+        console.error('Error publicando servicio:', err);
+        return res.status(500).json({ error: 'Error publicando servicio' });
+      }
+      res.json({ message: 'Servicio publicado exitosamente', id: this.lastID });
+    });
   });
 });
 
@@ -272,11 +208,21 @@ app.get('/services-in-search', (req, res) => {
 
   // Si se proporciona un email, filtrar por ese usuario
   if (user_email) {
-    servicesDb.all(`SELECT * FROM services_in_search WHERE assigned = 0 AND user_email = ? ORDER BY created_at DESC`, [user_email], (err, rows) => {
+    db.get(`SELECT id FROM users WHERE email = ?`, [user_email], (err, user) => {
       if (err) {
-        return res.status(500).json({ error: 'Error obteniendo servicios en busca de aliados' });
+        return res.status(500).json({ error: 'Error buscando usuario' });
       }
-      res.json({ services_in_search: rows });
+
+      if (!user) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+
+      servicesDb.all(`SELECT * FROM services_in_search WHERE assigned = 0 AND user_id = ? ORDER BY created_at DESC`, [user.id], (err, rows) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error obteniendo servicios en busca de aliados' });
+        }
+        res.json({ services_in_search: rows });
+      });
     });
   } else {
     // Si no se proporciona email, devolver todos los servicios sin asignar
@@ -328,4 +274,5 @@ app.put('/services-in-search/:id/status', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor corriendo en puerto ${PORT} (accesible desde red)`);
+  console.log(`Para acceder a la base de datos: http://localhost:${PORT}/services-in-search`);
 });

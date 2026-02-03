@@ -1,0 +1,7 @@
+=== Estructura del Backend ===
+Ruta del backend visible en VSCode: todo_users/backend/index.js
+
+=== Bases de Datos SQLite ===
+Rutas de las bases de datos:
+- databases/allies.db
+- databases/services.db
