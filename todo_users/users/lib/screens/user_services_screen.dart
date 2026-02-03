@@ -7,7 +7,9 @@ import '../models/service.dart';
 import 'all_services_screen.dart';
 
 class UserServicesScreen extends StatefulWidget {
-  const UserServicesScreen({super.key});
+  final String userEmail;
+
+  const UserServicesScreen({super.key, required this.userEmail});
 
   @override
   State<UserServicesScreen> createState() => _UserServicesScreenState();
@@ -28,7 +30,9 @@ class _UserServicesScreenState extends State<UserServicesScreen> {
   Future<void> _fetchUserServices() async {
     try {
       final response = await http.get(
-        Uri.parse('${Config.baseUrl}/services-in-search'),
+        Uri.parse(
+          '${Config.baseUrl}/services-in-search?user_email=${widget.userEmail}',
+        ),
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -196,8 +200,10 @@ class _UserServicesScreenState extends State<UserServicesScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    AllServicesScreen(services: _services),
+                                builder: (context) => AllServicesScreen(
+                                  services: _services,
+                                  userEmail: widget.userEmail,
+                                ),
                               ),
                             );
                           },

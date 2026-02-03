@@ -9,7 +9,9 @@ import 'publish_service_screen.dart';
 import 'user_services_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String userEmail;
+
+  const HomeScreen({super.key, required this.userEmail});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -58,7 +60,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (index == 2) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const UserServicesScreen()),
+        MaterialPageRoute(
+          builder: (context) => UserServicesScreen(userEmail: widget.userEmail),
+        ),
       );
     }
   }
@@ -145,6 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 builder: (context) => AllServicesScreen(
                                   services: _services,
                                   initialSearchQuery: value,
+                                  userEmail: widget.userEmail,
                                 ),
                               ),
                             ).then((_) {
@@ -199,8 +204,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  AllServicesScreen(services: _services),
+                              builder: (context) => AllServicesScreen(
+                                services: _services,
+                                userEmail: widget.userEmail,
+                              ),
                             ),
                           );
                         },
@@ -481,8 +488,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    const PublishServiceScreen(),
+                                builder: (context) => PublishServiceScreen(
+                                  userEmail: widget.userEmail,
+                                ),
                               ),
                             );
                           },

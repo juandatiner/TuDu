@@ -4,7 +4,9 @@ import 'dart:convert';
 import '../config.dart';
 
 class PublishServiceScreen extends StatefulWidget {
-  const PublishServiceScreen({super.key});
+  final String userEmail;
+
+  const PublishServiceScreen({super.key, required this.userEmail});
 
   @override
   State<PublishServiceScreen> createState() => _PublishServiceScreenState();
@@ -60,6 +62,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
+          'user_email': widget.userEmail,
           'title': _titleController.text,
           'description': _descriptionController.text,
           'time_quantity': _selectedQuantity,

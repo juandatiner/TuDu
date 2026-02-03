@@ -17,7 +17,8 @@ class VerificationSuccessScreen extends StatefulWidget {
   });
 
   @override
-  State<VerificationSuccessScreen> createState() => _VerificationSuccessScreenState();
+  State<VerificationSuccessScreen> createState() =>
+      _VerificationSuccessScreenState();
 }
 
 class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
@@ -28,7 +29,9 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
       if (widget.isAfterRegistration) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(
+            builder: (context) => HomeScreen(userEmail: widget.email),
+          ),
         );
       } else {
         _checkUser();
@@ -38,11 +41,13 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
 
   Future<void> _checkUser() async {
     try {
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/check-user'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': widget.email}),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('${Config.baseUrl}/check-user'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': widget.email}),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -50,27 +55,35 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
           // Usuario existe, ir a inicio
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            MaterialPageRoute(
+              builder: (context) => HomeScreen(userEmail: widget.email),
+            ),
           );
         } else {
           // Usuario no existe, ir a registro
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => RegistrationScreen(email: widget.email)),
+            MaterialPageRoute(
+              builder: (context) => RegistrationScreen(email: widget.email),
+            ),
           );
         }
       } else {
         // Error, asumir no existe
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => RegistrationScreen(email: widget.email)),
+          MaterialPageRoute(
+            builder: (context) => RegistrationScreen(email: widget.email),
+          ),
         );
       }
     } catch (e) {
       // Error de conexión, asumir no existe
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => RegistrationScreen(email: widget.email)),
+        MaterialPageRoute(
+          builder: (context) => RegistrationScreen(email: widget.email),
+        ),
       );
     }
   }
@@ -124,10 +137,7 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
                 const SizedBox(height: 10),
                 const Text(
                   'Redirigiendo...',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.black54,
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.black54),
                 ),
               ],
             ),

@@ -6,11 +6,13 @@ import 'publish_service_screen.dart';
 class AllServicesScreen extends StatefulWidget {
   final List<Service> services;
   final String initialSearchQuery;
+  final String userEmail;
 
   const AllServicesScreen({
     super.key,
     required this.services,
     this.initialSearchQuery = '',
+    required this.userEmail,
   });
 
   @override
@@ -265,7 +267,9 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const PublishServiceScreen(),
+                            builder: (context) => PublishServiceScreen(
+                              userEmail: widget.userEmail,
+                            ),
                           ),
                         );
                       },
