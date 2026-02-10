@@ -26,6 +26,19 @@ const db = new sqlite3.Database('../../databases/todo.db', (err) => {
     console.error('Error abriendo DB unificada:', err.message);
   } else {
     console.log('Conectado a SQLite DB unificada.');
+    // Crear tabla de busquedas recientes si no existe
+    db.run(`CREATE TABLE IF NOT EXISTS search_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_email TEXT NOT NULL,
+      search_query TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla search_history:', err.message);
+      } else {
+        console.log('Tabla search_history listo');
+      }
+    });
   }
 });
 
@@ -269,6 +282,91 @@ app.put('/services-in-search/:id/status', (req, res) => {
       return res.status(404).json({ error: 'Servicio no encontrado' });
     }
     res.json({ message: 'Estado actualizado exitosamente' });
+  });
+});
+
+// Endpoint para guardar busqueda reciente
+app.post('/search-history', (req, res) => {
+  const { user_email, search_query } = req.body;
+
+  if (!user_email || !search_query) {
+    return res.status(400).json({ error: 'Email de usuario y consulta de búsqueda son requeridos' });
+  }
+
+  // Eliminar busqueda duplicada si existe
+  db.run(`DELETE FROM search_history WHERE user_email = ? AND search_query = ?`, [user_email, search_query], (err) => {
+    if (err) {
+      console.error('Error eliminando busqueda duplicada:', err);
+      return res.status(500).json({ error: 'Error eliminando busqueda duplicada' });
+    }
+
+    // Guardar nueva busqueda
+    db.run(`INSERT INTO search_history (user_email, search_query) VALUES (?, ?)`, [user_email, search_query], function(err) {
+      if (err) {
+        console.error('Error guardando busqueda reciente:', err);
+        return res.status(500).json({ error: 'Error guardando busqueda reciente' });
+      }
+      res.json({ message: 'Busqueda guardada exitosamente', id: this.lastID });
+    });
+  });
+});
+
+// Endpoint para obtener busquedas recientes
+app.get('/search-history', (req, res) => {
+  const { user_email } = req.query;
+
+  if (!user_email) {
+    return res.status(400).json({ error: 'Email de usuario es requerido' });
+  }
+
+  db.all(`SELECT * FROM search_history WHERE user_email = ? ORDER BY created_at DESC LIMIT 10`, [user_email], (err, rows) => {
+    if (err) {
+      console.error('Error obteniendo busquedas recientes:', err);
+      return res.status(500).json({ error: 'Error obteniendo busquedas recientes' });
+    }
+    res.json({ search_history: rows });
+  });
+});
+
+// Endpoint para eliminar busqueda reciente
+app.delete('/search-history/:id', (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ error: 'ID de busqueda es requerido' });
+  }
+
+  db.run(`DELETE FROM search_history WHERE id = ?`, [id], function(err) {
+    if (err) {
+      console.error('Error eliminando busqueda:', err);
+      return res.status(500).json({ error: 'Error eliminando busqueda' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Busqueda no encontrada' });
+    }
+    res.json({ message: 'Busqueda eliminada exitosamente' });
+  });
+});
+
+// Endpoint para buscar servicios (ignorando mayusculas)
+app.get('/search-services', (req, res) => {
+  const { query } = req.query;
+
+  if (!query) {
+    return res.status(400).json({ error: 'Consulta de búsqueda es requerida' });
+  }
+
+  // Convertir a minusculas para búsqueda insensible
+  const normalizedQuery = query.toLowerCase();
+
+  // Buscar servicios con coincidencia insensible
+  servicesDb.all(`SELECT id, name FROM services WHERE LOWER(name) LIKE ?`, [`%${normalizedQuery}%`], (err, rows) => {
+    if (err) {
+      console.error('Error buscando servicios:', err);
+      return res.status(500).json({ error: 'Error buscando servicios' });
+    }
+    console.log('Búsqueda:', query, 'Resultados:', rows);
+    res.json({ services: rows });
   });
 });
 

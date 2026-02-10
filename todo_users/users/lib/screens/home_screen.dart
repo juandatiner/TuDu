@@ -7,6 +7,7 @@ import 'all_services_screen.dart';
 import 'allies_by_service_screen.dart';
 import 'publish_service_screen.dart';
 import 'user_services_screen.dart';
+import 'search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userEmail;
@@ -124,60 +125,43 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Barra de búsqueda con autocompletado
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.2),
-                          spreadRadius: 2,
-                          blurRadius: 5,
-                          offset: const Offset(0, 3),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              SearchScreen(userEmail: widget.userEmail),
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _searchController,
-                          onSubmitted: (value) {
-                            // Navegar a AllServicesScreen con el query de búsqueda
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => AllServicesScreen(
-                                  services: _services,
-                                  initialSearchQuery: value,
-                                  userEmail: widget.userEmail,
-                                ),
-                              ),
-                            ).then((_) {
-                              // Limpiar el search controller cuando regrese al inicio
-                              _searchController.clear();
-                            });
-                          },
-                          decoration: InputDecoration(
-                            hintText: '¿Qué servicio necesitas hoy?',
-                            hintStyle: const TextStyle(color: Colors.grey),
-                            prefixIcon: const Icon(
-                              Icons.search,
-                              color: Colors.grey,
-                            ),
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.mic, color: Colors.grey),
-                              onPressed: () {
-                                // Funcionalidad de micrófono (placeholder)
-                              },
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 15,
-                            ),
+                      );
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(25.0),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.2),
+                            spreadRadius: 2,
+                            blurRadius: 5,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const TextField(
+                        enabled: false,
+                        decoration: InputDecoration(
+                          hintText: '¿Qué servicio necesitas hoy?',
+                          hintStyle: TextStyle(color: Colors.grey),
+                          prefixIcon: Icon(Icons.search, color: Colors.grey),
+                          suffixIcon: Icon(Icons.mic, color: Colors.grey),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 15,
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
