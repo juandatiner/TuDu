@@ -6,9 +6,9 @@ class Config {
   // Se determina automáticamente según la plataforma
   static String get baseUrl {
     if (Platform.isAndroid) {
-      return 'http://10.0.2.2:3000'; // Para Android emulator
+      return 'http://10.0.2.2:3000'; // Para Android emulator (backend de usuarios)
     } else if (Platform.isIOS) {
-      return 'http://localhost:3000'; // Para iOS simulator
+      return 'http://localhost:3000'; // Para iOS simulator (backend de usuarios)
     } else {
       return 'http://localhost:3000'; // Para otros (web, desktop)
     }
