@@ -1,7 +1,56 @@
 === Estructura del Backend ===
-Ruta del backend visible en VSCode: todo_users/backend/index.js
 
-=== Bases de Datos SQLite ===
-Rutas de las bases de datos:
-- databases/allies.db
-- databases/services.db
+## Backends disponibles:
+
+### 1. Backend Users (todo_users/backend/index.js)
+- Puerto: 3002
+- App Flutter: todo_users/users/
+
+### 2. Backend Allies (todo_allies/backend/index.js)
+- Puerto: 3002
+- App Flutter: todo_allies/allies/
+
+== Bases de Datos SQLite ===
+Rutas de las bases de datos (carpeta databases/):
+
+### users.db
+- Tabla: users (usuarios de la app Users)
+- Campos: id, email, nombre, apellido, role, created_at
+
+### allies.db
+- Tabla: allies (aliados de la app Allies)
+- Campos: id, email, nombre, apellido, role, created_at
+
+### services.db
+- Tabla: services (tipos de servicios disponibles)
+- Tabla: services_in_search (servicios publicados por usuarios buscando aliados)
+- Tabla: ally_services (relación aliado-servicio)
+
+### search.db
+- Tabla: search_history (historial de búsquedas de usuarios)
+
+== Endpoints por App ===
+
+### App Users (todo_users/users/):
+- POST /send-otp - Enviar código OTP
+- POST /verify-otp - Verificar código OTP
+- POST /check-user - Verificar si usuario existe (users.db)
+- POST /register-user - Registrar usuario (users.db)
+- GET /services - Obtener servicios (services.db)
+- POST /publish-service - Publicar servicio en búsqueda (services.db)
+- GET /services-in-search - Ver servicios en búsqueda (services.db)
+- POST /search-history - Guardar búsqueda (search.db)
+- GET /search-history - Obtener historial (search.db)
+- DELETE /search-history/:id - Eliminar búsqueda (search.db)
+- GET /search-services - Buscar servicios (services.db)
+
+### App Allies (todo_allies/allies/):
+- POST /send-otp - Enviar código OTP
+- POST /verify-otp - Verificar código OTP
+- POST /check-ally - Verificar si aliado existe (allies.db)
+- POST /register-ally - Registrar aliado (allies.db)
+- GET /services - Obtener servicios (services.db)
+- GET /services-in-search - Ver servicios disponibles (services.db)
+- PUT /services-in-search/:id/assign - Aceptar servicio (services.db)
+- PUT /services-in-search/:id/status - Actualizar estado (services.db)
+- GET /my-services - Ver servicios asignados (services.db)

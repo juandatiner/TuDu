@@ -2,10 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const mailgun = require('mailgun-js');
 const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 
 // Configurar Mailgun
 const mg = mailgun({
@@ -20,14 +21,122 @@ app.use(express.json());
 // Almacenamiento temporal de OTPs (en producción usar Redis o DB)
 const otpStore = new Map();
 
-// Base de datos SQLite unificada
-const db = new sqlite3.Database('../../databases/todo.db', (err) => {
+// Ruta base de las bases de datos
+const DB_PATH = path.join(__dirname, '../../databases');
+
+// Conexiones a las bases de datos separadas
+const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
   if (err) {
-    console.error('Error abriendo DB unificada:', err.message);
+    console.error('Error abriendo users.db:', err.message);
   } else {
-    console.log('Conectado a SQLite DB unificada.');
-    // Crear tabla de busquedas recientes si no existe
-    db.run(`CREATE TABLE IF NOT EXISTS search_history (
+    console.log('Conectado a users.db');
+    // Crear tabla de usuarios si no existe
+    usersDb.run(`CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      nombre TEXT NOT NULL,
+      apellido TEXT NOT NULL,
+      role TEXT DEFAULT 'user',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla users:', err.message);
+      } else {
+        console.log('Tabla users lista');
+      }
+    });
+  }
+});
+
+const alliesDb = new sqlite3.Database(path.join(DB_PATH, 'allies.db'), (err) => {
+  if (err) {
+    console.error('Error abriendo allies.db:', err.message);
+  } else {
+    console.log('Conectado a allies.db');
+    // Crear tabla de aliados si no existe
+    alliesDb.run(`CREATE TABLE IF NOT EXISTS allies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      nombre TEXT NOT NULL,
+      apellido TEXT NOT NULL,
+      role TEXT DEFAULT 'ally',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla allies:', err.message);
+      } else {
+        console.log('Tabla allies lista');
+      }
+    });
+  }
+});
+
+const servicesDb = new sqlite3.Database(path.join(DB_PATH, 'services.db'), (err) => {
+  if (err) {
+    console.error('Error abriendo services.db:', err.message);
+  } else {
+    console.log('Conectado a services.db');
+    // Crear tabla de servicios si no existe
+    servicesDb.run(`CREATE TABLE IF NOT EXISTS services (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla services:', err.message);
+      } else {
+        console.log('Tabla services lista');
+      }
+    });
+    
+    // Crear tabla de servicios en búsqueda si no existe
+    servicesDb.run(`CREATE TABLE IF NOT EXISTS services_in_search (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      title TEXT NOT NULL,
+      description TEXT,
+      time_quantity INTEGER,
+      time_unit TEXT,
+      budget TEXT,
+      worker_info TEXT,
+      additional_info TEXT,
+      status TEXT DEFAULT 'EN ESPERA',
+      assigned INTEGER DEFAULT 0,
+      ally_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla services_in_search:', err.message);
+      } else {
+        console.log('Tabla services_in_search lista');
+      }
+    });
+    
+    // Crear tabla de relación aliado-servicio si no existe
+    servicesDb.run(`CREATE TABLE IF NOT EXISTS ally_services (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ally_id INTEGER NOT NULL,
+      service_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(ally_id, service_id)
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla ally_services:', err.message);
+      } else {
+        console.log('Tabla ally_services lista');
+      }
+    });
+  }
+});
+
+const searchDb = new sqlite3.Database(path.join(DB_PATH, 'search.db'), (err) => {
+  if (err) {
+    console.error('Error abriendo search.db:', err.message);
+  } else {
+    console.log('Conectado a search.db');
+    // Crear tabla de historial de búsqueda si no existe
+    searchDb.run(`CREATE TABLE IF NOT EXISTS search_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_email TEXT NOT NULL,
       search_query TEXT NOT NULL,
@@ -36,14 +145,11 @@ const db = new sqlite3.Database('../../databases/todo.db', (err) => {
       if (err) {
         console.error('Error creando tabla search_history:', err.message);
       } else {
-        console.log('Tabla search_history listo');
+        console.log('Tabla search_history lista');
       }
     });
   }
 });
-
-// No se necesita una conexión separada para servicios, usamos la unificada
-const servicesDb = db;
 
 // Generar OTP de 6 dígitos
 function generateOTP() {
@@ -135,7 +241,7 @@ app.post('/verify-otp', (req, res) => {
   }
 });
 
-// Endpoint para verificar si usuario existe
+// Endpoint para verificar si usuario existe (en users.db)
 app.post('/check-user', (req, res) => {
   const { email } = req.body;
 
@@ -143,7 +249,7 @@ app.post('/check-user', (req, res) => {
     return res.status(400).json({ error: 'Email es requerido' });
   }
 
-  db.get(`SELECT id, nombre, apellido FROM users WHERE email = ?`, [email], (err, row) => {
+  usersDb.get(`SELECT id, nombre, apellido FROM users WHERE email = ?`, [email], (err, row) => {
     if (err) {
       return res.status(500).json({ error: 'Error verificando usuario' });
     }
@@ -155,7 +261,27 @@ app.post('/check-user', (req, res) => {
   });
 });
 
-// Endpoint para registrar usuario
+// Endpoint para verificar si aliado existe (en allies.db)
+app.post('/check-ally', (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email es requerido' });
+  }
+
+  alliesDb.get(`SELECT id, nombre, apellido FROM allies WHERE email = ?`, [email], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error verificando aliado' });
+    }
+    if (row) {
+      res.json({ exists: true, ally: row });
+    } else {
+      res.json({ exists: false });
+    }
+  });
+});
+
+// Endpoint para registrar usuario (en users.db)
 app.post('/register-user', (req, res) => {
   const { email, nombre, apellido } = req.body;
 
@@ -163,18 +289,39 @@ app.post('/register-user', (req, res) => {
     return res.status(400).json({ error: 'Email, nombre y apellido son requeridos' });
   }
 
-  db.run(`INSERT INTO users (email, nombre, apellido) VALUES (?, ?, ?)`, [email, nombre, apellido], function(err) {
+  usersDb.run(`INSERT INTO users (email, nombre, apellido) VALUES (?, ?, ?)`, [email, nombre, apellido], function(err) {
     if (err) {
-      if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      if (err.code === 'SQLITE_CONSTRAINT' || err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
         return res.status(400).json({ error: 'Usuario ya registrado' });
       }
+      console.error('Error registrando usuario:', err);
       return res.status(500).json({ error: 'Error registrando usuario' });
     }
     res.json({ message: 'Usuario registrado exitosamente', id: this.lastID });
   });
 });
 
-// Endpoint para obtener todos los servicios
+// Endpoint para registrar aliado (en allies.db)
+app.post('/register-ally', (req, res) => {
+  const { email, nombre, apellido } = req.body;
+
+  if (!email || !nombre || !apellido) {
+    return res.status(400).json({ error: 'Email, nombre y apellido son requeridos' });
+  }
+
+  alliesDb.run(`INSERT INTO allies (email, nombre, apellido) VALUES (?, ?, ?)`, [email, nombre, apellido], function(err) {
+    if (err) {
+      if (err.code === 'SQLITE_CONSTRAINT' || err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        return res.status(400).json({ error: 'Aliado ya registrado' });
+      }
+      console.error('Error registrando aliado:', err);
+      return res.status(500).json({ error: 'Error registrando aliado' });
+    }
+    res.json({ message: 'Aliado registrado exitosamente', id: this.lastID });
+  });
+});
+
+// Endpoint para obtener todos los servicios (desde services.db)
 app.get('/services', (req, res) => {
   servicesDb.all(`SELECT id, name FROM services ORDER BY created_at DESC`, [], (err, rows) => {
     if (err) {
@@ -184,7 +331,7 @@ app.get('/services', (req, res) => {
   });
 });
 
-// Endpoint para publicar servicio en busca de aliado
+// Endpoint para publicar servicio en busca de aliado (en services.db)
 app.post('/publish-service', (req, res) => {
   const { user_email, title, description, time_quantity, time_unit, budget, worker_info, additional_info } = req.body;
 
@@ -192,8 +339,8 @@ app.post('/publish-service', (req, res) => {
     return res.status(400).json({ error: 'Todos los campos son obligatorios' });
   }
 
-  // Obtener el user_id a partir del email
-  db.get(`SELECT id FROM users WHERE email = ?`, [user_email], (err, user) => {
+  // Obtener el user_id a partir del email (en users.db)
+  usersDb.get(`SELECT id FROM users WHERE email = ?`, [user_email], (err, user) => {
     if (err) {
       console.error('Error buscando usuario:', err);
       return res.status(500).json({ error: 'Error buscando usuario' });
@@ -203,6 +350,7 @@ app.post('/publish-service', (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
+    // Insertar en services.db
     servicesDb.run(`INSERT INTO services_in_search (user_id, title, description, time_quantity, time_unit, budget, worker_info, additional_info, status) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
                     [user.id, title, description, time_quantity, time_unit, budget, worker_info, additional_info, 'EN ESPERA'], function(err) {
@@ -215,13 +363,13 @@ app.post('/publish-service', (req, res) => {
   });
 });
 
-// Endpoint para obtener servicios en busca de aliados (sin asignar)
+// Endpoint para obtener servicios en busca de aliados (sin asignar) - desde services.db
 app.get('/services-in-search', (req, res) => {
   const { user_email } = req.query;
 
   // Si se proporciona un email, filtrar por ese usuario
   if (user_email) {
-    db.get(`SELECT id FROM users WHERE email = ?`, [user_email], (err, user) => {
+    usersDb.get(`SELECT id FROM users WHERE email = ?`, [user_email], (err, user) => {
       if (err) {
         return res.status(500).json({ error: 'Error buscando usuario' });
       }
@@ -285,7 +433,7 @@ app.put('/services-in-search/:id/status', (req, res) => {
   });
 });
 
-// Endpoint para guardar busqueda reciente
+// Endpoint para guardar busqueda reciente (en search.db)
 app.post('/search-history', (req, res) => {
   const { user_email, search_query } = req.body;
 
@@ -294,14 +442,14 @@ app.post('/search-history', (req, res) => {
   }
 
   // Eliminar busqueda duplicada si existe
-  db.run(`DELETE FROM search_history WHERE user_email = ? AND search_query = ?`, [user_email, search_query], (err) => {
+  searchDb.run(`DELETE FROM search_history WHERE user_email = ? AND search_query = ?`, [user_email, search_query], (err) => {
     if (err) {
       console.error('Error eliminando busqueda duplicada:', err);
       return res.status(500).json({ error: 'Error eliminando busqueda duplicada' });
     }
 
     // Guardar nueva busqueda
-    db.run(`INSERT INTO search_history (user_email, search_query) VALUES (?, ?)`, [user_email, search_query], function(err) {
+    searchDb.run(`INSERT INTO search_history (user_email, search_query) VALUES (?, ?)`, [user_email, search_query], function(err) {
       if (err) {
         console.error('Error guardando busqueda reciente:', err);
         return res.status(500).json({ error: 'Error guardando busqueda reciente' });
@@ -311,7 +459,7 @@ app.post('/search-history', (req, res) => {
   });
 });
 
-// Endpoint para obtener busquedas recientes
+// Endpoint para obtener busquedas recientes (desde search.db)
 app.get('/search-history', (req, res) => {
   const { user_email } = req.query;
 
@@ -319,7 +467,7 @@ app.get('/search-history', (req, res) => {
     return res.status(400).json({ error: 'Email de usuario es requerido' });
   }
 
-  db.all(`SELECT * FROM search_history WHERE user_email = ? ORDER BY created_at DESC LIMIT 10`, [user_email], (err, rows) => {
+  searchDb.all(`SELECT * FROM search_history WHERE user_email = ? ORDER BY created_at DESC LIMIT 10`, [user_email], (err, rows) => {
     if (err) {
       console.error('Error obteniendo busquedas recientes:', err);
       return res.status(500).json({ error: 'Error obteniendo busquedas recientes' });
@@ -336,7 +484,7 @@ app.delete('/search-history/:id', (req, res) => {
     return res.status(400).json({ error: 'ID de busqueda es requerido' });
   }
 
-  db.run(`DELETE FROM search_history WHERE id = ?`, [id], function(err) {
+  searchDb.run(`DELETE FROM search_history WHERE id = ?`, [id], function(err) {
     if (err) {
       console.error('Error eliminando busqueda:', err);
       return res.status(500).json({ error: 'Error eliminando busqueda' });
@@ -348,7 +496,7 @@ app.delete('/search-history/:id', (req, res) => {
   });
 });
 
-// Endpoint para buscar servicios (ignorando mayusculas)
+// Endpoint para buscar servicios (ignorando mayusculas) - desde services.db
 app.get('/search-services', (req, res) => {
   const { query } = req.query;
 
@@ -370,7 +518,20 @@ app.get('/search-services', (req, res) => {
   });
 });
 
+// Cerrar conexiones a las bases de datos al terminar la aplicación
+process.on('SIGINT', () => {
+  usersDb.close();
+  alliesDb.close();
+  servicesDb.close();
+  searchDb.close();
+  process.exit(0);
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor corriendo en puerto ${PORT} (accesible desde red)`);
-  console.log(`Para acceder a la base de datos: http://localhost:${PORT}/services-in-search`);
+  console.log(`Bases de datos conectadas:`);
+  console.log(`  - users.db (usuarios)`);
+  console.log(`  - allies.db (aliados)`);
+  console.log(`  - services.db (servicios)`);
+  console.log(`  - search.db (historial de búsqueda)`);
 });

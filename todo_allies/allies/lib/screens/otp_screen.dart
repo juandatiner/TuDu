@@ -15,7 +15,10 @@ class OtpScreen extends StatefulWidget {
 }
 
 class _OtpScreenState extends State<OtpScreen> {
-  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   bool _isLoading = false;
   bool _canResend = false;
@@ -64,41 +67,52 @@ class _OtpScreenState extends State<OtpScreen> {
 
   String get _otpCode => _controllers.map((c) => c.text).join();
 
-  Future<void> _checkUserAfterOtp() async {
+  Future<void> _checkAllyAfterOtp() async {
     try {
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/check-user'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': widget.email}),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('${Config.baseUrl}/check-ally'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': widget.email}),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['exists']) {
-          // Usuario existe, ir a verificación exitosa
+          // Aliado existe, ir a verificación exitosa
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => VerificationSuccessScreen(email: widget.email)),
+            MaterialPageRoute(
+              builder: (context) =>
+                  VerificationSuccessScreen(email: widget.email),
+            ),
           );
         } else {
-          // Usuario no existe, ir a registro
+          // Aliado no existe, ir a registro
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => RegistrationScreen(email: widget.email)),
+            MaterialPageRoute(
+              builder: (context) => RegistrationScreen(email: widget.email),
+            ),
           );
         }
       } else {
         // Error, asumir no existe
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => RegistrationScreen(email: widget.email)),
+          MaterialPageRoute(
+            builder: (context) => RegistrationScreen(email: widget.email),
+          ),
         );
       }
     } catch (e) {
       // Error de conexión, asumir no existe
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => RegistrationScreen(email: widget.email)),
+        MaterialPageRoute(
+          builder: (context) => RegistrationScreen(email: widget.email),
+        ),
       );
     }
   }
@@ -119,18 +133,17 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/verify-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': widget.email,
-          'otp': _otpCode,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('${Config.baseUrl}/verify-otp'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': widget.email, 'otp': _otpCode}),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         // OTP verificado exitosamente
-        _checkUserAfterOtp();
+        _checkAllyAfterOtp();
       } else {
         final error = jsonDecode(response.body)['error'];
         ScaffoldMessenger.of(context).showSnackBar(
@@ -164,11 +177,13 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/send-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': widget.email}),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('${Config.baseUrl}/send-otp'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': widget.email}),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -298,15 +313,22 @@ class _OtpScreenState extends State<OtpScreen> {
                           fillColor: Colors.white,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                            borderSide: BorderSide(
+                              color: Colors.black.withOpacity(0.3),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                            borderSide: BorderSide(
+                              color: Colors.black.withOpacity(0.3),
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFF78BF32), width: 2),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF78BF32),
+                              width: 2,
+                            ),
                           ),
                         ),
                         onChanged: (value) => _onOtpChanged(index, value),
@@ -322,7 +344,10 @@ class _OtpScreenState extends State<OtpScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF78BF32),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 48),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 48,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -334,7 +359,9 @@ class _OtpScreenState extends State<OtpScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Text(
@@ -366,10 +393,7 @@ class _OtpScreenState extends State<OtpScreen> {
                   onPressed: () => Navigator.pop(context),
                   child: const Text(
                     'Cambiar correo electrónico',
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: Colors.black54, fontSize: 14),
                   ),
                 ),
               ],

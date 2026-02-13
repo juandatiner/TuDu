@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mailgun = require('mailgun-js');
 const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -20,17 +21,91 @@ app.use(express.json());
 // Almacenamiento temporal de OTPs (en producción usar Redis o DB)
 const otpStore = new Map();
 
-// Base de datos SQLite unificada
-const db = new sqlite3.Database('../../databases/todo.db', (err) => {
+// Ruta base de las bases de datos
+const DB_PATH = path.join(__dirname, '../../databases');
+
+// Conexiones a las bases de datos separadas
+const alliesDb = new sqlite3.Database(path.join(DB_PATH, 'allies.db'), (err) => {
   if (err) {
-    console.error('Error abriendo DB unificada:', err.message);
+    console.error('Error abriendo allies.db:', err.message);
   } else {
-    console.log('Conectado a SQLite DB unificada.');
+    console.log('Conectado a allies.db');
+    // Crear tabla de aliados si no existe
+    alliesDb.run(`CREATE TABLE IF NOT EXISTS allies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      nombre TEXT NOT NULL,
+      apellido TEXT NOT NULL,
+      role TEXT DEFAULT 'ally',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla allies:', err.message);
+      } else {
+        console.log('Tabla allies lista');
+      }
+    });
   }
 });
 
-// No se necesita una conexión separada para servicios, usamos la unificada
-const servicesDb = db;
+const servicesDb = new sqlite3.Database(path.join(DB_PATH, 'services.db'), (err) => {
+  if (err) {
+    console.error('Error abriendo services.db:', err.message);
+  } else {
+    console.log('Conectado a services.db');
+    // Crear tabla de servicios si no existe
+    servicesDb.run(`CREATE TABLE IF NOT EXISTS services (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla services:', err.message);
+      } else {
+        console.log('Tabla services lista');
+      }
+    });
+    
+    // Crear tabla de servicios en búsqueda si no existe
+    servicesDb.run(`CREATE TABLE IF NOT EXISTS services_in_search (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      title TEXT NOT NULL,
+      description TEXT,
+      time_quantity INTEGER,
+      time_unit TEXT,
+      budget TEXT,
+      worker_info TEXT,
+      additional_info TEXT,
+      status TEXT DEFAULT 'EN ESPERA',
+      assigned INTEGER DEFAULT 0,
+      ally_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla services_in_search:', err.message);
+      } else {
+        console.log('Tabla services_in_search lista');
+      }
+    });
+    
+    // Crear tabla de relación aliado-servicio si no existe
+    servicesDb.run(`CREATE TABLE IF NOT EXISTS ally_services (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ally_id INTEGER NOT NULL,
+      service_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(ally_id, service_id)
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla ally_services:', err.message);
+      } else {
+        console.log('Tabla ally_services lista');
+      }
+    });
+  }
+});
 
 // Generar OTP de 6 dígitos
 function generateOTP() {
@@ -122,46 +197,47 @@ app.post('/verify-otp', (req, res) => {
   }
 });
 
-// Endpoint para verificar si aliado existe
-app.post('/check-user', (req, res) => {
+// Endpoint para verificar si aliado existe (en allies.db)
+app.post('/check-ally', (req, res) => {
   const { email } = req.body;
 
   if (!email) {
     return res.status(400).json({ error: 'Email es requerido' });
   }
 
-  db.get(`SELECT id, nombre, apellido FROM allies WHERE email = ?`, [email], (err, row) => {
+  alliesDb.get(`SELECT id, nombre, apellido FROM allies WHERE email = ?`, [email], (err, row) => {
     if (err) {
       return res.status(500).json({ error: 'Error verificando aliado' });
     }
     if (row) {
-      res.json({ exists: true, user: row });
+      res.json({ exists: true, ally: row });
     } else {
       res.json({ exists: false });
     }
   });
 });
 
-// Endpoint para registrar aliado
-app.post('/register-user', (req, res) => {
+// Endpoint para registrar aliado (en allies.db)
+app.post('/register-ally', (req, res) => {
   const { email, nombre, apellido } = req.body;
 
   if (!email || !nombre || !apellido) {
     return res.status(400).json({ error: 'Email, nombre y apellido son requeridos' });
   }
 
-  db.run(`INSERT INTO allies (email, nombre, apellido) VALUES (?, ?, ?)`, [email, nombre, apellido], function(err) {
+  alliesDb.run(`INSERT INTO allies (email, nombre, apellido) VALUES (?, ?, ?)`, [email, nombre, apellido], function(err) {
     if (err) {
-      if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      if (err.code === 'SQLITE_CONSTRAINT' || err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
         return res.status(400).json({ error: 'Aliado ya registrado' });
       }
+      console.error('Error registrando aliado:', err);
       return res.status(500).json({ error: 'Error registrando aliado' });
     }
     res.json({ message: 'Aliado registrado exitosamente', id: this.lastID });
   });
 });
 
-// Endpoint para obtener todos los servicios
+// Endpoint para obtener todos los servicios (desde services.db)
 app.get('/services', (req, res) => {
   servicesDb.all(`SELECT id, name FROM services ORDER BY created_at DESC`, [], (err, rows) => {
     if (err) {
@@ -171,7 +247,7 @@ app.get('/services', (req, res) => {
   });
 });
 
-// Endpoint para obtener servicios en busca de aliados (sin asignar)
+// Endpoint para obtener servicios en busca de aliados (sin asignar) - desde services.db
 app.get('/services-in-search', (req, res) => {
   servicesDb.all(`SELECT * FROM services_in_search WHERE assigned = 0 ORDER BY created_at DESC`, (err, rows) => {
     if (err) {
@@ -190,8 +266,8 @@ app.put('/services-in-search/:id/assign', (req, res) => {
     return res.status(400).json({ error: 'Email del aliado es requerido' });
   }
 
-  // Obtener el ally_id a partir del email
-  db.get(`SELECT id FROM allies WHERE email = ?`, [ally_email], (err, ally) => {
+  // Obtener el ally_id a partir del email (en allies.db)
+  alliesDb.get(`SELECT id FROM allies WHERE email = ?`, [ally_email], (err, ally) => {
     if (err) {
       console.error('Error buscando aliado:', err);
       return res.status(500).json({ error: 'Error buscando aliado' });
@@ -201,6 +277,7 @@ app.put('/services-in-search/:id/assign', (req, res) => {
       return res.status(404).json({ error: 'Aliado no encontrado' });
     }
 
+    // Actualizar en services.db
     servicesDb.run(`UPDATE services_in_search SET assigned = 1, status = 'EN PROCESO', ally_id = ? WHERE id = ?`, [ally.id, id], function(err) {
       if (err) {
         console.error('Error asignando servicio:', err);
@@ -243,7 +320,7 @@ app.get('/my-services', (req, res) => {
     return res.status(400).json({ error: 'Email del aliado es requerido' });
   }
 
-  db.get(`SELECT id FROM allies WHERE email = ?`, [ally_email], (err, ally) => {
+  alliesDb.get(`SELECT id FROM allies WHERE email = ?`, [ally_email], (err, ally) => {
     if (err) {
       return res.status(500).json({ error: 'Error buscando aliado' });
     }
@@ -261,7 +338,16 @@ app.get('/my-services', (req, res) => {
   });
 });
 
+// Cerrar conexiones a las bases de datos al terminar la aplicación
+process.on('SIGINT', () => {
+  alliesDb.close();
+  servicesDb.close();
+  process.exit(0);
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor corriendo en puerto ${PORT} (accesible desde red)`);
-  console.log(`Para acceder a la base de datos: http://localhost:${PORT}/services-in-search`);
+  console.log(`Bases de datos conectadas:`);
+  console.log(`  - allies.db (aliados)`);
+  console.log(`  - services.db (servicios)`);
 });

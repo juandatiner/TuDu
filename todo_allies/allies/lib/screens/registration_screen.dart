@@ -34,15 +34,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/register-user'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': widget.email,
-          'nombre': _nombreController.text,
-          'apellido': _apellidoController.text,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('${Config.baseUrl}/register-ally'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': widget.email,
+              'nombre': _nombreController.text,
+              'apellido': _apellidoController.text,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         Navigator.pushReplacement(
@@ -139,15 +141,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                      borderSide: BorderSide(
+                        color: Colors.black.withOpacity(0.3),
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                      borderSide: BorderSide(
+                        color: Colors.black.withOpacity(0.3),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF78BF32), width: 2),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF78BF32),
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -162,15 +171,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                      borderSide: BorderSide(
+                        color: Colors.black.withOpacity(0.3),
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                      borderSide: BorderSide(
+                        color: Colors.black.withOpacity(0.3),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF78BF32), width: 2),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF78BF32),
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -182,7 +198,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF78BF32),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 48),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 48,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -194,7 +213,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Text(
