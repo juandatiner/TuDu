@@ -2,3 +2,10 @@
 .env
 *.env
 todo_users/backend/.env
+
+# Archivos temporales de SQLite (WAL mode)
+*.db-wal
+*.db-shm
+
+# Archivos de sistema macOS
+.DS_Store
