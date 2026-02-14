@@ -362,18 +362,6 @@ class ServiceDetailScreen extends StatelessWidget {
 
                           _buildDivider(),
 
-                          // Observaciones adicionales
-                          _buildInfoSection(
-                            icon: Icons.note_outlined,
-                            title: 'Observaciones adicionales',
-                            content: service.additionalInfo.isNotEmpty
-                                ? service.additionalInfo
-                                : 'Sin observaciones',
-                            themeColor: themeColor,
-                          ),
-
-                          _buildDivider(),
-
                           // Fecha de publicación
                           _buildInfoSection(
                             icon: Icons.calendar_today_outlined,

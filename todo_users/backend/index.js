@@ -107,7 +107,6 @@ const servicesDb = new sqlite3.Database(path.join(DB_PATH, 'services.db'), (err)
       time_unit TEXT,
       budget TEXT,
       worker_info TEXT,
-      additional_info TEXT,
       status TEXT DEFAULT 'EN ESPERA',
       assigned INTEGER DEFAULT 0,
       ally_id INTEGER,
@@ -358,10 +357,21 @@ app.get('/services', (req, res) => {
 
 // Endpoint para publicar servicio en busca de aliado (en services.db)
 app.post('/publish-service', (req, res) => {
-  const { user_email, title, description, time_quantity, time_unit, budget, worker_info, additional_info } = req.body;
+  console.log('Request body:', req.body);
+  const { user_email, title, description, time_quantity, time_unit, budget, worker_info } = req.body;
 
-  if (!user_email || !title || !description || !time_quantity || !time_unit || !budget || !worker_info || !additional_info) {
-    return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+  const missingFields = [];
+  if (!user_email) missingFields.push('user_email');
+  if (!title) missingFields.push('title');
+  if (!description) missingFields.push('description');
+  if (!time_quantity) missingFields.push('time_quantity');
+  if (!time_unit) missingFields.push('time_unit');
+  if (!budget) missingFields.push('budget');
+  if (!worker_info) missingFields.push('worker_info');
+
+  if (missingFields.length > 0) {
+    console.log('Campos faltantes:', missingFields);
+    return res.status(400).json({ error: `Campos faltantes: ${missingFields.join(', ')}` });
   }
 
   // Obtener el user_id a partir del email (en users.db)
@@ -376,9 +386,9 @@ app.post('/publish-service', (req, res) => {
     }
 
     // Insertar en services.db
-    servicesDb.run(`INSERT INTO services_in_search (user_id, title, description, time_quantity, time_unit, budget, worker_info, additional_info, status) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                    [user.id, title, description, time_quantity, time_unit, budget, worker_info, additional_info, 'EN ESPERA'], function(err) {
+    servicesDb.run(`INSERT INTO services_in_search (user_id, title, description, time_quantity, time_unit, budget, worker_info, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
+                    [user.id, title, description, time_quantity, time_unit, budget, worker_info, 'EN ESPERA'], function(err) {
       if (err) {
         console.error('Error publicando servicio:', err);
         return res.status(500).json({ error: 'Error publicando servicio' });

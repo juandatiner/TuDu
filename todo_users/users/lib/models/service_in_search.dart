@@ -6,7 +6,6 @@ class ServiceInSearch {
   final String timeUnit;
   final String budget;
   final String workerInfo;
-  final String additionalInfo;
   final bool assigned;
   final String status;
   final String createdAt;
@@ -19,7 +18,6 @@ class ServiceInSearch {
     required this.timeUnit,
     required this.budget,
     required this.workerInfo,
-    required this.additionalInfo,
     required this.assigned,
     required this.status,
     required this.createdAt,
@@ -34,10 +32,8 @@ class ServiceInSearch {
       timeUnit: json['time_unit'],
       budget: json['budget'],
       workerInfo: json['worker_info'],
-      additionalInfo: json['additional_info'],
       assigned: json['assigned'] == 1,
-      status:
-          json['status'] ??
+      status: json['status'] ??
           (json['assigned'] == 1 ? 'En Proceso' : 'En Espera'),
       createdAt: json['created_at'],
     );

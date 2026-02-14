@@ -77,7 +77,6 @@ const servicesDb = new sqlite3.Database(path.join(DB_PATH, 'services.db'), (err)
       time_unit TEXT,
       budget TEXT,
       worker_info TEXT,
-      additional_info TEXT,
       status TEXT DEFAULT 'EN ESPERA',
       assigned INTEGER DEFAULT 0,
       ally_id INTEGER,

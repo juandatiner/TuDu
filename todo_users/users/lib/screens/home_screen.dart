@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config.dart';
@@ -53,18 +53,24 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _onItemTapped(int index) {
+  void _onItemTapped(int index) async {
     setState(() {
       _selectedIndex = index;
     });
     // Navegación para el botón de Servicios
     if (index == 2) {
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => UserServicesScreen(userEmail: widget.userEmail),
         ),
       );
+      // Al volver de Servicios, restablecer el índice a Inicio
+      if (mounted) {
+        setState(() {
+          _selectedIndex = 0;
+        });
+      }
     }
   }
 
@@ -93,9 +99,8 @@ class _HomeScreenState extends State<HomeScreen> {
         final data = json.decode(response.body);
         final List<dynamic> servicesJson = data['services'];
         setState(() {
-          _services = servicesJson
-              .map((json) => Service.fromJson(json))
-              .toList();
+          _services =
+              servicesJson.map((json) => Service.fromJson(json)).toList();
           _newServices = _services.length > 5
               ? _services.sublist(_services.length - 5)
               : _services;

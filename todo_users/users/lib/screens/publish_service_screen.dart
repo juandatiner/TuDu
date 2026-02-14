@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config.dart';
@@ -18,12 +19,15 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
   String _summary = 'Resumen: 0 días';
   bool _showMaxYearWarning = false;
 
+  // Variables para validación de campos
+  bool _titleError = false;
+  bool _descriptionError = false;
+  bool _budgetError = false;
+
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _budgetController = TextEditingController();
   final TextEditingController _workerInfoController = TextEditingController();
-  final TextEditingController _additionalInfoController =
-      TextEditingController();
 
   final List<String> _units = ['Horas', 'Días', 'Semanas', 'Meses', 'Años'];
   final FixedExtentScrollController _quantityController =
@@ -37,13 +41,12 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     final description = _descriptionController.text.trim();
     final budget = _budgetController.text.trim();
     final workerInfo = _workerInfoController.text.trim();
-    final additionalInfo = _additionalInfoController.text.trim();
 
+    // Validar campos vacíos
     if (title.isEmpty ||
         description.isEmpty ||
         budget.isEmpty ||
-        workerInfo.isEmpty ||
-        additionalInfo.isEmpty) {
+        workerInfo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Todos los campos son obligatorios'),
@@ -53,24 +56,64 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
       return;
     }
 
-    // Eliminar separadores de miles antes de enviar al backend
+    // Validar título (mínimo 3 palabras)
+    if (_countWords(title) < 3) {
+      setState(() {
+        _titleError = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El título debe tener al menos 3 palabras'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Validar descripción (mínimo 20 palabras)
+    if (_countWords(description) < 20) {
+      setState(() {
+        _descriptionError = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La descripción debe tener al menos 20 palabras'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Validar presupuesto mínimo de 5.000 pesos
     final numericBudget = budget.replaceAll(',', '');
+    final budgetValue = double.tryParse(numericBudget) ?? 0;
+    if (budgetValue < 5000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El presupuesto mínimo es de \$5.000 pesos'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     final url = Uri.parse('${Config.baseUrl}/publish-service');
     try {
+      final body = {
+        'user_email': widget.userEmail,
+        'title': _titleController.text,
+        'description': _descriptionController.text,
+        'time_quantity': _selectedQuantity,
+        'time_unit': _units[_selectedUnitIndex].toLowerCase(),
+        'budget': numericBudget,
+        'worker_info': _workerInfoController.text,
+      };
+      print('Enviando datos: $body');
+
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_email': widget.userEmail,
-          'title': _titleController.text,
-          'description': _descriptionController.text,
-          'time_quantity': _selectedQuantity,
-          'time_unit': _units[_selectedUnitIndex].toLowerCase(),
-          'budget': numericBudget,
-          'worker_info': _workerInfoController.text,
-          'additional_info': _additionalInfoController.text,
-        }),
+        body: jsonEncode(body),
       );
 
       print('Response status: ${response.statusCode}');
@@ -113,8 +156,38 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     _descriptionController.dispose();
     _budgetController.dispose();
     _workerInfoController.dispose();
-    _additionalInfoController.dispose();
     super.dispose();
+  }
+
+  // Función para contar palabras
+  int _countWords(String text) {
+    if (text.trim().isEmpty) return 0;
+    return text.trim().split(RegExp(r'\s+')).length;
+  }
+
+  // Validar título (mínimo 3 palabras)
+  void _validateTitle(String value) {
+    final wordCount = _countWords(value);
+    setState(() {
+      _titleError = wordCount < 3 && value.trim().isNotEmpty;
+    });
+  }
+
+  // Validar descripción (mínimo 20 palabras)
+  void _validateDescription(String value) {
+    final wordCount = _countWords(value);
+    setState(() {
+      _descriptionError = wordCount < 20 && value.trim().isNotEmpty;
+    });
+  }
+
+  // Validar presupuesto (mínimo 5.000 pesos)
+  void _validateBudget(String value) {
+    final numericValue = value.replaceAll(',', '').replaceAll('.', '');
+    final number = double.tryParse(numericValue) ?? 0;
+    setState(() {
+      _budgetError = value.isNotEmpty && number < 5000;
+    });
   }
 
   void _updateSummary() {
@@ -210,7 +283,6 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                   ],
                 ),
                 const SizedBox(height: 30),
-
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -223,20 +295,31 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(25.0),
+                        border: _titleError
+                            ? Border.all(color: Colors.red, width: 1.5)
+                            : null,
                       ),
                       child: TextField(
                         controller: _titleController,
-                        decoration: const InputDecoration(
+                        onChanged: _validateTitle,
+                        decoration: InputDecoration(
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
+                          contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,
                             vertical: 15,
+                          ),
+                          hintText: _titleError
+                              ? 'Mínimo 3 palabras para mayor claridad'
+                              : null,
+                          hintStyle: TextStyle(
+                            fontSize: 14,
+                            color: Colors.red[400],
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 20),
-
                     const Text(
                       '¿Cuánto tiempo crees que tomará completar este servicio?',
                       style: TextStyle(fontSize: 16, color: Colors.black),
@@ -277,8 +360,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                                   final actualValue = (index % 100) + 1;
                                   final distance =
                                       (index - _quantityController.selectedItem)
-                                          .abs() %
-                                      100;
+                                              .abs() %
+                                          100;
                                   final isSelected = distance == 0;
                                   final fontSize = isSelected ? 28 : 20;
                                   final color = isSelected
@@ -338,8 +421,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                                   final unit = _units[actualIndex];
                                   final distance =
                                       (index - _unitController.selectedItem)
-                                          .abs() %
-                                      _units.length;
+                                              .abs() %
+                                          _units.length;
                                   final isSelected = distance == 0;
                                   final fontSize = isSelected ? 20 : 16;
                                   final color = isSelected
@@ -386,9 +469,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,
-                            color: _showMaxYearWarning
-                                ? Colors.red
-                                : Colors.black,
+                            color:
+                                _showMaxYearWarning ? Colors.red : Colors.black,
                             fontWeight: _showMaxYearWarning
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -397,7 +479,6 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-
                     const Text(
                       '¿Cuánto estás dispuesto a pagar por este servicio?',
                       style: TextStyle(fontSize: 16, color: Colors.black),
@@ -407,24 +488,31 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                       decoration: BoxDecoration(
                         color: Colors.grey[200],
                         borderRadius: BorderRadius.circular(25.0),
+                        border: _budgetError
+                            ? Border.all(color: Colors.red, width: 1.5)
+                            : null,
                       ),
                       child: TextField(
                         controller: _budgetController,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         onChanged: (value) {
+                          // Validar que sea mínimo 5.000
+                          _validateBudget(value);
+
                           // Formatear el valor con separadores de miles
-                          final numericValue = value
-                              .replaceAll('.', '')
-                              .replaceAll(',', '');
+                          final numericValue =
+                              value.replaceAll('.', '').replaceAll(',', '');
                           if (numericValue.isNotEmpty &&
                               double.tryParse(numericValue) != null) {
                             final number = double.parse(numericValue);
-                            final formatted = number
-                                .toStringAsFixed(0)
-                                .replaceAllMapped(
-                                  RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-                                  (match) => '${match[1]},',
-                                );
+                            final formatted =
+                                number.toStringAsFixed(0).replaceAllMapped(
+                                      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+                                      (match) => '${match[1]},',
+                                    );
                             _budgetController.value = TextEditingValue(
                               text: formatted,
                               selection: TextSelection.collapsed(
@@ -433,22 +521,23 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                             );
                           }
                         },
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
+                          contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,
                             vertical: 15,
                           ),
-                          hintText: 'Ingresa el presupuesto',
+                          hintText: _budgetError
+                              ? 'El mínimo es \$5.000 pesos'
+                              : 'Ingresa el presupuesto',
                           hintStyle: TextStyle(
                             fontSize: 16,
-                            color: Colors.grey,
+                            color: _budgetError ? Colors.red[400] : Colors.grey,
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 20),
-
                     const Text(
                       'Describe mejor lo que necesitas',
                       style: TextStyle(fontSize: 16, color: Colors.black),
@@ -459,21 +548,32 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(25.0),
+                        border: _descriptionError
+                            ? Border.all(color: Colors.red, width: 1.5)
+                            : null,
                       ),
                       child: TextField(
                         controller: _descriptionController,
                         maxLines: 4,
-                        decoration: const InputDecoration(
+                        onChanged: _validateDescription,
+                        decoration: InputDecoration(
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
+                          contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,
                             vertical: 15,
+                          ),
+                          hintText: _descriptionError
+                              ? 'Describe con más detalle (mínimo 20 palabras)'
+                              : null,
+                          hintStyle: TextStyle(
+                            fontSize: 14,
+                            color: Colors.red[400],
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 20),
-
                     const Text(
                       '¿Hay algo que el trabajador deba saber antes de postularse?',
                       style: TextStyle(fontSize: 16, color: Colors.black),
@@ -495,31 +595,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      'Observaciones adicionales',
-                      style: TextStyle(fontSize: 16, color: Colors.black),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(25.0),
-                      ),
-                      child: TextField(
-                        controller: _additionalInfoController,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 15,
-                          ),
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 30),
-
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
