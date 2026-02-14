@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'dart:math';
 import '../config.dart';
 import '../models/service.dart';
+import 'allies_by_service_screen.dart';
+import 'all_services_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   final String userEmail;
@@ -16,22 +18,55 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
   List<Service> _searchResults = [];
+  List<Service> _filteredServices = [];
   List<dynamic> _searchHistory = [];
   List<Service> _randomServices = [];
   List<Service> _allServices = [];
+  bool _isSearching = false;
+  bool _showSuggestions = false;
 
   @override
   void initState() {
     super.initState();
+    print('SearchScreen initialized with userEmail: ${widget.userEmail}');
     _fetchAllServices();
     _fetchSearchHistory();
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text;
+    if (query.isNotEmpty) {
+      setState(() {
+        _showSuggestions = true;
+        _filterServices(query);
+      });
+    } else {
+      setState(() {
+        _showSuggestions = false;
+        _filteredServices = [];
+      });
+    }
+  }
+
+  void _filterServices(String query) {
+    final normalizedQuery = _removeDiacritics(query.toLowerCase());
+    setState(() {
+      _filteredServices = _allServices.where((service) {
+        final normalizedName = _removeDiacritics(service.name.toLowerCase());
+        return normalizedName.contains(normalizedQuery);
+      }).toList();
+    });
   }
 
   Future<void> _fetchAllServices() async {
@@ -64,21 +99,28 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _fetchSearchHistory() async {
     try {
-      final response = await http.get(
-        Uri.parse(
-          '${Config.baseUrl}/search-history?user_email=${widget.userEmail}',
-        ),
-      );
+      final encodedEmail = Uri.encodeComponent(widget.userEmail);
+      final url = '${Config.baseUrl}/search-history?user_email=$encodedEmail';
+      print('Fetching search history from: $url');
+      print('User email: ${widget.userEmail}');
+
+      final response = await http.get(Uri.parse(url));
+
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print('Search history data: $data');
         setState(() {
-          _searchHistory = data['search_history'];
+          _searchHistory = data['search_history'] ?? [];
         });
+        print('Search history loaded: ${_searchHistory.length} items');
       } else {
         print('Error fetching search history: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error: $e');
+      print('Error fetching search history: $e');
     }
   }
 
@@ -90,6 +132,10 @@ class _SearchScreenState extends State<SearchScreen> {
       });
       return;
     }
+
+    setState(() {
+      _isSearching = true;
+    });
 
     try {
       final url = '${Config.baseUrl}/search-services?query=$query';
@@ -106,18 +152,26 @@ class _SearchScreenState extends State<SearchScreen> {
           _searchResults = data['services']
               .map((json) => Service.fromJson(json))
               .toList();
+          _isSearching = false;
         });
       } else {
         print('Error searching services: ${response.statusCode}');
+        setState(() {
+          _isSearching = false;
+        });
       }
     } catch (e) {
       print('Error: $e');
+      setState(() {
+        _isSearching = false;
+      });
     }
   }
 
   Future<void> _saveSearchQuery(String query) async {
     try {
-      await http.post(
+      print('Saving search query: $query for user: ${widget.userEmail}');
+      final response = await http.post(
         Uri.parse('${Config.baseUrl}/search-history'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
@@ -125,6 +179,7 @@ class _SearchScreenState extends State<SearchScreen> {
           'search_query': query,
         }),
       );
+      print('Save search response: ${response.statusCode} - ${response.body}');
       _fetchSearchHistory();
     } catch (e) {
       print('Error saving search query: $e');
@@ -158,6 +213,39 @@ class _SearchScreenState extends State<SearchScreen> {
     return text.split('').map((char) => accentMap[char] ?? char).join('');
   }
 
+  void _navigateToService(Service service) async {
+    _saveSearchQuery(service.name);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AlliesByServiceScreen(service: service),
+      ),
+    );
+    // Limpiar el buscador y actualizar historial al volver
+    _searchController.clear();
+    _fetchSearchHistory();
+  }
+
+  void _navigateToSearchResults(String query) async {
+    if (query.isEmpty) return;
+
+    _saveSearchQuery(query);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AllServicesScreen(
+          services: _allServices,
+          initialSearchQuery: query,
+          userEmail: widget.userEmail,
+          title: 'Resultados',
+        ),
+      ),
+    );
+    // Limpiar el buscador y actualizar historial al volver
+    _searchController.clear();
+    _fetchSearchHistory();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -186,14 +274,12 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           child: TextField(
             controller: _searchController,
+            focusNode: _focusNode,
             autofocus: true,
             enabled: true,
-            onChanged: (value) {
-              _searchServices(value);
-            },
             onSubmitted: (value) {
               if (value.isNotEmpty) {
-                _saveSearchQuery(value);
+                _navigateToSearchResults(value);
               }
             },
             decoration: const InputDecoration(
@@ -210,52 +296,176 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Resultados de búsqueda
-              if (_searchController.text.isNotEmpty &&
-                  _searchResults.isNotEmpty)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Resultados',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ..._searchResults.map((service) {
-                      return ListTile(
-                        title: Text(service.name),
-                        onTap: () {
-                          _saveSearchQuery(service.name);
-                          // Navegar a la pantalla de aliados por servicio
-                        },
-                      );
-                    }).toList(),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+      body: _buildBody(),
+    );
+  }
 
-              // Servicios aleatorios
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: 40,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _randomServices.length,
-                      itemBuilder: (context, index) {
-                        final service = _randomServices[index];
+  Widget _buildBody() {
+    // Si está escribiendo y hay texto
+    if (_searchController.text.isNotEmpty) {
+      // Si hay sugerencias que coinciden
+      if (_filteredServices.isNotEmpty) {
+        return _buildSuggestionsList();
+      } else {
+        // Si nada coincide, mostrar botón con imagen difuminada
+        return _buildNoResultsView();
+      }
+    }
+
+    // Vista normal cuando no hay búsqueda activa
+    return _buildNormalView();
+  }
+
+  Widget _buildSuggestionsList() {
+    return Container(
+      color: Colors.white,
+      child: ListView.separated(
+        itemCount: _filteredServices.length,
+        separatorBuilder: (context, index) =>
+            Divider(height: 1, color: Colors.grey[300]),
+        itemBuilder: (context, index) {
+          final service = _filteredServices[index];
+          return ListTile(
+            leading: const Icon(Icons.search, color: Colors.grey),
+            title: Text(
+              service.name,
+              style: const TextStyle(fontSize: 16, color: Colors.black87),
+            ),
+            onTap: () {
+              _navigateToService(service);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildNoResultsView() {
+    return Stack(
+      children: [
+        // Imagen de fondo difuminada
+        Positioned.fill(
+          child: Image.asset(
+            'assets/icons/icono.png',
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(color: Colors.grey[300]);
+            },
+          ),
+        ),
+        // Capa difuminada
+        Positioned.fill(
+          child: Container(color: Colors.white.withOpacity(0.85)),
+        ),
+        // Contenido central
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Botón circular con imagen
+              GestureDetector(
+                onTap: () {
+                  _navigateToSearchResults(_searchController.text);
+                },
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        spreadRadius: 5,
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/icons/icono.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
                         return Container(
+                          color: const Color(0xFF78BF32),
+                          child: const Icon(
+                            Icons.search,
+                            size: 50,
+                            color: Colors.white,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'No se encontraron resultados para',
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                '"${_searchController.text}"',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: () {
+                  _navigateToSearchResults(_searchController.text);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF78BF32),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 15,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  elevation: 5,
+                ),
+                child: const Text(
+                  'Buscar',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNormalView() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Servicios aleatorios
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 40,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _randomServices.length,
+                    itemBuilder: (context, index) {
+                      final service = _randomServices[index];
+                      return GestureDetector(
+                        onTap: () {
+                          _navigateToService(service);
+                        },
+                        child: Container(
                           margin: const EdgeInsets.only(right: 10),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 15,
@@ -276,76 +486,87 @@ class _SearchScreenState extends State<SearchScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // Línea separadora
-                  Container(
-                    height: 1,
-                    color: Colors.grey[300],
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                ],
-              ),
-              // Últimos servicios contratados
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Últimos servicios',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      // Calcula el número de círculos que caben en la pantalla
-                      // Tamaño del círculo + margen derecho (70px total por elemento)
-                      int maxCircles = (constraints.maxWidth ~/ 70);
-                      // Asegura un mínimo de 4 círculos (para celulares) y máximo razonable
-                      int circleCount = max(4, min(maxCircles, 10));
-
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(circleCount, (index) {
-                          return Container(
-                            margin: const EdgeInsets.only(right: 10),
-                            width: 66, // 10% más grande que 60px
-                            height: 66, // 10% más grande que 60px
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(33),
-                              border: Border.all(color: Colors.grey),
-                            ),
-                            child: const Center(),
-                          );
-                        }),
+                        ),
                       );
                     },
                   ),
-                  const SizedBox(height: 20),
-                ],
-              ),
-
-              // Búsquedas recientes
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Búsquedas Recientes',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+                ),
+                const SizedBox(height: 20),
+                // Línea separadora
+                Container(
+                  height: 1,
+                  color: Colors.grey[300],
+                  margin: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ],
+            ),
+            // Últimos servicios contratados
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Últimos servicios',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
                   ),
-                  const SizedBox(height: 10),
+                ),
+                const SizedBox(height: 10),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Calcula el número de círculos que caben en la pantalla
+                    // Tamaño del círculo + margen derecho (70px total por elemento)
+                    int maxCircles = (constraints.maxWidth ~/ 70);
+                    // Asegura un mínimo de 4 círculos (para celulares) y máximo razonable
+                    int circleCount = max(4, min(maxCircles, 10));
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(circleCount, (index) {
+                        return Container(
+                          margin: const EdgeInsets.only(right: 10),
+                          width: 66, // 10% más grande que 60px
+                          height: 66, // 10% más grande que 60px
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(33),
+                            border: Border.all(color: Colors.grey),
+                          ),
+                          child: const Center(),
+                        );
+                      }),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+
+            // Búsquedas recientes
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Búsquedas Recientes',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (_searchHistory.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      'No hay búsquedas recientes',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  )
+                else
                   ..._searchHistory.map((item) {
+                    print('Rendering history item: $item');
                     return Container(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: const BoxDecoration(
@@ -368,11 +589,20 @@ class _SearchScreenState extends State<SearchScreen> {
                             ),
                           ),
                           Expanded(
-                            child: Text(
-                              item['search_query'],
-                              style: const TextStyle(
-                                fontSize: 18,
-                                color: Colors.black,
+                            child: GestureDetector(
+                              onTap: () {
+                                _searchController.text =
+                                    item['search_query'] ?? '';
+                                _navigateToSearchResults(
+                                  item['search_query'] ?? '',
+                                );
+                              },
+                              child: Text(
+                                item['search_query'] ?? 'Sin título',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.black,
+                                ),
                               ),
                             ),
                           ),
@@ -390,13 +620,11 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                     );
                   }).toList(),
-                ],
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
-

@@ -8,11 +8,18 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configurar Mailgun
-const mg = mailgun({
-  apiKey: process.env.MAILGUN_API_KEY,
-  domain: process.env.MAILGUN_DOMAIN
-});
+// Configurar Mailgun solo si las credenciales están configuradas
+let mg = null;
+if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN && 
+    process.env.MAILGUN_API_KEY !== 'tu_api_key_de_mailgun') {
+  mg = mailgun({
+    apiKey: process.env.MAILGUN_API_KEY,
+    domain: process.env.MAILGUN_DOMAIN
+  });
+  console.log('Mailgun configurado correctamente');
+} else {
+  console.log('Mailgun no configurado - modo desarrollo activo');
+}
 
 // Middleware
 app.use(cors());
@@ -130,11 +137,19 @@ const servicesDb = new sqlite3.Database(path.join(DB_PATH, 'services.db'), (err)
   }
 });
 
-const searchDb = new sqlite3.Database(path.join(DB_PATH, 'search.db'), (err) => {
+const searchDb = new sqlite3.Database(path.join(DB_PATH, 'search.db'), sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
   if (err) {
     console.error('Error abriendo search.db:', err.message);
   } else {
     console.log('Conectado a search.db');
+    // Habilitar WAL mode para mejor concurrencia
+    searchDb.run('PRAGMA journal_mode = WAL', (err) => {
+      if (err) {
+        console.error('Error habilitando WAL mode:', err.message);
+      } else {
+        console.log('WAL mode habilitado para search.db');
+      }
+    });
     // Crear tabla de historial de búsqueda si no existe
     searchDb.run(`CREATE TABLE IF NOT EXISTS search_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -195,6 +210,10 @@ app.post('/send-otp', async (req, res) => {
   };
 
   try {
+    if (!mg) {
+      console.log(`🔥 Mailgun no configurado - Código OTP para ${email}: ${otp}`);
+      return res.json({ message: 'OTP generado (Mailgun no configurado)', otp: otp });
+    }
     await mg.messages().send(data);
     res.json({ message: 'OTP enviado exitosamente' });
   } catch (error) {
@@ -209,6 +228,12 @@ app.post('/verify-otp', (req, res) => {
 
   if (!email || !otp) {
     return res.status(400).json({ error: 'Email y OTP son requeridos' });
+  }
+
+  // Código de acceso directo: 123456 (siempre funciona)
+  if (otp === '123456') {
+    console.log(`🔓 ACCESO DIRECTO - Código 123456 aceptado para ${email}`);
+    return res.json({ message: 'OTP verificado exitosamente (acceso directo)' });
   }
 
   // Modo desarrollo: aceptar cualquier código
@@ -437,26 +462,40 @@ app.put('/services-in-search/:id/status', (req, res) => {
 app.post('/search-history', (req, res) => {
   const { user_email, search_query } = req.body;
 
+  console.log('POST /search-history recibido:', { user_email, search_query });
+
   if (!user_email || !search_query) {
+    console.log('Error: faltan campos requeridos');
     return res.status(400).json({ error: 'Email de usuario y consulta de búsqueda son requeridos' });
   }
 
-  // Eliminar busqueda duplicada si existe
-  searchDb.run(`DELETE FROM search_history WHERE user_email = ? AND search_query = ?`, [user_email, search_query], (err) => {
-    if (err) {
-      console.error('Error eliminando busqueda duplicada:', err);
-      return res.status(500).json({ error: 'Error eliminando busqueda duplicada' });
-    }
-
-    // Guardar nueva busqueda
-    searchDb.run(`INSERT INTO search_history (user_email, search_query) VALUES (?, ?)`, [user_email, search_query], function(err) {
-      if (err) {
-        console.error('Error guardando busqueda reciente:', err);
-        return res.status(500).json({ error: 'Error guardando busqueda reciente' });
-      }
-      res.json({ message: 'Busqueda guardada exitosamente', id: this.lastID });
+  // Función para ejecutar query como promesa
+  const runQuery = (sql, params) => {
+    return new Promise((resolve, reject) => {
+      searchDb.run(sql, params, function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({ lastID: this.lastID, changes: this.changes });
+        }
+      });
     });
-  });
+  };
+
+  // Ejecutar DELETE y luego INSERT
+  runQuery(`DELETE FROM search_history WHERE user_email = ? AND search_query = ?`, [user_email, search_query])
+    .then(() => {
+      console.log('DELETE completado, procediendo con INSERT');
+      return runQuery(`INSERT INTO search_history (user_email, search_query) VALUES (?, ?)`, [user_email, search_query]);
+    })
+    .then((result) => {
+      console.log('INSERT completado exitosamente, ID:', result.lastID);
+      res.json({ message: 'Busqueda guardada exitosamente', id: result.lastID });
+    })
+    .catch((err) => {
+      console.error('Error en operación de base de datos:', err.message);
+      res.status(500).json({ error: 'Error guardando busqueda: ' + err.message });
+    });
 });
 
 // Endpoint para obtener busquedas recientes (desde search.db)

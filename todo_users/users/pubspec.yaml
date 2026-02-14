@@ -30,6 +30,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/logos/
+    - assets/icons/
     - assets/sounds/entrada.mp3
 
 flutter_launcher_icons:

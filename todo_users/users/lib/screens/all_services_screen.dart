@@ -7,12 +7,14 @@ class AllServicesScreen extends StatefulWidget {
   final List<Service> services;
   final String initialSearchQuery;
   final String userEmail;
+  final String title;
 
   const AllServicesScreen({
     super.key,
     required this.services,
     this.initialSearchQuery = '',
     required this.userEmail,
+    this.title = 'Todos los Servicios',
   });
 
   @override
@@ -103,10 +105,10 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                           },
                         ),
                       ),
-                      const Center(
+                      Center(
                         child: Text(
-                          'Todos los Servicios',
-                          style: TextStyle(
+                          widget.title,
+                          style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.black,
