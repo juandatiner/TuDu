@@ -6,6 +6,8 @@ import '../models/service_in_search.dart';
 import '../models/service.dart';
 import 'all_services_screen.dart';
 import 'service_detail_screen.dart';
+import 'home_screen.dart';
+import 'search_screen.dart';
 
 class UserServicesScreen extends StatefulWidget {
   final String userEmail;
@@ -30,6 +32,9 @@ class _UserServicesScreenState extends State<UserServicesScreen>
   String _searchQuery = '';
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
+
+  // Navegación
+  int _selectedIndex = 2; // Servicios es el índice 2
 
   // Animación
   late AnimationController _animationController;
@@ -291,6 +296,43 @@ class _UserServicesScreenState extends State<UserServicesScreen>
     });
   }
 
+  void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
+
+    if (index == 0) {
+      // Inicio
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              HomeScreen(userEmail: widget.userEmail),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+    } else if (index == 1) {
+      // Mensajes - por implementar
+      setState(() {
+        _selectedIndex = index;
+      });
+    } else if (index == 2) {
+      // Servicios - ya estamos aquí
+      setState(() {
+        _selectedIndex = index;
+      });
+    } else if (index == 3) {
+      // Perfil - por implementar
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -302,40 +344,21 @@ class _UserServicesScreenState extends State<UserServicesScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Flecha atrás y título
-                SizedBox(
-                  height: 50,
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: IconButton(
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.green,
-                            size: 28,
-                          ),
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                        ),
+                // Título
+                const SizedBox(
+                  height: 40,
+                  child: Center(
+                    child: Text(
+                      'Mis Servicios',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
-                      const Center(
-                        child: Text(
-                          'Mis Servicios',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
 
                 if (_isLoading)
                   const Center(child: CircularProgressIndicator())
@@ -1078,6 +1101,21 @@ class _UserServicesScreenState extends State<UserServicesScreen>
             ),
           ),
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Mensajes'),
+          BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Servicios'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        elevation: 10,
       ),
     );
   }

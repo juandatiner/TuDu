@@ -1,4 +1,4 @@
- import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config.dart';
@@ -61,8 +61,16 @@ class _HomeScreenState extends State<HomeScreen> {
     if (index == 2) {
       await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => UserServicesScreen(userEmail: widget.userEmail),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              UserServicesScreen(userEmail: widget.userEmail),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 300),
         ),
       );
       // Al volver de Servicios, restablecer el índice a Inicio
