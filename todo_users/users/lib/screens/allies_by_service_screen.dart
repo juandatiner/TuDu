@@ -20,6 +20,12 @@ class AlliesByServiceScreen extends StatelessWidget {
         ),
         backgroundColor: const Color(0xFFF4F2F2),
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF78BF32)),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
       ),
       body: Container(
         color: const Color(0xFFF4F2F2),

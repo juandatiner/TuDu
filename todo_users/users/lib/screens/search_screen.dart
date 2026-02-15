@@ -252,7 +252,7 @@ class _SearchScreenState extends State<SearchScreen> {
         backgroundColor: const Color(0xFFF4F2F2),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF78BF32)),
           onPressed: () {
             Navigator.pop(context);
           },
@@ -315,26 +315,36 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildSuggestionsList() {
-    return Container(
-      color: Colors.white,
-      child: ListView.separated(
-        itemCount: _filteredServices.length,
-        separatorBuilder: (context, index) =>
-            Divider(height: 1, color: Colors.grey[300]),
-        itemBuilder: (context, index) {
-          final service = _filteredServices[index];
-          return ListTile(
-            leading: const Icon(Icons.search, color: Colors.grey),
-            title: Text(
-              service.name,
-              style: const TextStyle(fontSize: 16, color: Colors.black87),
+    return Column(
+      children: [
+        // Espacio mínimo para que la sombra de la barra de búsqueda no se corte
+        const SizedBox(height: 6),
+        Expanded(
+          child: Container(
+            color: Colors.white,
+            child: ListView.separated(
+              itemCount: _filteredServices.length,
+              separatorBuilder: (context, index) =>
+                  Divider(height: 1, color: Colors.grey[300]),
+              itemBuilder: (context, index) {
+                final service = _filteredServices[index];
+                return ListTile(
+                  leading: const Icon(Icons.search, color: Colors.grey),
+                  title: Text(
+                    service.name,
+                    style: const TextStyle(fontSize: 16, color: Colors.black87),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  onTap: () {
+                    _navigateToService(service);
+                  },
+                );
+              },
             ),
-            onTap: () {
-              _navigateToService(service);
-            },
-          );
-        },
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -444,6 +454,8 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildNormalView() {
     return Column(
       children: [
+        // Espacio mínimo para que la sombra de la barra de búsqueda no se corte
+        const SizedBox(height: 6),
         // Parte fija superior (servicios aleatorios y últimos servicios)
         Padding(
           padding: const EdgeInsets.all(16.0),
@@ -488,23 +500,43 @@ class _SearchScreenState extends State<SearchScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               // Línea separadora
               Container(
                 height: 1,
                 color: Colors.grey[300],
-                margin: const EdgeInsets.symmetric(vertical: 10),
+                margin: const EdgeInsets.symmetric(vertical: 6),
               ),
               // Últimos servicios contratados
-              const Text(
-                'Últimos servicios',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2196F3).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.shopping_bag_outlined,
+                        color: Color(0xFF1976D2),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Últimos servicios',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               LayoutBuilder(
                 builder: (context, constraints) {
                   // Calcula el número de círculos que caben en la pantalla
@@ -531,7 +563,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               // Línea separadora antes del historial
               Container(
                 height: 1,
@@ -549,7 +581,7 @@ class _SearchScreenState extends State<SearchScreen> {
               children: [
                 // Header del historial con diseño mejorado
                 Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 12),
+                  padding: const EdgeInsets.only(top: 4, bottom: 8),
                   child: Row(
                     children: [
                       Container(
@@ -610,13 +642,13 @@ class _SearchScreenState extends State<SearchScreen> {
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(vertical: 2),
                           itemCount: _searchHistory.length,
                           itemBuilder: (context, index) {
                             final item = _searchHistory[index];
                             print('Rendering history item: $item');
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 8),
+                              margin: const EdgeInsets.only(bottom: 4),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
@@ -643,7 +675,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 16,
-                                      vertical: 14,
+                                      vertical: 10,
                                     ),
                                     child: Row(
                                       children: [
@@ -660,7 +692,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                             size: 18,
                                           ),
                                         ),
-                                        const SizedBox(width: 14),
+                                        const SizedBox(width: 10),
                                         Expanded(
                                           child: Text(
                                             item['search_query'] ??

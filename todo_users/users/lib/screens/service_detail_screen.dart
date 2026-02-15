@@ -48,8 +48,19 @@ class ServiceDetailScreen extends StatelessWidget {
       case 'FINALIZADO':
         return 'Finalizado';
       default:
-        return 'Pendiente por asignar';
+        return status;
     }
+  }
+
+  String _formatBudget(String budget) {
+    final numericValue = budget.replaceAll(',', '').replaceAll('.', '');
+    if (numericValue.isEmpty) return budget;
+    final number = double.tryParse(numericValue);
+    if (number == null) return budget;
+    return number.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+          (match) => '${match[1]},',
+        );
   }
 
   String _getFinishText(String status) {
@@ -344,7 +355,7 @@ class ServiceDetailScreen extends StatelessWidget {
                           _buildInfoSection(
                             icon: Icons.attach_money,
                             title: 'Presupuesto',
-                            content: '\$${service.budget}',
+                            content: '\$${_formatBudget(service.budget)}',
                             themeColor: themeColor,
                           ),
 
