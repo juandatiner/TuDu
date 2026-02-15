@@ -76,9 +76,8 @@ class _SearchScreenState extends State<SearchScreen> {
         final data = json.decode(response.body);
         final List<dynamic> servicesJson = data['services'];
         setState(() {
-          _allServices = servicesJson
-              .map((json) => Service.fromJson(json))
-              .toList();
+          _allServices =
+              servicesJson.map((json) => Service.fromJson(json)).toList();
           print('Total de servicios obtenidos: ${_allServices.length}');
 
           final shuffledServices = List.from(_allServices)..shuffle();
@@ -149,9 +148,8 @@ class _SearchScreenState extends State<SearchScreen> {
         final data = json.decode(response.body);
         print('Resultados: ${data['services']}');
         setState(() {
-          _searchResults = data['services']
-              .map((json) => Service.fromJson(json))
-              .toList();
+          _searchResults =
+              data['services'].map((json) => Service.fromJson(json)).toList();
           _isSearching = false;
         });
       } else {
@@ -283,7 +281,7 @@ class _SearchScreenState extends State<SearchScreen> {
               }
             },
             decoration: const InputDecoration(
-              hintText: 'Servicios..',
+              hintText: 'Servicios de...',
               hintStyle: TextStyle(color: Colors.grey),
               prefixIcon: Icon(Icons.search, color: Colors.grey),
               suffixIcon: Icon(Icons.mic, color: Colors.grey),
@@ -444,187 +442,275 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildNormalView() {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Servicios aleatorios
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: 40,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _randomServices.length,
-                    itemBuilder: (context, index) {
-                      final service = _randomServices[index];
-                      return GestureDetector(
-                        onTap: () {
-                          _navigateToService(service);
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 10),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 15,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.grey),
-                          ),
-                          child: Center(
-                            child: Text(
-                              service.name,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.black,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+    return Column(
+      children: [
+        // Parte fija superior (servicios aleatorios y últimos servicios)
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Servicios aleatorios
+              SizedBox(
+                height: 40,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _randomServices.length,
+                  itemBuilder: (context, index) {
+                    final service = _randomServices[index];
+                    return GestureDetector(
+                      onTap: () {
+                        _navigateToService(service);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.grey),
+                        ),
+                        child: Center(
+                          child: Text(
+                            service.name,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Línea separadora
-                Container(
-                  height: 1,
-                  color: Colors.grey[300],
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                ),
-              ],
-            ),
-            // Últimos servicios contratados
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Últimos servicios',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Calcula el número de círculos que caben en la pantalla
-                    // Tamaño del círculo + margen derecho (70px total por elemento)
-                    int maxCircles = (constraints.maxWidth ~/ 70);
-                    // Asegura un mínimo de 4 círculos (para celulares) y máximo razonable
-                    int circleCount = max(4, min(maxCircles, 10));
-
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(circleCount, (index) {
-                        return Container(
-                          margin: const EdgeInsets.only(right: 10),
-                          width: 66, // 10% más grande que 60px
-                          height: 66, // 10% más grande que 60px
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(33),
-                            border: Border.all(color: Colors.grey),
-                          ),
-                          child: const Center(),
-                        );
-                      }),
+                      ),
                     );
                   },
                 ),
-                const SizedBox(height: 20),
-              ],
-            ),
+              ),
+              const SizedBox(height: 20),
+              // Línea separadora
+              Container(
+                height: 1,
+                color: Colors.grey[300],
+                margin: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              // Últimos servicios contratados
+              const Text(
+                'Últimos servicios',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 10),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  // Calcula el número de círculos que caben en la pantalla
+                  // Tamaño del círculo + margen derecho (70px total por elemento)
+                  int maxCircles = (constraints.maxWidth ~/ 70);
+                  // Asegura un mínimo de 4 círculos (para celulares) y máximo razonable
+                  int circleCount = max(4, min(maxCircles, 10));
 
-            // Búsquedas recientes
-            Column(
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(circleCount, (index) {
+                      return Container(
+                        margin: const EdgeInsets.only(right: 10),
+                        width: 66, // 10% más grande que 60px
+                        height: 66, // 10% más grande que 60px
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(33),
+                          border: Border.all(color: Colors.grey),
+                        ),
+                        child: const Center(),
+                      );
+                    }),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+              // Línea separadora antes del historial
+              Container(
+                height: 1,
+                color: Colors.grey[300],
+              ),
+            ],
+          ),
+        ),
+        // Parte con scroll solo para el historial
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Búsquedas Recientes',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (_searchHistory.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      'No hay búsquedas recientes',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  )
-                else
-                  ..._searchHistory.map((item) {
-                    print('Rendering history item: $item');
-                    return Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(color: Colors.grey, width: 1.0),
+                // Header del historial con diseño mejorado
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(255, 85, 88, 220)
+                              .withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.history,
+                          color: Color.fromARGB(255, 0, 24, 162),
+                          size: 22,
                         ),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(right: 12),
-                            child: Text(
-                              '•',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Búsquedas Recientes',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Lista de historial
+                Expanded(
+                  child: _searchHistory.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.search_off_rounded,
+                                size: 60,
+                                color: Colors.grey[300],
                               ),
-                            ),
-                          ),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                _searchController.text =
-                                    item['search_query'] ?? '';
-                                _navigateToSearchResults(
-                                  item['search_query'] ?? '',
-                                );
-                              },
-                              child: Text(
-                                item['search_query'] ?? 'Sin título',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.black,
+                              const SizedBox(height: 16),
+                              Text(
+                                'No hay búsquedas recientes',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[400],
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tus búsquedas aparecerán aquí',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ],
                           ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.close,
-                              size: 18,
-                              color: Colors.grey,
-                            ),
-                            onPressed: () {
-                              _deleteSearchHistory(item['id']);
-                            },
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          itemCount: _searchHistory.length,
+                          itemBuilder: (context, index) {
+                            final item = _searchHistory[index];
+                            print('Rendering history item: $item');
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.1),
+                                    spreadRadius: 1,
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () {
+                                    _searchController.text =
+                                        item['search_query'] ?? '';
+                                    _navigateToSearchResults(
+                                      item['search_query'] ?? '',
+                                    );
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF78BF32)
+                                                .withOpacity(0.1),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.search,
+                                            color: Color(0xFF78BF32),
+                                            size: 18,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Text(
+                                            item['search_query'] ??
+                                                'Sin título',
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              color: Colors.black87,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[100],
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              customBorder:
+                                                  const CircleBorder(),
+                                              onTap: () {
+                                                _deleteSearchHistory(
+                                                    item['id']);
+                                              },
+                                              child: const Padding(
+                                                padding: EdgeInsets.all(6),
+                                                child: Icon(
+                                                  Icons.close,
+                                                  size: 16,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
               ],
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

@@ -40,38 +40,14 @@ class _UserServicesScreenState extends State<UserServicesScreen>
   late AnimationController _animationController;
   late Animation<double> _expandAnimation;
 
-  // Lista de estados disponibles (colores azul claro)
+  // Lista de estados disponibles con sus colores naturales
   final List<Map<String, dynamic>> _statusFilters = [
-    {
-      'status': 'EN ESPERA',
-      'color': const Color(0xFF81D4FA),
-      'icon': Icons.schedule
-    }, // Azul claro
-    {
-      'status': 'EN PROCESO',
-      'color': const Color(0xFF4FC3F7),
-      'icon': Icons.autorenew
-    }, // Azul cielo
-    {
-      'status': 'TERMINADO',
-      'color': const Color(0xFF29B6F6),
-      'icon': Icons.check_circle
-    }, // Azul medio
-    {
-      'status': 'CANCELADO',
-      'color': const Color(0xFF039BE5),
-      'icon': Icons.cancel
-    }, // Azul intenso
-    {
-      'status': 'RETRASADO',
-      'color': const Color(0xFF0288D1),
-      'icon': Icons.warning
-    }, // Azul oscuro
-    {
-      'status': 'FINALIZADO',
-      'color': const Color(0xFF0277BD),
-      'icon': Icons.done_all
-    }, // Azul más oscuro
+    {'status': 'EN ESPERA', 'color': Colors.grey, 'icon': Icons.schedule},
+    {'status': 'EN PROCESO', 'color': Colors.amber, 'icon': Icons.autorenew},
+    {'status': 'TERMINADO', 'color': Colors.green, 'icon': Icons.check_circle},
+    {'status': 'CANCELADO', 'color': Colors.red, 'icon': Icons.cancel},
+    {'status': 'RETRASADO', 'color': Colors.orange, 'icon': Icons.warning},
+    {'status': 'FINALIZADO', 'color': Colors.brown, 'icon': Icons.done_all},
   ];
 
   @override
@@ -339,766 +315,776 @@ class _UserServicesScreenState extends State<UserServicesScreen>
       body: Container(
         color: const Color(0xFFF4F2F2),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Título
-                const SizedBox(
-                  height: 40,
-                  child: Center(
-                    child: Text(
-                      'Mis Servicios',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                if (_isLoading)
-                  const Center(child: CircularProgressIndicator())
-                else if (_userServices.isEmpty)
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 80),
-                        const Icon(
-                          Icons.search_off,
-                          size: 80,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          'No tienes servicios asignados',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // BARRA SUPERIOR FIJA (título + botones de filtros)
+              Container(
+                color: const Color(0xFFF4F2F2),
+                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0),
+                child: Column(
+                  children: [
+                    // Título
+                    const SizedBox(
+                      height: 40,
+                      child: Center(
+                        child: Text(
+                          'Mis Servicios',
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.black,
                           ),
-                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Busca o publica que necesitas',
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 40),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => AllServicesScreen(
-                                  services: _services,
-                                  userEmail: widget.userEmail,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Fila con filtros/barra de búsqueda y botones
+                    Row(
+                      children: [
+                        // Botón de FILTROS siempre visible
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: _filtersExpanded
+                                  ? [
+                                      const Color(0xFF5A9A28),
+                                      const Color(0xFF4A8A1A)
+                                    ]
+                                  : [
+                                      const Color(0xFF78BF32),
+                                      const Color(0xFF5A9A28)
+                                    ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF78BF32)
+                                    .withOpacity(_filtersExpanded ? 0.6 : 0.4),
+                                blurRadius: _filtersExpanded ? 12 : 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _toggleFilters,
+                              borderRadius: BorderRadius.circular(16),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOutCubic,
+                                width: 52,
+                                height: 52,
+                                alignment: Alignment.center,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  transitionBuilder: (child, animation) {
+                                    return RotationTransition(
+                                      turns: animation,
+                                      child: ScaleTransition(
+                                        scale: animation,
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: Icon(
+                                    _filtersExpanded ? Icons.close : Icons.tune,
+                                    color: Colors.white,
+                                    size: 24,
+                                    key: ValueKey(_filtersExpanded
+                                        ? 'close_filter'
+                                        : 'filter'),
+                                  ),
                                 ),
                               ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF78BF32),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 40,
-                              vertical: 14,
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            elevation: 5,
                           ),
-                          child: const Text(
-                            'Buscar Servicios',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                        ),
+                        const SizedBox(width: 12),
+                        // Contenido central (barra de búsqueda o contador)
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 350),
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0, 0.1),
+                                    end: Offset.zero,
+                                  ).animate(CurvedAnimation(
+                                    parent: animation,
+                                    curve: Curves.easeOutCubic,
+                                  )),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: _isSearching
+                                ? // BARRA DE BÚSQUEDA
+                                Container(
+                                    key: const ValueKey('search_bar'),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF78BF32)
+                                              .withOpacity(0.2),
+                                          spreadRadius: 2,
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          margin:
+                                              const EdgeInsets.only(left: 16),
+                                          child: const Icon(
+                                            Icons.search,
+                                            color: Color(0xFF78BF32),
+                                            size: 22,
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _searchController,
+                                            autofocus: true,
+                                            onChanged: (value) {
+                                              setState(() {
+                                                _searchQuery = value;
+                                                _applyFilters();
+                                              });
+                                            },
+                                            decoration: InputDecoration(
+                                              hintText: 'Buscar...',
+                                              hintStyle: TextStyle(
+                                                color: Colors.grey[400],
+                                                fontSize: 14,
+                                              ),
+                                              border: InputBorder.none,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 14,
+                                              ),
+                                            ),
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        // Contador
+                                        Container(
+                                          margin:
+                                              const EdgeInsets.only(right: 8),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [
+                                                Color(0xFF78BF32),
+                                                Color(0xFF5A9A28)
+                                              ],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(15),
+                                          ),
+                                          child: Text(
+                                            '${_filteredServices.length}/${_userServices.length}',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                        if (_searchQuery.isNotEmpty)
+                                          Container(
+                                            margin:
+                                                const EdgeInsets.only(right: 4),
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _searchController.clear();
+                                                    _searchQuery = '';
+                                                    _applyFilters();
+                                                  });
+                                                },
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.all(8),
+                                                  child: Icon(
+                                                    Icons.refresh,
+                                                    color: Colors.grey[600],
+                                                    size: 18,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  )
+                                : // CONTADOR DE SERVICIOS
+                                Container(
+                                    key: const ValueKey('counter'),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 14),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF78BF32)
+                                              .withOpacity(0.15),
+                                          spreadRadius: 2,
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.list_alt,
+                                          color: Colors.grey[600],
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${_filteredServices.length} de ${_userServices.length} servicios',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Botón de LUPA siempre visible
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: _isSearching
+                                  ? [
+                                      const Color(0xFF5A9A28),
+                                      const Color(0xFF4A8A1A)
+                                    ]
+                                  : [
+                                      const Color(0xFF78BF32),
+                                      const Color(0xFF5A9A28)
+                                    ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF78BF32)
+                                    .withOpacity(_isSearching ? 0.6 : 0.4),
+                                blurRadius: _isSearching ? 12 : 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _toggleSearch,
+                              borderRadius: BorderRadius.circular(16),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOutCubic,
+                                width: 52,
+                                height: 52,
+                                alignment: Alignment.center,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  transitionBuilder: (child, animation) {
+                                    return RotationTransition(
+                                      turns: animation,
+                                      child: ScaleTransition(
+                                        scale: animation,
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: Icon(
+                                    _isSearching ? Icons.close : Icons.search,
+                                    color: Colors.white,
+                                    size: 24,
+                                    key: ValueKey(_isSearching
+                                        ? 'close_search'
+                                        : 'search'),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ],
                     ),
-                  )
-                else ...[
-                  // Fila con filtros/barra de búsqueda y botones
-                  Column(
-                    children: [
-                      // Fila superior con botones de filtros y lupa siempre visibles
-                      Row(
-                        children: [
-                          // Botón de FILTROS siempre visible
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: _filtersExpanded
-                                    ? [
-                                        const Color(0xFF5A9A28),
-                                        const Color(0xFF4A8A1A)
-                                      ]
-                                    : [
-                                        const Color(0xFF78BF32),
-                                        const Color(0xFF5A9A28)
-                                      ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF78BF32).withOpacity(
-                                      _filtersExpanded ? 0.6 : 0.4),
-                                  blurRadius: _filtersExpanded ? 12 : 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: _toggleFilters,
-                                borderRadius: BorderRadius.circular(16),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeOutCubic,
-                                  width: 52,
-                                  height: 52,
-                                  alignment: Alignment.center,
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    transitionBuilder: (child, animation) {
-                                      return RotationTransition(
-                                        turns: animation,
-                                        child: ScaleTransition(
-                                          scale: animation,
-                                          child: child,
-                                        ),
-                                      );
-                                    },
-                                    child: Icon(
-                                      _filtersExpanded
-                                          ? Icons.close
-                                          : Icons.tune,
-                                      color: Colors.white,
-                                      size: 24,
-                                      key: ValueKey(_filtersExpanded
-                                          ? 'close_filter'
-                                          : 'filter'),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Contenido central (barra de búsqueda o contador)
-                          Expanded(
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 350),
-                              transitionBuilder: (child, animation) {
-                                return FadeTransition(
-                                  opacity: animation,
-                                  child: SlideTransition(
-                                    position: Tween<Offset>(
-                                      begin: const Offset(0, 0.1),
-                                      end: Offset.zero,
-                                    ).animate(CurvedAnimation(
-                                      parent: animation,
-                                      curve: Curves.easeOutCubic,
-                                    )),
-                                    child: child,
-                                  ),
-                                );
-                              },
-                              child: _isSearching
-                                  ? // BARRA DE BÚSQUEDA
-                                  Container(
-                                      key: const ValueKey('search_bar'),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFF78BF32)
-                                                .withOpacity(0.2),
-                                            spreadRadius: 2,
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            margin:
-                                                const EdgeInsets.only(left: 16),
-                                            child: const Icon(
-                                              Icons.search,
-                                              color: Color(0xFF78BF32),
-                                              size: 22,
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: TextField(
-                                              controller: _searchController,
-                                              autofocus: true,
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  _searchQuery = value;
-                                                  _applyFilters();
-                                                });
-                                              },
-                                              decoration: InputDecoration(
-                                                hintText: 'Buscar...',
-                                                hintStyle: TextStyle(
-                                                  color: Colors.grey[400],
-                                                  fontSize: 14,
-                                                ),
-                                                border: InputBorder.none,
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 14,
-                                                ),
-                                              ),
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.black87,
-                                              ),
-                                            ),
-                                          ),
-                                          // Contador
-                                          Container(
-                                            margin:
-                                                const EdgeInsets.only(right: 8),
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 10, vertical: 5),
-                                            decoration: BoxDecoration(
-                                              gradient: const LinearGradient(
-                                                colors: [
-                                                  Color(0xFF78BF32),
-                                                  Color(0xFF5A9A28)
-                                                ],
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(15),
-                                            ),
-                                            child: Text(
-                                              '${_filteredServices.length}/${_userServices.length}',
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                          if (_searchQuery.isNotEmpty)
-                                            Container(
-                                              margin: const EdgeInsets.only(
-                                                  right: 4),
-                                              child: Material(
-                                                color: Colors.transparent,
-                                                child: InkWell(
-                                                  onTap: () {
-                                                    setState(() {
-                                                      _searchController.clear();
-                                                      _searchQuery = '';
-                                                      _applyFilters();
-                                                    });
-                                                  },
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  child: Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    child: Icon(
-                                                      Icons.refresh,
-                                                      color: Colors.grey[600],
-                                                      size: 18,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    )
-                                  : // CONTADOR DE SERVICIOS
-                                  Container(
-                                      key: const ValueKey('counter'),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 14),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFF78BF32)
-                                                .withOpacity(0.15),
-                                            spreadRadius: 2,
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.list_alt,
-                                            color: Colors.grey[600],
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '${_filteredServices.length} de ${_userServices.length} servicios',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.grey[700],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Botón de LUPA siempre visible
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: _isSearching
-                                    ? [
-                                        const Color(0xFF5A9A28),
-                                        const Color(0xFF4A8A1A)
-                                      ]
-                                    : [
-                                        const Color(0xFF78BF32),
-                                        const Color(0xFF5A9A28)
-                                      ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF78BF32)
-                                      .withOpacity(_isSearching ? 0.6 : 0.4),
-                                  blurRadius: _isSearching ? 12 : 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: _toggleSearch,
-                                borderRadius: BorderRadius.circular(16),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeOutCubic,
-                                  width: 52,
-                                  height: 52,
-                                  alignment: Alignment.center,
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    transitionBuilder: (child, animation) {
-                                      return RotationTransition(
-                                        turns: animation,
-                                        child: ScaleTransition(
-                                          scale: animation,
-                                          child: child,
-                                        ),
-                                      );
-                                    },
-                                    child: Icon(
-                                      _isSearching ? Icons.close : Icons.search,
-                                      color: Colors.white,
-                                      size: 24,
-                                      key: ValueKey(_isSearching
-                                          ? 'close_search'
-                                          : 'search'),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
 
-                      // Panel de filtros desplegable (debajo de los botones)
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 400),
-                        curve: Curves.easeOutCubic,
-                        child: _filtersExpanded
-                            ? Container(
-                                margin: const EdgeInsets.only(top: 12),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [Colors.white, Colors.grey[50]!],
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF78BF32)
-                                          .withOpacity(0.15),
-                                      spreadRadius: 2,
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
+                    // Panel de filtros desplegable (debajo de los botones)
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeOutCubic,
+                      child: _filtersExpanded
+                          ? Container(
+                              margin: const EdgeInsets.only(top: 12),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.white, Colors.grey[50]!],
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
                                 ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Filtro por estado
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(6),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  Colors.blue.withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: const Icon(
-                                              Icons.info_outline,
-                                              color: Colors.blue,
-                                              size: 16,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Text(
-                                            'Estado:',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: [
-                                          _buildAnimatedChip(
-                                            label: 'Todos',
-                                            icon: Icons.select_all,
-                                            isSelected:
-                                                _selectedStatusFilter == null,
-                                            selectedColor: const Color(
-                                                0xFF42A5F5), // Azul oscuro no tan oscuro
-                                            onTap: () {
-                                              setState(() {
-                                                _selectedStatusFilter = null;
-                                                _applyFilters();
-                                              });
-                                            },
-                                          ),
-                                          ..._statusFilters.map((filter) {
-                                            return _buildAnimatedChip(
-                                              label: filter['status'],
-                                              icon: filter['icon'],
-                                              isSelected:
-                                                  _selectedStatusFilter ==
-                                                      filter['status'],
-                                              selectedColor: filter['color'],
-                                              onTap: () {
-                                                setState(() {
-                                                  _selectedStatusFilter =
-                                                      filter['status'];
-                                                  _applyFilters();
-                                                });
-                                              },
-                                            );
-                                          }),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 18),
-                                      // Filtro por orden
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(6),
-                                            decoration: BoxDecoration(
-                                              color: Colors.purple
-                                                  .withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: const Icon(
-                                              Icons.sort,
-                                              color: Colors.purple,
-                                              size: 16,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Text(
-                                            'Ordenar por:',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          _buildAnimatedChip(
-                                            label: 'Más reciente',
-                                            icon: Icons.arrow_downward,
-                                            iconColor: const Color(
-                                                0xFFE91E63), // Flecha rosa
-                                            isSelected: _sortOrder == 'newest',
-                                            selectedColor: const Color(
-                                                0xFFF8BBD9), // Rosa pastel
-                                            onTap: () {
-                                              setState(() {
-                                                _sortOrder = 'newest';
-                                                _applyFilters();
-                                              });
-                                            },
-                                          ),
-                                          const SizedBox(width: 8),
-                                          _buildAnimatedChip(
-                                            label: 'Más antiguo',
-                                            icon: Icons.arrow_upward,
-                                            iconColor: const Color(
-                                                0xFF00838F), // Flecha agua marina oscuro
-                                            isSelected: _sortOrder == 'oldest',
-                                            selectedColor: const Color(
-                                                0xFF80DEEA), // Azul agua marina pastel
-                                            onTap: () {
-                                              setState(() {
-                                                _sortOrder = 'oldest';
-                                                _applyFilters();
-                                              });
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Lista de servicios filtrados
-                  if (_filteredServices.isEmpty)
-                    Center(
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 40),
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.filter_list_off,
-                              size: 50,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _searchQuery.isNotEmpty
-                                ? 'No se encontraron resultados para "$_searchQuery"'
-                                : 'No hay servicios con estos filtros',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          TextButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _selectedStatusFilter = null;
-                                _searchQuery = '';
-                                _searchController.clear();
-                                _applyFilters();
-                              });
-                            },
-                            icon: const Icon(Icons.refresh,
-                                color: Color(0xFF78BF32)),
-                            label: const Text(
-                              'Limpiar filtros',
-                              style: TextStyle(
-                                color: Color(0xFF78BF32),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _filteredServices.length,
-                      itemBuilder: (context, index) {
-                        final service = _filteredServices[index];
-                        return GestureDetector(
-                          onTap: () => _showServiceDetails(service),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.15),
-                                  spreadRadius: 1,
-                                  blurRadius: 5,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 60,
-                                    height: 60,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.grey[200]!,
-                                          Colors.grey[100]!,
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.work_outline,
-                                        color: Colors.grey,
-                                        size: 28,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                service.title,
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            _getStatusBadge(service.status),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 5),
-                                        Text(
-                                          service.description,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey,
-                                          ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.access_time,
-                                                  size: 14,
-                                                  color: Colors.grey,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  '${service.timeQuantity} ${service.timeUnit}',
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: Colors.grey,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.calendar_today,
-                                                  size: 14,
-                                                  color: Colors.grey,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  '${service.createdAt.substring(0, 10)}',
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: Colors.grey,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF78BF32)
+                                        .withOpacity(0.15),
+                                    spreadRadius: 2,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
-                            ),
-                          ),
-                        );
-                      },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Filtro por estado
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: const Icon(
+                                            Icons.info_outline,
+                                            color: Colors.blue,
+                                            size: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Estado:',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        _buildAnimatedChip(
+                                          label: 'Todos',
+                                          icon: Icons.select_all,
+                                          isSelected:
+                                              _selectedStatusFilter == null,
+                                          selectedColor: const Color(
+                                              0xFF42A5F5), // Azul oscuro no tan oscuro
+                                          onTap: () {
+                                            setState(() {
+                                              _selectedStatusFilter = null;
+                                              _applyFilters();
+                                            });
+                                          },
+                                        ),
+                                        ..._statusFilters.map((filter) {
+                                          return _buildAnimatedChip(
+                                            label: filter['status'],
+                                            icon: filter['icon'],
+                                            isSelected: _selectedStatusFilter ==
+                                                filter['status'],
+                                            selectedColor: filter['color'],
+                                            onTap: () {
+                                              setState(() {
+                                                _selectedStatusFilter =
+                                                    filter['status'];
+                                                _applyFilters();
+                                              });
+                                            },
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 18),
+                                    // Filtro por orden
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                Colors.purple.withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: const Icon(
+                                            Icons.sort,
+                                            color: Colors.purple,
+                                            size: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Ordenar por:',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        _buildAnimatedChip(
+                                          label: 'Más reciente',
+                                          icon: Icons.arrow_downward,
+                                          iconColor: const Color(
+                                              0xFFE91E63), // Flecha rosa
+                                          isSelected: _sortOrder == 'newest',
+                                          selectedColor: const Color(
+                                              0xFFF8BBD9), // Rosa pastel
+                                          onTap: () {
+                                            setState(() {
+                                              _sortOrder = 'newest';
+                                              _applyFilters();
+                                            });
+                                          },
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _buildAnimatedChip(
+                                          label: 'Más antiguo',
+                                          icon: Icons.arrow_upward,
+                                          iconColor: const Color(
+                                              0xFF00838F), // Flecha agua marina oscuro
+                                          isSelected: _sortOrder == 'oldest',
+                                          selectedColor: const Color(
+                                              0xFF80DEEA), // Azul agua marina pastel
+                                          onTap: () {
+                                            setState(() {
+                                              _sortOrder = 'oldest';
+                                              _applyFilters();
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
-                ],
-              ],
-            ),
+                  ],
+                ),
+              ),
+
+              // CONTENIDO SCROLLEABLE (lista de servicios)
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _userServices.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.search_off,
+                                  size: 80,
+                                  color: Colors.grey,
+                                ),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  'No tienes servicios asignados',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Busca o publica que necesitas',
+                                  style: TextStyle(
+                                      fontSize: 14, color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 40),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => AllServicesScreen(
+                                          services: _services,
+                                          userEmail: widget.userEmail,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF78BF32),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 40,
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    elevation: 5,
+                                  ),
+                                  child: const Text(
+                                    'Buscar Servicios',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : _filteredServices.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(20),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[100],
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.filter_list_off,
+                                        size: 50,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _searchQuery.isNotEmpty
+                                          ? 'No se encontraron resultados para "$_searchQuery"'
+                                          : 'No hay servicios con estos filtros',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.grey,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        setState(() {
+                                          _selectedStatusFilter = null;
+                                          _searchQuery = '';
+                                          _searchController.clear();
+                                          _applyFilters();
+                                        });
+                                      },
+                                      icon: const Icon(Icons.refresh,
+                                          color: Color(0xFF78BF32)),
+                                      label: const Text(
+                                        'Limpiar filtros',
+                                        style: TextStyle(
+                                          color: Color(0xFF78BF32),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(
+                                    16.0, 0, 16.0, 16.0),
+                                itemCount: _filteredServices.length,
+                                itemBuilder: (context, index) {
+                                  final service = _filteredServices[index];
+                                  return GestureDetector(
+                                    onTap: () => _showServiceDetails(service),
+                                    child: Container(
+                                      margin: const EdgeInsets.only(bottom: 16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.grey.withOpacity(0.15),
+                                            spreadRadius: 1,
+                                            blurRadius: 5,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 60,
+                                              height: 60,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    Colors.grey[200]!,
+                                                    Colors.grey[100]!,
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.work_outline,
+                                                  color: Colors.grey,
+                                                  size: 28,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          service.title,
+                                                          style:
+                                                              const TextStyle(
+                                                            fontSize: 16,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: Colors.black,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 10),
+                                                      _getStatusBadge(
+                                                          service.status),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 5),
+                                                  Text(
+                                                    service.description,
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.grey,
+                                                    ),
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                  const SizedBox(height: 10),
+                                                  Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          const Icon(
+                                                            Icons.access_time,
+                                                            size: 14,
+                                                            color: Colors.grey,
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 4),
+                                                          Text(
+                                                            '${service.timeQuantity} ${service.timeUnit}',
+                                                            style:
+                                                                const TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.grey,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      Row(
+                                                        children: [
+                                                          const Icon(
+                                                            Icons
+                                                                .calendar_today,
+                                                            size: 14,
+                                                            color: Colors.grey,
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 4),
+                                                          Text(
+                                                            '${service.createdAt.substring(0, 10)}',
+                                                            style:
+                                                                const TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.grey,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+              ),
+            ],
           ),
         ),
       ),

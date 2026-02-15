@@ -103,7 +103,7 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
           child: TextField(
             controller: _searchController,
             decoration: const InputDecoration(
-              hintText: 'Servicios..',
+              hintText: 'Servicios de...',
               hintStyle: TextStyle(color: Colors.grey),
               prefixIcon: Icon(Icons.search, color: Colors.grey),
               suffixIcon: Icon(Icons.mic, color: Colors.grey),
@@ -116,81 +116,83 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1,
-          ),
-          itemCount: _filteredServices.length,
-          itemBuilder: (context, index) {
-            final service = _filteredServices[index];
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        AlliesByServiceScreen(service: service),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1,
+            ),
+            itemCount: _filteredServices.length,
+            itemBuilder: (context, index) {
+              final service = _filteredServices[index];
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          AlliesByServiceScreen(service: service),
+                    ),
+                  );
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        spreadRadius: 1,
+                        blurRadius: 3,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                );
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.2),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.blue, // Placeholder
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(10),
-                            topRight: Radius.circular(10),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.blue, // Placeholder
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(10),
+                              topRight: Radius.circular(10),
+                            ),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'Imagen',
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ),
                         ),
-                        child: const Center(
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Center(
                           child: Text(
-                            'Imagen',
-                            style: TextStyle(color: Colors.white),
+                            service.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: Center(
-                        child: Text(
-                          service.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
