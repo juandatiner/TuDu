@@ -16,16 +16,80 @@ class UserServicesScreen extends StatefulWidget {
   State<UserServicesScreen> createState() => _UserServicesScreenState();
 }
 
-class _UserServicesScreenState extends State<UserServicesScreen> {
+class _UserServicesScreenState extends State<UserServicesScreen>
+    with SingleTickerProviderStateMixin {
   List<ServiceInSearch> _userServices = [];
+  List<ServiceInSearch> _filteredServices = [];
   bool _isLoading = true;
   List<Service> _services = [];
+
+  // Filtros
+  String? _selectedStatusFilter;
+  String _sortOrder = 'newest'; // 'newest' o 'oldest'
+  bool _filtersExpanded = false;
+  String _searchQuery = '';
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+
+  // Animación
+  late AnimationController _animationController;
+  late Animation<double> _expandAnimation;
+
+  // Lista de estados disponibles (colores azul claro)
+  final List<Map<String, dynamic>> _statusFilters = [
+    {
+      'status': 'EN ESPERA',
+      'color': const Color(0xFF81D4FA),
+      'icon': Icons.schedule
+    }, // Azul claro
+    {
+      'status': 'EN PROCESO',
+      'color': const Color(0xFF4FC3F7),
+      'icon': Icons.autorenew
+    }, // Azul cielo
+    {
+      'status': 'TERMINADO',
+      'color': const Color(0xFF29B6F6),
+      'icon': Icons.check_circle
+    }, // Azul medio
+    {
+      'status': 'CANCELADO',
+      'color': const Color(0xFF039BE5),
+      'icon': Icons.cancel
+    }, // Azul intenso
+    {
+      'status': 'RETRASADO',
+      'color': const Color(0xFF0288D1),
+      'icon': Icons.warning
+    }, // Azul oscuro
+    {
+      'status': 'FINALIZADO',
+      'color': const Color(0xFF0277BD),
+      'icon': Icons.done_all
+    }, // Azul más oscuro
+  ];
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _expandAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
     _fetchUserServices();
     _fetchAllServices();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchUserServices() async {
@@ -43,6 +107,7 @@ class _UserServicesScreenState extends State<UserServicesScreen> {
               .map((json) => ServiceInSearch.fromJson(json))
               .toList();
           _isLoading = false;
+          _applyFilters();
         });
       } else {
         print('Error fetching user services: ${response.statusCode}');
@@ -65,9 +130,8 @@ class _UserServicesScreenState extends State<UserServicesScreen> {
         final data = json.decode(response.body);
         final List<dynamic> servicesJson = data['services'];
         setState(() {
-          _services = servicesJson
-              .map((json) => Service.fromJson(json))
-              .toList();
+          _services =
+              servicesJson.map((json) => Service.fromJson(json)).toList();
         });
       } else {
         print('Error fetching services: ${response.statusCode}');
@@ -77,44 +141,101 @@ class _UserServicesScreenState extends State<UserServicesScreen> {
     }
   }
 
+  void _applyFilters() {
+    List<ServiceInSearch> result = List.from(_userServices);
+
+    // Filtrar por búsqueda
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      result = result.where((s) {
+        return s.title.toLowerCase().contains(query) ||
+            s.description.toLowerCase().contains(query);
+      }).toList();
+    }
+
+    // Filtrar por estado
+    if (_selectedStatusFilter != null) {
+      result = result.where((s) => s.status == _selectedStatusFilter).toList();
+    }
+
+    // Ordenar por fecha
+    result.sort((a, b) {
+      DateTime dateA = DateTime.parse(a.createdAt);
+      DateTime dateB = DateTime.parse(b.createdAt);
+      return _sortOrder == 'newest'
+          ? dateB.compareTo(dateA)
+          : dateA.compareTo(dateB);
+    });
+
+    setState(() {
+      _filteredServices = result;
+    });
+  }
+
   Widget _getStatusBadge(String status) {
     Color color;
+    IconData icon;
     switch (status) {
       case 'EN ESPERA':
         color = Colors.grey;
+        icon = Icons.schedule;
         break;
       case 'EN PROCESO':
-        color = Colors.yellow;
+        color = Colors.amber;
+        icon = Icons.autorenew;
         break;
       case 'TERMINADO':
         color = Colors.green;
+        icon = Icons.check_circle;
         break;
       case 'CANCELADO':
         color = Colors.red;
+        icon = Icons.cancel;
         break;
       case 'RETRASADO':
         color = Colors.orange;
+        icon = Icons.warning;
         break;
       case 'FINALIZADO':
         color = Colors.brown;
+        icon = Icons.done_all;
         break;
       default:
         color = Colors.grey;
+        icon = Icons.help;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        status,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
+        gradient: LinearGradient(
+          colors: [color, color.withOpacity(0.7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 12),
+          const SizedBox(width: 4),
+          Text(
+            status,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -126,6 +247,48 @@ class _UserServicesScreenState extends State<UserServicesScreen> {
         builder: (context) => ServiceDetailScreen(service: service),
       ),
     );
+  }
+
+  void _toggleFilters() {
+    setState(() {
+      if (_isSearching) {
+        // Si estamos buscando, cambiar a filtros
+        _isSearching = false;
+        _searchController.clear();
+        _searchQuery = '';
+        _filtersExpanded = true;
+        _animationController.forward();
+      } else if (_filtersExpanded) {
+        // Si filtros está expandido, colapsarlo
+        _filtersExpanded = false;
+        _animationController.reverse();
+      } else {
+        // Si nada está activo, expandir filtros
+        _filtersExpanded = true;
+        _animationController.forward();
+      }
+      _applyFilters();
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      if (_filtersExpanded) {
+        // Si filtros está expandido, cambiar a búsqueda
+        _filtersExpanded = false;
+        _animationController.reverse();
+        _isSearching = true;
+      } else if (_isSearching) {
+        // Si estamos buscando, cerrar búsqueda
+        _isSearching = false;
+        _searchController.clear();
+        _searchQuery = '';
+      } else {
+        // Si nada está activo, abrir búsqueda
+        _isSearching = true;
+      }
+      _applyFilters();
+    });
   }
 
   @override
@@ -206,7 +369,6 @@ class _UserServicesScreenState extends State<UserServicesScreen> {
                         const SizedBox(height: 40),
                         ElevatedButton(
                           onPressed: () {
-                            // Navegar a la pantalla de todos los servicios con la lista de servicios
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -240,119 +402,750 @@ class _UserServicesScreenState extends State<UserServicesScreen> {
                       ],
                     ),
                   )
-                else
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _userServices.length,
-                    itemBuilder: (context, index) {
-                      final service = _userServices[index];
-                      return GestureDetector(
-                        onTap: () => _showServiceDetails(service),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.2),
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
+                else ...[
+                  // Fila con filtros/barra de búsqueda y botones
+                  Column(
+                    children: [
+                      // Fila superior con botones de filtros y lupa siempre visibles
+                      Row(
+                        children: [
+                          // Botón de FILTROS siempre visible
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: _filtersExpanded
+                                    ? [
+                                        const Color(0xFF5A9A28),
+                                        const Color(0xFF4A8A1A)
+                                      ]
+                                    : [
+                                        const Color(0xFF78BF32),
+                                        const Color(0xFF5A9A28)
+                                      ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                // Logo placeholder
-                                Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Center(
-                                    child: Text(
-                                      'Logo',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF78BF32).withOpacity(
+                                      _filtersExpanded ? 0.6 : 0.4),
+                                  blurRadius: _filtersExpanded ? 12 : 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _toggleFilters,
+                                borderRadius: BorderRadius.circular(16),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeOutCubic,
+                                  width: 52,
+                                  height: 52,
+                                  alignment: Alignment.center,
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    transitionBuilder: (child, animation) {
+                                      return RotationTransition(
+                                        turns: animation,
+                                        child: ScaleTransition(
+                                          scale: animation,
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                    child: Icon(
+                                      _filtersExpanded
+                                          ? Icons.close
+                                          : Icons.tune,
+                                      color: Colors.white,
+                                      size: 24,
+                                      key: ValueKey(_filtersExpanded
+                                          ? 'close_filter'
+                                          : 'filter'),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 16),
-                                // Service details
-                                Expanded(
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Contenido central (barra de búsqueda o contador)
+                          Expanded(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 350),
+                              transitionBuilder: (child, animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0, 0.1),
+                                      end: Offset.zero,
+                                    ).animate(CurvedAnimation(
+                                      parent: animation,
+                                      curve: Curves.easeOutCubic,
+                                    )),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: _isSearching
+                                  ? // BARRA DE BÚSQUEDA
+                                  Container(
+                                      key: const ValueKey('search_bar'),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(16),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFF78BF32)
+                                                .withOpacity(0.2),
+                                            spreadRadius: 2,
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            margin:
+                                                const EdgeInsets.only(left: 16),
+                                            child: const Icon(
+                                              Icons.search,
+                                              color: Color(0xFF78BF32),
+                                              size: 22,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: TextField(
+                                              controller: _searchController,
+                                              autofocus: true,
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  _searchQuery = value;
+                                                  _applyFilters();
+                                                });
+                                              },
+                                              decoration: InputDecoration(
+                                                hintText: 'Buscar...',
+                                                hintStyle: TextStyle(
+                                                  color: Colors.grey[400],
+                                                  fontSize: 14,
+                                                ),
+                                                border: InputBorder.none,
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 14,
+                                                ),
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                          ),
+                                          // Contador
+                                          Container(
+                                            margin:
+                                                const EdgeInsets.only(right: 8),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              gradient: const LinearGradient(
+                                                colors: [
+                                                  Color(0xFF78BF32),
+                                                  Color(0xFF5A9A28)
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(15),
+                                            ),
+                                            child: Text(
+                                              '${_filteredServices.length}/${_userServices.length}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                          if (_searchQuery.isNotEmpty)
+                                            Container(
+                                              margin: const EdgeInsets.only(
+                                                  right: 4),
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  onTap: () {
+                                                    setState(() {
+                                                      _searchController.clear();
+                                                      _searchQuery = '';
+                                                      _applyFilters();
+                                                    });
+                                                  },
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(8),
+                                                    child: Icon(
+                                                      Icons.refresh,
+                                                      color: Colors.grey[600],
+                                                      size: 18,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    )
+                                  : // CONTADOR DE SERVICIOS
+                                  Container(
+                                      key: const ValueKey('counter'),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 14),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(16),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFF78BF32)
+                                                .withOpacity(0.15),
+                                            spreadRadius: 2,
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.list_alt,
+                                            color: Colors.grey[600],
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '${_filteredServices.length} de ${_userServices.length} servicios',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.grey[700],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Botón de LUPA siempre visible
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: _isSearching
+                                    ? [
+                                        const Color(0xFF5A9A28),
+                                        const Color(0xFF4A8A1A)
+                                      ]
+                                    : [
+                                        const Color(0xFF78BF32),
+                                        const Color(0xFF5A9A28)
+                                      ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF78BF32)
+                                      .withOpacity(_isSearching ? 0.6 : 0.4),
+                                  blurRadius: _isSearching ? 12 : 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _toggleSearch,
+                                borderRadius: BorderRadius.circular(16),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeOutCubic,
+                                  width: 52,
+                                  height: 52,
+                                  alignment: Alignment.center,
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    transitionBuilder: (child, animation) {
+                                      return RotationTransition(
+                                        turns: animation,
+                                        child: ScaleTransition(
+                                          scale: animation,
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                    child: Icon(
+                                      _isSearching ? Icons.close : Icons.search,
+                                      color: Colors.white,
+                                      size: 24,
+                                      key: ValueKey(_isSearching
+                                          ? 'close_search'
+                                          : 'search'),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Panel de filtros desplegable (debajo de los botones)
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOutCubic,
+                        child: _filtersExpanded
+                            ? Container(
+                                margin: const EdgeInsets.only(top: 12),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Colors.white, Colors.grey[50]!],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF78BF32)
+                                          .withOpacity(0.15),
+                                      spreadRadius: 2,
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      // Filtro por estado
                                       Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Expanded(
-                                            child: Text(
-                                              service.title,
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.black,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                          Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  Colors.blue.withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Icon(
+                                              Icons.info_outline,
+                                              color: Colors.blue,
+                                              size: 16,
                                             ),
                                           ),
-                                          const SizedBox(width: 10),
-                                          _getStatusBadge(service.status),
+                                          const SizedBox(width: 8),
+                                          const Text(
+                                            'Estado:',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
                                         ],
                                       ),
-                                      const SizedBox(height: 5),
-                                      Text(
-                                        service.description,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
+                                      const SizedBox(height: 10),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: [
+                                          _buildAnimatedChip(
+                                            label: 'Todos',
+                                            icon: Icons.select_all,
+                                            isSelected:
+                                                _selectedStatusFilter == null,
+                                            selectedColor: const Color(
+                                                0xFF42A5F5), // Azul oscuro no tan oscuro
+                                            onTap: () {
+                                              setState(() {
+                                                _selectedStatusFilter = null;
+                                                _applyFilters();
+                                              });
+                                            },
+                                          ),
+                                          ..._statusFilters.map((filter) {
+                                            return _buildAnimatedChip(
+                                              label: filter['status'],
+                                              icon: filter['icon'],
+                                              isSelected:
+                                                  _selectedStatusFilter ==
+                                                      filter['status'],
+                                              selectedColor: filter['color'],
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedStatusFilter =
+                                                      filter['status'];
+                                                  _applyFilters();
+                                                });
+                                              },
+                                            );
+                                          }),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 18),
+                                      // Filtro por orden
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: BoxDecoration(
+                                              color: Colors.purple
+                                                  .withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Icon(
+                                              Icons.sort,
+                                              color: Colors.purple,
+                                              size: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Text(
+                                            'Ordenar por:',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                       const SizedBox(height: 10),
                                       Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text(
-                                            '${service.timeQuantity} ${service.timeUnit}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
+                                          _buildAnimatedChip(
+                                            label: 'Más reciente',
+                                            icon: Icons.arrow_downward,
+                                            iconColor: const Color(
+                                                0xFFE91E63), // Flecha rosa
+                                            isSelected: _sortOrder == 'newest',
+                                            selectedColor: const Color(
+                                                0xFFF8BBD9), // Rosa pastel
+                                            onTap: () {
+                                              setState(() {
+                                                _sortOrder = 'newest';
+                                                _applyFilters();
+                                              });
+                                            },
                                           ),
-                                          Text(
-                                            '${service.createdAt.substring(0, 10)}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
+                                          const SizedBox(width: 8),
+                                          _buildAnimatedChip(
+                                            label: 'Más antiguo',
+                                            icon: Icons.arrow_upward,
+                                            iconColor: const Color(
+                                                0xFF00838F), // Flecha agua marina oscuro
+                                            isSelected: _sortOrder == 'oldest',
+                                            selectedColor: const Color(
+                                                0xFF80DEEA), // Azul agua marina pastel
+                                            onTap: () {
+                                              setState(() {
+                                                _sortOrder = 'oldest';
+                                                _applyFilters();
+                                              });
+                                            },
                                           ),
                                         ],
                                       ),
                                     ],
                                   ),
                                 ),
-                              ],
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Lista de servicios filtrados
+                  if (_filteredServices.isEmpty)
+                    Center(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 40),
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.filter_list_off,
+                              size: 50,
+                              color: Colors.grey,
                             ),
                           ),
-                        ),
-                      );
-                    },
+                          const SizedBox(height: 16),
+                          Text(
+                            _searchQuery.isNotEmpty
+                                ? 'No se encontraron resultados para "$_searchQuery"'
+                                : 'No hay servicios con estos filtros',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _selectedStatusFilter = null;
+                                _searchQuery = '';
+                                _searchController.clear();
+                                _applyFilters();
+                              });
+                            },
+                            icon: const Icon(Icons.refresh,
+                                color: Color(0xFF78BF32)),
+                            label: const Text(
+                              'Limpiar filtros',
+                              style: TextStyle(
+                                color: Color(0xFF78BF32),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _filteredServices.length,
+                      itemBuilder: (context, index) {
+                        final service = _filteredServices[index];
+                        return GestureDetector(
+                          onTap: () => _showServiceDetails(service),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.15),
+                                  spreadRadius: 1,
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.grey[200]!,
+                                          Colors.grey[100]!,
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.work_outline,
+                                        color: Colors.grey,
+                                        size: 28,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                service.title,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            _getStatusBadge(service.status),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          service.description,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.access_time,
+                                                  size: 14,
+                                                  color: Colors.grey,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '${service.timeQuantity} ${service.timeUnit}',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.calendar_today,
+                                                  size: 14,
+                                                  color: Colors.grey,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '${service.createdAt.substring(0, 10)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedChip({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required Color selectedColor,
+    required VoidCallback onTap,
+    Color? iconColor,
+  }) {
+    // Si hay un color de icono personalizado, usarlo; si no, el color normal
+    final effectiveIconColor =
+        iconColor ?? (isSelected ? Colors.white : Colors.grey[600]);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: isSelected
+                  ? LinearGradient(
+                      colors: [
+                        selectedColor,
+                        selectedColor.withOpacity(0.8),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+              color: isSelected ? null : Colors.grey[200],
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: selectedColor.withOpacity(0.4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 14,
+                  color: effectiveIconColor,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? Colors.white : Colors.black87,
+                    fontSize: 12,
                   ),
+                ),
               ],
             ),
           ),
