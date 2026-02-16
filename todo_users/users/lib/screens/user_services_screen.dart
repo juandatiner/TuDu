@@ -463,7 +463,7 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                               });
                                             },
                                             decoration: InputDecoration(
-                                              hintText: 'Buscar...',
+                                              hintText: '¿Qué servicio buscas?',
                                               hintStyle: TextStyle(
                                                 color: Colors.grey[400],
                                                 fontSize: 14,

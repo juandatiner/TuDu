@@ -374,6 +374,11 @@ app.post('/publish-service', (req, res) => {
     return res.status(400).json({ error: `Campos faltantes: ${missingFields.join(', ')}` });
   }
 
+  // Formatear y redondear el presupuesto a centenas (últimos 2 dígitos a 0)
+  const numericBudget = parseFloat(budget.toString().replace(/,/g, '').replace(/\./g, ''));
+  const roundedBudget = Math.round(numericBudget / 100) * 100;
+  const formattedBudget = roundedBudget.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
   // Obtener el user_id a partir del email (en users.db)
   usersDb.get(`SELECT id FROM users WHERE email = ?`, [user_email], (err, user) => {
     if (err) {
@@ -388,7 +393,7 @@ app.post('/publish-service', (req, res) => {
     // Insertar en services.db
     servicesDb.run(`INSERT INTO services_in_search (user_id, title, description, time_quantity, time_unit, budget, worker_info, status) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
-                    [user.id, title, description, time_quantity, time_unit, budget, worker_info, 'EN ESPERA'], function(err) {
+                    [user.id, title, description, time_quantity, time_unit, formattedBudget, worker_info, 'EN ESPERA'], function(err) {
       if (err) {
         console.error('Error publicando servicio:', err);
         return res.status(500).json({ error: 'Error publicando servicio' });

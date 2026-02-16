@@ -53,14 +53,9 @@ class ServiceDetailScreen extends StatelessWidget {
   }
 
   String _formatBudget(String budget) {
-    final numericValue = budget.replaceAll(',', '').replaceAll('.', '');
-    if (numericValue.isEmpty) return budget;
-    final number = double.tryParse(numericValue);
-    if (number == null) return budget;
-    return number.toStringAsFixed(0).replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (match) => '${match[1]},',
-        );
+    // El presupuesto ya viene formateado con comas desde el modelo
+    // Solo necesitamos devolverlo tal cual
+    return budget;
   }
 
   String _getFinishText(String status) {
