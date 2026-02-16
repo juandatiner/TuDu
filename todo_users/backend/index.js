@@ -3,10 +3,44 @@ const cors = require('cors');
 const mailgun = require('mailgun-js');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+// const multer = require('multer');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Configurar multer para almacenar archivos (comentado por falta de instalación)
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     const uploadPath = path.join(__dirname, 'uploads');
+//     if (!fs.existsSync(uploadPath)) {
+//       fs.mkdirSync(uploadPath, { recursive: true });
+//     }
+//     cb(null, uploadPath);
+//   },
+//   filename: (req, file, cb) => {
+//     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+//     const ext = path.extname(file.originalname);
+//     cb(null, 'avatar-' + uniqueSuffix + ext);
+//   }
+// });
+
+// const upload = multer({ 
+//   storage: storage,
+//   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+//   fileFilter: (req, file, cb) => {
+//     const allowedTypes = /jpeg|jpg|png|gif|webp/;
+//     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+//     const mimetype = allowedTypes.test(file.mimetype);
+    
+//     if (mimetype && extname) {
+//       return cb(null, true);
+//     } else {
+//       cb(new Error('Solo se permiten imágenes (jpeg, jpg, png, gif, webp)'));
+//     }
+//   }
+// });
 
 // Configurar Mailgun solo si las credenciales están configuradas
 let mg = null;
@@ -23,7 +57,8 @@ if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN &&
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Almacenamiento temporal de OTPs (en producción usar Redis o DB)
 const otpStore = new Map();
@@ -61,6 +96,12 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
         usersDb.run(`ALTER TABLE users ADD COLUMN avatar_image TEXT`, (err) => {
           if (err && !err.message.includes('duplicate column')) {
             console.error('Error agregando columna avatar_image:', err.message);
+          }
+        });
+        // Agregar columna phone si no existe
+        usersDb.run(`ALTER TABLE users ADD COLUMN phone TEXT`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna phone:', err.message);
           }
         });
       }
@@ -645,7 +686,73 @@ app.put('/users/profile/avatar', (req, res) => {
     if (this.changes === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
+    
     res.json({ message: 'Avatar actualizado exitosamente' });
+  });
+});
+
+// Endpoint para obtener el teléfono del usuario
+app.get('/users/profile/phone/:email', (req, res) => {
+  const { email } = req.params;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email es requerido' });
+  }
+
+  usersDb.get(`SELECT phone FROM users WHERE email = ?`, [email], (err, row) => {
+    if (err) {
+      console.error('Error obteniendo teléfono:', err);
+      return res.status(500).json({ error: 'Error obteniendo teléfono' });
+    }
+    if (!row) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json({ phone: row.phone || '' });
+  });
+});
+
+// Endpoint para actualizar los datos del usuario (nombre, apellido, teléfono)
+app.put('/users/profile/data', (req, res) => {
+  const { email, nombre, apellido, phone } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email es requerido' });
+  }
+
+  // Construir la query dinámicamente según los campos proporcionados
+  let updates = [];
+  let values = [];
+
+  if (nombre !== undefined && nombre !== null) {
+    updates.push('nombre = ?');
+    values.push(nombre);
+  }
+
+  if (apellido !== undefined && apellido !== null) {
+    updates.push('apellido = ?');
+    values.push(apellido);
+  }
+
+  if (phone !== undefined) {
+    updates.push('phone = ?');
+    values.push(phone);
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'No hay campos para actualizar' });
+  }
+
+  values.push(email);
+
+  usersDb.run(`UPDATE users SET ${updates.join(', ')} WHERE email = ?`, values, function(err) {
+    if (err) {
+      console.error('Error actualizando datos:', err);
+      return res.status(500).json({ error: 'Error actualizando datos' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json({ message: 'Datos actualizados exitosamente' });
   });
 });
 

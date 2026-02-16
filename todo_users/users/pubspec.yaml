@@ -14,6 +14,8 @@ dependencies:
   audioplayers: ^6.0.0
   intl_phone_field: ^3.2.0
   http: ^1.1.0
+  image_picker: ^1.1.0
+  image_cropper: ^5.0.1
 
 dev_dependencies:
   flutter_test:

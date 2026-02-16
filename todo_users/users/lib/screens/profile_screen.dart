@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import '../config.dart';
 import 'home_screen.dart';
 import 'user_services_screen.dart';
+import 'user_personal_data_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userEmail;
@@ -18,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _userName = 'Usuario';
   String _avatarColor = '#78BF32'; // Color por defecto
   String? _avatarImage; // URL de imagen si existe
+  String _phoneNumber = '';
   bool _isLoading = true;
   int _selectedIndex = 3; // Perfil está seleccionado
 
@@ -39,6 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _userName = data['name'] ?? 'Usuario';
           _avatarColor = data['avatar_color'] ?? '#78BF32';
           _avatarImage = data['avatar_image'];
+          _phoneNumber = data['phone'] ?? '';
           _isLoading = false;
         });
       } else {
@@ -173,6 +178,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _pickAndUploadImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      CroppedFile? croppedFile = await ImageCropper().cropImage(
+        sourcePath: image.path,
+        aspectRatio: CropAspectRatio(ratioX: 1, ratioY: 1),
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Recortar Imagen',
+            toolbarColor: Colors.deepOrange,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.original,
+            lockAspectRatio: false,
+          ),
+          IOSUiSettings(
+            title: 'Recortar Imagen',
+          ),
+        ],
+      );
+      if (croppedFile != null) {
+        try {
+          var request = http.MultipartRequest(
+              'PUT', Uri.parse('${Config.baseUrl}/users/profile/avatar'));
+          request.fields['email'] = widget.userEmail;
+          request.files.add(await http.MultipartFile.fromPath(
+              'avatar_image', croppedFile.path));
+          var response = await request.send();
+          var responseBody = await response.stream.bytesToString();
+          if (response.statusCode == 200) {
+            var data = json.decode(responseBody);
+            setState(() {
+              _avatarImage = data['avatar_image'];
+            });
+          } else {
+            print('Error uploading image: ${response.statusCode}');
+          }
+        } catch (e) {
+          print('Error: $e');
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -230,18 +279,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 child: _avatarImage != null
                                     ? ClipOval(
-                                        child: Image.network(
-                                          _avatarImage!,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) {
-                                            return const Icon(
-                                              Icons.person,
-                                              size: 40,
-                                              color: Colors.white,
-                                            );
-                                          },
-                                        ),
+                                        child: _avatarImage!
+                                                .startsWith('data:image')
+                                            ? Image.memory(
+                                                base64Decode(_avatarImage!
+                                                    .split(',')[1]),
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error,
+                                                    stackTrace) {
+                                                  return const Icon(
+                                                    Icons.person,
+                                                    size: 40,
+                                                    color: Colors.white,
+                                                  );
+                                                },
+                                              )
+                                            : Image.network(
+                                                _avatarImage!,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error,
+                                                    stackTrace) {
+                                                  return const Icon(
+                                                    Icons.person,
+                                                    size: 40,
+                                                    color: Colors.white,
+                                                  );
+                                                },
+                                              ),
                                       )
                                     : const Icon(
                                         Icons.person,
@@ -268,8 +332,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _buildActionButton(
                             icon: Icons.badge_outlined,
                             label: 'Mis Datos',
-                            onTap: () {
-                              // Sin funcionalidad por ahora
+                            onTap: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      MyDataScreen(userEmail: widget.userEmail),
+                                ),
+                              );
+                              // Si hubo cambios, recargar el perfil
+                              if (result == true) {
+                                _loadUserProfile();
+                              }
                             },
                           ),
                           _buildActionButton(
@@ -297,6 +371,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: 'Mis direcciones',
                         onTap: () {
                           // Sin funcionalidad por ahora
+                        },
+                      ),
+                      _buildSettingsItem(
+                        icon: Icons.image,
+                        title: 'Editar Imagen',
+                        onTap: () {
+                          _pickAndUploadImage();
                         },
                       ),
                       _buildSettingsItem(
