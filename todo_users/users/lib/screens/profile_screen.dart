@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 import '../config.dart';
 import 'home_screen.dart';
 import 'user_services_screen.dart';
@@ -20,6 +18,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   String _userName = 'Usuario';
   String _avatarColor = '#78BF32'; // Color por defecto
+  String _avatarIcon = 'person'; // Icono por defecto
   String? _avatarImage; // URL de imagen si existe
   String _phoneNumber = '';
   bool _isLoading = true;
@@ -42,6 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _userName = data['name'] ?? 'Usuario';
           _avatarColor = data['avatar_color'] ?? '#78BF32';
+          _avatarIcon = data['avatar_icon'] ?? 'person';
           _avatarImage = data['avatar_image'];
           _phoneNumber = data['phone'] ?? '';
           _isLoading = false;
@@ -59,75 +59,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _updateAvatarColor(String color) async {
-    try {
-      await http.put(
-        Uri.parse('${Config.baseUrl}/users/profile/avatar'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': widget.userEmail,
-          'avatar_color': color,
-        }),
-      );
-      setState(() {
-        _avatarColor = color;
-      });
-    } catch (e) {
-      print('Error updating avatar color: $e');
-    }
-  }
-
-  void _showAvatarColorPicker() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Color del Avatar'),
-          content: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              '#78BF32',
-              '#FF5733',
-              '#3357FF',
-              '#FF33F5',
-              '#33FFF5',
-              '#FFC300',
-              '#900C3F',
-              '#1ABC9C',
-              '#8E44AD',
-              '#2C3E50',
-            ].map((color) {
-              return GestureDetector(
-                onTap: () {
-                  _updateAvatarColor(color);
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: _parseColor(color),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: _avatarColor == color
-                          ? Colors.black
-                          : Colors.transparent,
-                      width: 3,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      },
-    );
-  }
-
   Color _parseColor(String hexColor) {
     hexColor = hexColor.replaceAll('#', '');
     return Color(int.parse('FF$hexColor', radix: 16));
+  }
+
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'person':
+        return Icons.person;
+      case 'account_circle':
+        return Icons.account_circle;
+      case 'face':
+        return Icons.face;
+      case 'supervisor_account':
+        return Icons.supervisor_account;
+      case 'business':
+        return Icons.business;
+      case 'school':
+        return Icons.school;
+      case 'child_care':
+        return Icons.child_care;
+      case 'pets':
+        return Icons.pets;
+      default:
+        return Icons.person;
+    }
+  }
+
+  Widget _getIconWidget() {
+    return Icon(
+      _getIconData(_avatarIcon),
+      size: 40,
+      color: Colors.white,
+    );
   }
 
   void _onItemTapped(int index) {
@@ -178,50 +143,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _pickAndUploadImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      CroppedFile? croppedFile = await ImageCropper().cropImage(
-        sourcePath: image.path,
-        aspectRatio: CropAspectRatio(ratioX: 1, ratioY: 1),
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Recortar Imagen',
-            toolbarColor: Colors.deepOrange,
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.original,
-            lockAspectRatio: false,
-          ),
-          IOSUiSettings(
-            title: 'Recortar Imagen',
-          ),
-        ],
-      );
-      if (croppedFile != null) {
-        try {
-          var request = http.MultipartRequest(
-              'PUT', Uri.parse('${Config.baseUrl}/users/profile/avatar'));
-          request.fields['email'] = widget.userEmail;
-          request.files.add(await http.MultipartFile.fromPath(
-              'avatar_image', croppedFile.path));
-          var response = await request.send();
-          var responseBody = await response.stream.bytesToString();
-          if (response.statusCode == 200) {
-            var data = json.decode(responseBody);
-            setState(() {
-              _avatarImage = data['avatar_image'];
-            });
-          } else {
-            print('Error uploading image: ${response.statusCode}');
-          }
-        } catch (e) {
-          print('Error: $e');
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -256,63 +177,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           // Avatar - más a la derecha
                           Padding(
                             padding: const EdgeInsets.only(right: 16.0),
-                            child: GestureDetector(
-                              onTap: _showAvatarColorPicker,
-                              child: Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  color: _parseColor(_avatarColor),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 3,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.grey.withOpacity(0.3),
-                                      spreadRadius: 2,
-                                      blurRadius: 5,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
+                            child: Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: _parseColor(_avatarColor),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 3,
                                 ),
-                                child: _avatarImage != null
-                                    ? ClipOval(
-                                        child: _avatarImage!
-                                                .startsWith('data:image')
-                                            ? Image.memory(
-                                                base64Decode(_avatarImage!
-                                                    .split(',')[1]),
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error,
-                                                    stackTrace) {
-                                                  return const Icon(
-                                                    Icons.person,
-                                                    size: 40,
-                                                    color: Colors.white,
-                                                  );
-                                                },
-                                              )
-                                            : Image.network(
-                                                _avatarImage!,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error,
-                                                    stackTrace) {
-                                                  return const Icon(
-                                                    Icons.person,
-                                                    size: 40,
-                                                    color: Colors.white,
-                                                  );
-                                                },
-                                              ),
-                                      )
-                                    : const Icon(
-                                        Icons.person,
-                                        size: 40,
-                                        color: Colors.white,
-                                      ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.3),
+                                    spreadRadius: 2,
+                                    blurRadius: 5,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
                               ),
+                              child: _avatarImage != null
+                                  ? ClipOval(
+                                      child: _avatarImage!
+                                              .startsWith('data:image')
+                                          ? Image.memory(
+                                              base64Decode(
+                                                  _avatarImage!.split(',')[1]),
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                return _getIconWidget();
+                                              },
+                                            )
+                                          : Image.network(
+                                              _avatarImage!,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                return _getIconWidget();
+                                              },
+                                            ),
+                                    )
+                                  : _getIconWidget(),
                             ),
                           ),
                         ],
@@ -373,13 +279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           // Sin funcionalidad por ahora
                         },
                       ),
-                      _buildSettingsItem(
-                        icon: Icons.image,
-                        title: 'Editar Imagen',
-                        onTap: () {
-                          _pickAndUploadImage();
-                        },
-                      ),
+
                       _buildSettingsItem(
                         icon: Icons.light_mode,
                         title: 'Apariencia',

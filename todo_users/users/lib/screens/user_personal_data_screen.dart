@@ -68,6 +68,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
           _lastNameController.text =
               nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
           _avatarColor = data['avatar_color'] ?? '#78BF32';
+          _selectedIcon = data['avatar_icon'] ?? 'person';
           _avatarImage = data['avatar_image'];
           // Si hay una imagen de perfil, marcar que se usa foto
           if (data['avatar_image'] != null) {
@@ -129,19 +130,19 @@ class _MyDataScreenState extends State<MyDataScreen> {
         }),
       );
 
-      // Subir imagen de perfil si se seleccionó una
-      if (_avatarImage != null) {
-        final imageResponse = await http.put(
-          Uri.parse('${Config.baseUrl}/users/profile/avatar'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'email': widget.userEmail,
-            'avatar_image': _avatarImage,
-          }),
-        );
-        if (imageResponse.statusCode != 200) {
-          print('Error uploading image: ${imageResponse.statusCode}');
-        }
+      // Subir imagen de perfil o actualizar avatar
+      final avatarResponse = await http.put(
+        Uri.parse('${Config.baseUrl}/users/profile/avatar'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': widget.userEmail,
+          'avatar_image': _usePhoto ? _avatarImage : null,
+          'avatar_color': _avatarColor,
+          'avatar_icon': _selectedIcon,
+        }),
+      );
+      if (avatarResponse.statusCode != 200) {
+        print('Error updating avatar: ${avatarResponse.statusCode}');
       }
 
       setState(() {
@@ -176,6 +177,258 @@ class _MyDataScreenState extends State<MyDataScreen> {
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  void _showAvatarOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!_usePhoto)
+                ListTile(
+                  leading: const Icon(Icons.person, color: Color(0xFF78BF32)),
+                  title: const Text('Cambiar Avatar'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showAvatarOptionsDialog();
+                  },
+                ),
+              if (!_usePhoto)
+                ListTile(
+                  leading: const Icon(Icons.photo, color: Color(0xFF78BF32)),
+                  title: const Text('Subir Foto'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickAndUploadImage();
+                  },
+                ),
+              if (_usePhoto)
+                ListTile(
+                  leading: const Icon(Icons.person, color: Color(0xFF78BF32)),
+                  title: const Text('Colocar Avatar'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final randomIcon = [
+                      'person',
+                      'account_circle',
+                      'face',
+                      'supervisor_account',
+                      'business',
+                      'school',
+                      'child_care',
+                      'pets'
+                    ][DateTime.now().millisecondsSinceEpoch % 8];
+                    setState(() {
+                      _usePhoto = false;
+                      _selectedImage = null;
+                      _avatarImage = null;
+                      _selectedIcon = randomIcon;
+                    });
+                    // Actualizar backend con el nuevo avatar
+                    await _updateAvatar(_avatarColor, randomIcon);
+                  },
+                ),
+              if (_usePhoto)
+                ListTile(
+                  leading: const Icon(Icons.photo, color: Color(0xFF78BF32)),
+                  title: const Text('Cambiar Foto'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickAndUploadImage();
+                  },
+                ),
+              if (_usePhoto)
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Eliminar Foto'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final randomIcon = [
+                      'person',
+                      'account_circle',
+                      'face',
+                      'supervisor_account',
+                      'business',
+                      'school',
+                      'child_care',
+                      'pets'
+                    ][DateTime.now().millisecondsSinceEpoch % 8];
+                    setState(() {
+                      _usePhoto = false;
+                      _selectedImage = null;
+                      _avatarImage = null;
+                      _selectedIcon = randomIcon;
+                    });
+                    // Actualizar backend con el nuevo avatar
+                    await _updateAvatar(_avatarColor, randomIcon);
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAvatarOptionsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Cambiar Avatar'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Selecciona un icono:'),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    'person',
+                    'account_circle',
+                    'face',
+                    'supervisor_account',
+                    'business',
+                    'school',
+                    'child_care',
+                    'pets',
+                  ].map((iconName) {
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedIcon = iconName;
+                        });
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: _selectedIcon == iconName
+                              ? Colors.blue
+                              : Colors.grey[200],
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _selectedIcon == iconName
+                                ? Colors.blue
+                                : Colors.grey,
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          _getIconData(iconName),
+                          size: 24,
+                          color: _selectedIcon == iconName
+                              ? Colors.white
+                              : Colors.black,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+                const Text('Selecciona un color:'),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    '#78BF32',
+                    '#FF5733',
+                    '#3357FF',
+                    '#FF33F5',
+                    '#33FFF5',
+                    '#FFC300',
+                    '#900C3F',
+                    '#1ABC9C',
+                    '#8E44AD',
+                    '#2C3E50',
+                  ].map((color) {
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _avatarColor = color;
+                        });
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: _parseColor(color),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _avatarColor == color
+                                ? Colors.black
+                                : Colors.transparent,
+                            width: 3,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'person':
+        return Icons.person;
+      case 'account_circle':
+        return Icons.account_circle;
+      case 'face':
+        return Icons.face;
+      case 'supervisor_account':
+        return Icons.supervisor_account;
+      case 'business':
+        return Icons.business;
+      case 'school':
+        return Icons.school;
+      case 'child_care':
+        return Icons.child_care;
+      case 'pets':
+        return Icons.pets;
+      default:
+        return Icons.person;
+    }
+  }
+
+  Widget _getIconWidget() {
+    return Icon(
+      _getIconData(_selectedIcon),
+      size: 60,
+      color: Colors.white,
+    );
+  }
+
+  Future<void> _updateAvatar(String color, String icon) async {
+    try {
+      await http.put(
+        Uri.parse('${Config.baseUrl}/users/profile/avatar'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': widget.userEmail,
+          'avatar_color': color,
+          'avatar_icon': icon,
+          'avatar_image': null,
+        }),
+      );
+    } catch (e) {
+      print('Error updating avatar: $e');
     }
   }
 
@@ -289,22 +542,14 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                           fit: BoxFit.cover,
                                           errorBuilder:
                                               (context, error, stackTrace) {
-                                            return const Icon(
-                                              Icons.person,
-                                              size: 60,
-                                              color: Colors.white,
-                                            );
+                                            return _getIconWidget();
                                           },
                                         ),
                                       )
-                                    : const Icon(
-                                        Icons.person,
-                                        size: 60,
-                                        color: Colors.white,
-                                      ),
+                                    : _getIconWidget(),
                           ),
                           GestureDetector(
-                            onTap: _pickAndUploadImage,
+                            onTap: _showAvatarOptions,
                             child: Container(
                               width: 40,
                               height: 40,

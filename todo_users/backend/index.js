@@ -10,38 +10,6 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configurar multer para almacenar archivos (comentado por falta de instalación)
-// const storage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     const uploadPath = path.join(__dirname, 'uploads');
-//     if (!fs.existsSync(uploadPath)) {
-//       fs.mkdirSync(uploadPath, { recursive: true });
-//     }
-//     cb(null, uploadPath);
-//   },
-//   filename: (req, file, cb) => {
-//     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-//     const ext = path.extname(file.originalname);
-//     cb(null, 'avatar-' + uniqueSuffix + ext);
-//   }
-// });
-
-// const upload = multer({ 
-//   storage: storage,
-//   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-//   fileFilter: (req, file, cb) => {
-//     const allowedTypes = /jpeg|jpg|png|gif|webp/;
-//     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-//     const mimetype = allowedTypes.test(file.mimetype);
-    
-//     if (mimetype && extname) {
-//       return cb(null, true);
-//     } else {
-//       cb(new Error('Solo se permiten imágenes (jpeg, jpg, png, gif, webp)'));
-//     }
-//   }
-// });
-
 // Configurar Mailgun solo si las credenciales están configuradas
 let mg = null;
 if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN && 
@@ -72,14 +40,15 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
     console.error('Error abriendo users.db:', err.message);
   } else {
     console.log('Conectado a users.db');
-    // Crear tabla de usuarios si no existe
-    usersDb.run(`CREATE TABLE IF NOT EXISTS users (
+  // Crear tabla de usuarios si no existe
+  usersDb.run(`CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT UNIQUE NOT NULL,
       nombre TEXT NOT NULL,
       apellido TEXT NOT NULL,
       role TEXT DEFAULT 'user',
       avatar_color TEXT DEFAULT '#78BF32',
+      avatar_icon TEXT DEFAULT 'person',
       avatar_image TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`, (err) => {
@@ -91,6 +60,11 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
         usersDb.run(`ALTER TABLE users ADD COLUMN avatar_color TEXT DEFAULT '#78BF32'`, (err) => {
           if (err && !err.message.includes('duplicate column')) {
             console.error('Error agregando columna avatar_color:', err.message);
+          }
+        });
+        usersDb.run(`ALTER TABLE users ADD COLUMN avatar_icon TEXT DEFAULT 'person'`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna avatar_icon:', err.message);
           }
         });
         usersDb.run(`ALTER TABLE users ADD COLUMN avatar_image TEXT`, (err) => {
@@ -634,7 +608,7 @@ app.get('/users/profile/:email', (req, res) => {
     return res.status(400).json({ error: 'Email es requerido' });
   }
 
-  usersDb.get(`SELECT nombre, apellido, avatar_color, avatar_image FROM users WHERE email = ?`, [email], (err, row) => {
+  usersDb.get(`SELECT nombre, apellido, avatar_color, avatar_icon, avatar_image, phone FROM users WHERE email = ?`, [email], (err, row) => {
     if (err) {
       console.error('Error obteniendo perfil:', err);
       return res.status(500).json({ error: 'Error obteniendo perfil' });
@@ -645,14 +619,16 @@ app.get('/users/profile/:email', (req, res) => {
     res.json({
       name: `${row.nombre} ${row.apellido}`,
       avatar_color: row.avatar_color || '#78BF32',
-      avatar_image: row.avatar_image
+      avatar_icon: row.avatar_icon || 'person',
+      avatar_image: row.avatar_image,
+      phone: row.phone
     });
   });
 });
 
 // Endpoint para actualizar el avatar del usuario
 app.put('/users/profile/avatar', (req, res) => {
-  const { email, avatar_color, avatar_image } = req.body;
+  const { email, avatar_color, avatar_icon, avatar_image } = req.body;
 
   if (!email) {
     return res.status(400).json({ error: 'Email es requerido' });
@@ -665,6 +641,11 @@ app.put('/users/profile/avatar', (req, res) => {
   if (avatar_color) {
     updates.push('avatar_color = ?');
     values.push(avatar_color);
+  }
+
+  if (avatar_icon) {
+    updates.push('avatar_icon = ?');
+    values.push(avatar_icon);
   }
 
   if (avatar_image !== undefined) {
