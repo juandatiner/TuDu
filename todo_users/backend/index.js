@@ -44,12 +44,25 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
       nombre TEXT NOT NULL,
       apellido TEXT NOT NULL,
       role TEXT DEFAULT 'user',
+      avatar_color TEXT DEFAULT '#78BF32',
+      avatar_image TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`, (err) => {
       if (err) {
         console.error('Error creando tabla users:', err.message);
       } else {
         console.log('Tabla users lista');
+        // Agregar columnas de avatar si no existen (para bases de datos existentes)
+        usersDb.run(`ALTER TABLE users ADD COLUMN avatar_color TEXT DEFAULT '#78BF32'`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna avatar_color:', err.message);
+          }
+        });
+        usersDb.run(`ALTER TABLE users ADD COLUMN avatar_image TEXT`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna avatar_image:', err.message);
+          }
+        });
       }
     });
   }
@@ -569,6 +582,70 @@ app.get('/search-services', (req, res) => {
     }
     console.log('Búsqueda:', query, 'Resultados:', rows);
     res.json({ services: rows });
+  });
+});
+
+// Endpoint para obtener el perfil del usuario
+app.get('/users/profile/:email', (req, res) => {
+  const { email } = req.params;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email es requerido' });
+  }
+
+  usersDb.get(`SELECT nombre, apellido, avatar_color, avatar_image FROM users WHERE email = ?`, [email], (err, row) => {
+    if (err) {
+      console.error('Error obteniendo perfil:', err);
+      return res.status(500).json({ error: 'Error obteniendo perfil' });
+    }
+    if (!row) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json({
+      name: `${row.nombre} ${row.apellido}`,
+      avatar_color: row.avatar_color || '#78BF32',
+      avatar_image: row.avatar_image
+    });
+  });
+});
+
+// Endpoint para actualizar el avatar del usuario
+app.put('/users/profile/avatar', (req, res) => {
+  const { email, avatar_color, avatar_image } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email es requerido' });
+  }
+
+  // Construir la query dinámicamente según los campos proporcionados
+  let updates = [];
+  let values = [];
+
+  if (avatar_color) {
+    updates.push('avatar_color = ?');
+    values.push(avatar_color);
+  }
+
+  if (avatar_image !== undefined) {
+    updates.push('avatar_image = ?');
+    values.push(avatar_image);
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'No hay campos para actualizar' });
+  }
+
+  values.push(email);
+
+  usersDb.run(`UPDATE users SET ${updates.join(', ')} WHERE email = ?`, values, function(err) {
+    if (err) {
+      console.error('Error actualizando avatar:', err);
+      return res.status(500).json({ error: 'Error actualizando avatar' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json({ message: 'Avatar actualizado exitosamente' });
   });
 });
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config.dart';
+import 'home_screen.dart';
+import 'user_services_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userEmail;
@@ -17,6 +19,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _avatarColor = '#78BF32'; // Color por defecto
   String? _avatarImage; // URL de imagen si existe
   bool _isLoading = true;
+  int _selectedIndex = 3; // Perfil está seleccionado
 
   @override
   void initState() {
@@ -122,6 +125,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Color(int.parse('FF$hexColor', radix: 16));
   }
 
+  void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
+
+    if (index == 0) {
+      // Inicio
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              HomeScreen(userEmail: widget.userEmail),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+    } else if (index == 1) {
+      // Mensajes - por implementar
+      setState(() {
+        _selectedIndex = index;
+      });
+    } else if (index == 2) {
+      // Servicios
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              UserServicesScreen(userEmail: widget.userEmail),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+    } else if (index == 3) {
+      // Perfil - ya estamos aquí
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -137,22 +188,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       const SizedBox(height: 20),
                       // Sección del perfil: Nombre y Avatar
-                      Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // Nombre del usuario
-                            Text(
-                              _userName,
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                      Row(
+                        children: [
+                          // Nombre del usuario - a la izquierda
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 16.0),
+                              child: Text(
+                                _userName,
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 16),
-                            // Avatar
-                            GestureDetector(
+                          ),
+                          // Avatar - más a la derecha
+                          Padding(
+                            padding: const EdgeInsets.only(right: 16.0),
+                            child: GestureDetector(
                               onTap: _showAvatarColorPicker,
                               child: Container(
                                 width: 80,
@@ -195,8 +250,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 30),
                       // Tres botones horizontales
@@ -211,7 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             },
                           ),
                           _buildActionButton(
-                            icon: Icons.person_outline,
+                            icon: Icons.badge_outlined,
                             label: 'Mis Datos',
                             onTap: () {
                               // Sin funcionalidad por ahora
@@ -219,7 +274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           _buildActionButton(
                             icon: Icons.credit_card,
-                            label: 'Tarjetas',
+                            label: 'Mis Tarjetas',
                             onTap: () {
                               // Sin funcionalidad por ahora
                             },
@@ -245,7 +300,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                       _buildSettingsItem(
-                        icon: Icons.palette_outlined,
+                        icon: Icons.light_mode,
                         title: 'Apariencia',
                         onTap: () {
                           // Sin funcionalidad por ahora
@@ -297,6 +352,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Mensajes'),
+          BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Servicios'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        elevation: 10,
       ),
     );
   }

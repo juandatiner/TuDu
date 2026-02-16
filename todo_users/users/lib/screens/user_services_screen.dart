@@ -8,6 +8,7 @@ import 'all_services_screen.dart';
 import 'service_detail_screen.dart';
 import 'home_screen.dart';
 import 'search_screen.dart';
+import 'profile_screen.dart';
 
 class UserServicesScreen extends StatefulWidget {
   final String userEmail;
@@ -302,10 +303,21 @@ class _UserServicesScreenState extends State<UserServicesScreen>
         _selectedIndex = index;
       });
     } else if (index == 3) {
-      // Perfil - por implementar
-      setState(() {
-        _selectedIndex = index;
-      });
+      // Perfil
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              ProfileScreen(userEmail: widget.userEmail),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
     }
   }
 
