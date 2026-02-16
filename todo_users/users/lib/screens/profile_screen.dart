@@ -66,24 +66,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   IconData _getIconData(String iconName) {
     switch (iconName) {
-      case 'person':
-        return Icons.person;
-      case 'account_circle':
-        return Icons.account_circle;
-      case 'face':
-        return Icons.face;
-      case 'supervisor_account':
-        return Icons.supervisor_account;
-      case 'business':
-        return Icons.business;
+      case 'mood_happy':
+        return Icons.mood;
+      case 'man':
+        return Icons.man;
+      case 'woman':
+        return Icons.woman;
+      case 'sports_esports':
+        return Icons.sports_esports;
+      case 'music_note':
+        return Icons.music_note;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'store':
+        return Icons.store;
+      case 'home':
+        return Icons.home;
+      case 'work':
+        return Icons.work;
       case 'school':
         return Icons.school;
-      case 'child_care':
-        return Icons.child_care;
-      case 'pets':
-        return Icons.pets;
       default:
-        return Icons.person;
+        return Icons.mood;
     }
   }
 

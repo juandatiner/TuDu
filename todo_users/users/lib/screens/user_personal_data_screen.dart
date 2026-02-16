@@ -214,15 +214,17 @@ class _MyDataScreenState extends State<MyDataScreen> {
                   onTap: () async {
                     Navigator.pop(context);
                     final randomIcon = [
-                      'person',
-                      'account_circle',
-                      'face',
-                      'supervisor_account',
-                      'business',
-                      'school',
-                      'child_care',
-                      'pets'
-                    ][DateTime.now().millisecondsSinceEpoch % 8];
+                      'mood_happy',
+                      'man',
+                      'woman',
+                      'sports_esports',
+                      'music_note',
+                      'restaurant',
+                      'store',
+                      'home',
+                      'work',
+                      'school'
+                    ][DateTime.now().millisecondsSinceEpoch % 10];
                     setState(() {
                       _usePhoto = false;
                       _selectedImage = null;
@@ -249,15 +251,17 @@ class _MyDataScreenState extends State<MyDataScreen> {
                   onTap: () async {
                     Navigator.pop(context);
                     final randomIcon = [
-                      'person',
-                      'account_circle',
-                      'face',
-                      'supervisor_account',
-                      'business',
-                      'school',
-                      'child_care',
-                      'pets'
-                    ][DateTime.now().millisecondsSinceEpoch % 8];
+                      'mood_happy',
+                      'man',
+                      'woman',
+                      'sports_esports',
+                      'music_note',
+                      'restaurant',
+                      'store',
+                      'home',
+                      'work',
+                      'school'
+                    ][DateTime.now().millisecondsSinceEpoch % 10];
                     setState(() {
                       _usePhoto = false;
                       _selectedImage = null;
@@ -292,14 +296,16 @@ class _MyDataScreenState extends State<MyDataScreen> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    'person',
-                    'account_circle',
-                    'face',
-                    'supervisor_account',
-                    'business',
+                    'mood_happy',
+                    'man',
+                    'woman',
+                    'sports_esports',
+                    'music_note',
+                    'restaurant',
+                    'store',
+                    'home',
+                    'work',
                     'school',
-                    'child_care',
-                    'pets',
                   ].map((iconName) {
                     return GestureDetector(
                       onTap: () {
@@ -386,24 +392,28 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   IconData _getIconData(String iconName) {
     switch (iconName) {
-      case 'person':
-        return Icons.person;
-      case 'account_circle':
-        return Icons.account_circle;
-      case 'face':
-        return Icons.face;
-      case 'supervisor_account':
-        return Icons.supervisor_account;
-      case 'business':
-        return Icons.business;
+      case 'mood_happy':
+        return Icons.mood;
+      case 'man':
+        return Icons.man;
+      case 'woman':
+        return Icons.woman;
+      case 'sports_esports':
+        return Icons.sports_esports;
+      case 'music_note':
+        return Icons.music_note;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'store':
+        return Icons.store;
+      case 'home':
+        return Icons.home;
+      case 'work':
+        return Icons.work;
       case 'school':
         return Icons.school;
-      case 'child_care':
-        return Icons.child_care;
-      case 'pets':
-        return Icons.pets;
       default:
-        return Icons.person;
+        return Icons.mood;
     }
   }
 
