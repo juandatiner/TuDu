@@ -6,6 +6,7 @@ import '../config.dart';
 import '../models/service.dart';
 import 'allies_by_service_screen.dart';
 import 'all_services_screen.dart';
+import 'publish_service_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   final String userEmail;
@@ -288,13 +289,86 @@ class _SearchScreenState extends State<SearchScreen> {
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: 20,
-                vertical: 15,
+                vertical: 12,
               ),
             ),
           ),
         ),
       ),
       body: _buildBody(),
+      floatingActionButton: _searchController.text.isNotEmpty
+          ? FloatingActionButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return Container(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            '¿No encuentras lo que buscas?',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Publica tu solicitud y deja que los expertos vengan a ti. No pierdas tiempo buscando, ¡ellos te encontrarán!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context); // Cerrar el modal
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => PublishServiceScreen(
+                                    userEmail: widget.userEmail,
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF78BF32),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 100,
+                                vertical: 14,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              elevation: 5,
+                            ),
+                            child: const Text(
+                              'Publicar',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+              child: const Icon(Icons.question_mark,
+                  color: Colors.green, size: 36),
+              backgroundColor: const Color(0xFFE7E7E7),
+            )
+          : null,
     );
   }
 
@@ -349,100 +423,51 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildNoResultsView() {
-    return Stack(
+    return Column(
       children: [
-        // Imagen de fondo difuminada
-        Positioned.fill(
-          child: Image.asset(
-            'assets/icons/icono.png',
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(color: Colors.grey[300]);
-            },
+        const SizedBox(height: 20),
+        // Mensaje de no resultados
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.15),
+                spreadRadius: 1,
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ),
-        // Capa difuminada
-        Positioned.fill(
-          child: Container(color: Colors.white.withOpacity(0.85)),
-        ),
-        // Contenido central
-        Center(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Botón circular con imagen
-              GestureDetector(
-                onTap: () {
-                  _navigateToSearchResults(_searchController.text);
-                },
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        spreadRadius: 5,
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/icons/icono.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: const Color(0xFF78BF32),
-                          child: const Icon(
-                            Icons.search,
-                            size: 50,
-                            color: Colors.white,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
+              Icon(
+                Icons.search_off,
+                size: 50,
+                color: Colors.grey[400],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               Text(
-                'No se encontraron resultados para',
-                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                '"${_searchController.text}"',
+                "No encontramos resultados para '${_searchController.text}'",
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: () {
-                  _navigateToSearchResults(_searchController.text);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF78BF32),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 40,
-                    vertical: 15,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  elevation: 5,
+              const SizedBox(height: 8),
+              Text(
+                'Intenta buscando de otra manera',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
                 ),
-                child: const Text(
-                  'Buscar',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
