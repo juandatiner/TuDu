@@ -359,111 +359,188 @@ class _MyDataScreenState extends State<MyDataScreen> {
   }
 
   void _showAvatarOptionsDialog() {
+    // Variables temporales para la selección
+    String tempSelectedIcon = _selectedIcon;
+    String tempAvatarColor = _avatarColor;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Cambiar Avatar'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Selecciona un icono:'),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    'mood_happy',
-                    'man',
-                    'woman',
-                    'sports_esports',
-                    'music_note',
-                    'restaurant',
-                    'store',
-                    'home',
-                    'work',
-                    'school',
-                  ].map((iconName) {
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedIcon = iconName;
-                        });
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        width: 50,
-                        height: 50,
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Personalizar Avatar'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Vista previa del avatar
+                      Container(
+                        width: 80,
+                        height: 80,
                         decoration: BoxDecoration(
-                          color: _selectedIcon == iconName
-                              ? Colors.blue
-                              : Colors.grey[200],
+                          color: _parseColor(tempAvatarColor),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: _selectedIcon == iconName
-                                ? Colors.blue
-                                : Colors.grey,
-                            width: 2,
-                          ),
-                        ),
-                        child: Icon(
-                          _getIconData(iconName),
-                          size: 24,
-                          color: _selectedIcon == iconName
-                              ? Colors.white
-                              : Colors.black,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-                const Text('Selecciona un color:'),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    '#78BF32',
-                    '#FF5733',
-                    '#3357FF',
-                    '#FF33F5',
-                    '#33FFF5',
-                    '#FFC300',
-                    '#900C3F',
-                    '#1ABC9C',
-                    '#8E44AD',
-                    '#2C3E50',
-                  ].map((color) {
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _avatarColor = color;
-                        });
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: _parseColor(color),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _avatarColor == color
-                                ? Colors.black
-                                : Colors.transparent,
+                            color: Colors.white,
                             width: 3,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.3),
+                              spreadRadius: 2,
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          _getIconData(tempSelectedIcon),
+                          size: 40,
+                          color: Colors.white,
                         ),
                       ),
-                    );
-                  }).toList(),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Selecciona un icono:',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          'mood_happy',
+                          'man',
+                          'woman',
+                          'sports_esports',
+                          'music_note',
+                          'restaurant',
+                          'store',
+                          'home',
+                          'work',
+                          'school',
+                        ].map((iconName) {
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(() {
+                                tempSelectedIcon = iconName;
+                              });
+                            },
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: tempSelectedIcon == iconName
+                                    ? _parseColor(tempAvatarColor)
+                                    : Colors.grey[200],
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: tempSelectedIcon == iconName
+                                      ? _parseColor(tempAvatarColor)
+                                      : Colors.grey,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Icon(
+                                _getIconData(iconName),
+                                size: 22,
+                                color: tempSelectedIcon == iconName
+                                    ? Colors.white
+                                    : Colors.black54,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Selecciona un color:',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          '#78BF32',
+                          '#FF5733',
+                          '#3357FF',
+                          '#FF33F5',
+                          '#33FFF5',
+                          '#FFC300',
+                          '#900C3F',
+                          '#1ABC9C',
+                          '#8E44AD',
+                          '#2C3E50',
+                        ].map((color) {
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(() {
+                                tempAvatarColor = color;
+                              });
+                            },
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: _parseColor(color),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: tempAvatarColor == color
+                                      ? Colors.black
+                                      : Colors.transparent,
+                                  width: 3,
+                                ),
+                                boxShadow: tempAvatarColor == color
+                                    ? [
+                                        BoxShadow(
+                                          color: _parseColor(color)
+                                              .withOpacity(0.4),
+                                          spreadRadius: 2,
+                                          blurRadius: 4,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancelar',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedIcon = tempSelectedIcon;
+                      _avatarColor = tempAvatarColor;
+                    });
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF78BF32),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Confirmar'),
                 ),
               ],
-            ),
-          ),
+            );
+          },
         );
       },
     );
