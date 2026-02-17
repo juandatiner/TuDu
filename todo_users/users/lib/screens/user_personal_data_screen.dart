@@ -947,9 +947,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                               ? null
                               : _saveUserData,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _hasChanges()
-                                ? const Color(0xFF78BF32)
-                                : Colors.grey,
+                            backgroundColor: const Color(0xFF78BF32),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -965,17 +963,26 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : Text(
-                                  _hasChanges()
-                                      ? 'Guardar Cambios'
-                                      : 'Aún no has hecho cambios',
-                                  style: const TextStyle(
+                              : const Text(
+                                  'Guardar Cambios',
+                                  style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                         ),
                       ),
+                      if (!_hasChanges())
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            'Aún no has hecho cambios',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 20),
                     ],
                   ),
