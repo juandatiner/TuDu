@@ -80,6 +80,194 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
         });
       }
     });
+
+  // Crear tabla de departamentos de Colombia si no existe
+  usersDb.run(`CREATE TABLE IF NOT EXISTS departments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla departments:', err.message);
+      } else {
+        console.log('Tabla departments lista');
+        // Insertar departamentos de Colombia si la tabla está vacía
+        usersDb.get(`SELECT COUNT(*) as count FROM departments`, (err, row) => {
+          if (err) {
+            console.error('Error contando departamentos:', err.message);
+          } else if (row.count === 0) {
+            const departments = [
+              'Amazonas', 'Antioquia', 'Arauca', 'Atlántico', 'Bogotá', 'Bolívar', 
+              'Boyacá', 'Caldas', 'Caquetá', 'Casanare', 'Cauca', 'Cesar', 
+              'Chocó', 'Córdoba', 'Cundinamarca', 'Guainía', 'Guaviare', 'Huila', 
+              'La Guajira', 'Magdalena', 'Meta', 'Nariño', 'Putumayo', 'Quindío', 
+              'Risaralda', 'San Andrés y Providencia', 'Santander', 'Sucre', 
+              'Tolima', 'Valle del Cauca', 'Vaupés', 'Vichada'
+            ];
+            
+            const stmt = usersDb.prepare(`INSERT INTO departments (name) VALUES (?)`);
+            departments.forEach(dept => stmt.run(dept));
+            stmt.finalize();
+            console.log('Departamentos de Colombia insertados');
+          }
+        });
+      }
+    });
+
+  // Crear tabla de ciudades de Colombia si no existe
+  usersDb.run(`CREATE TABLE IF NOT EXISTS cities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      department_id INTEGER,
+      FOREIGN KEY (department_id) REFERENCES departments(id),
+      UNIQUE(name, department_id)
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla cities:', err.message);
+      } else {
+        console.log('Tabla cities lista');
+        // Insertar ciudades principales si la tabla está vacía
+        usersDb.get(`SELECT COUNT(*) as count FROM cities`, (err, row) => {
+          if (err) {
+            console.error('Error contando ciudades:', err.message);
+          } else if (row.count === 0) {
+            const cities = [
+              // Antioquia
+              {'name': 'Medellín', 'department': 'Antioquia'},
+              {'name': 'Bello', 'department': 'Antioquia'},
+              {'name': 'Itagüí', 'department': 'Antioquia'},
+              {'name': 'Envigado', 'department': 'Antioquia'},
+              // Bogotá
+              {'name': 'Bogotá', 'department': 'Bogotá'},
+              // Atlántico
+              {'name': 'Barranquilla', 'department': 'Atlántico'},
+              // Valle del Cauca
+              {'name': 'Cali', 'department': 'Valle del Cauca'},
+              // Bolívar
+              {'name': 'Cartagena', 'department': 'Bolívar'},
+              // Cesar
+              {'name': 'Valledupar', 'department': 'Cesar'},
+              // Magdalena
+              {'name': 'Santa Marta', 'department': 'Magdalena'},
+              // Cundinamarca
+              {'name': 'Soacha', 'department': 'Cundinamarca'},
+              {'name': 'Zipaquirá', 'department': 'Cundinamarca'},
+              {'name': 'Facatativá', 'department': 'Cundinamarca'},
+              // Santander
+              {'name': 'Bucaramanga', 'department': 'Santander'},
+              {'name': 'Floridablanca', 'department': 'Santander'},
+              {'name': 'Piedecuesta', 'department': 'Santander'},
+              // Nariño
+              {'name': 'Pasto', 'department': 'Nariño'},
+              // Norte de Santander
+              {'name': 'Cúcuta', 'department': 'Norte de Santander'},
+              // Meta
+              {'name': 'Villavicencio', 'department': 'Meta'},
+              // Huila
+              {'name': 'Neiva', 'department': 'Huila'},
+              // Caldas
+              {'name': 'Manizales', 'department': 'Caldas'},
+              // Risaralda
+              {'name': 'Pereira', 'department': 'Risaralda'},
+              // Quindío
+              {'name': 'Armenia', 'department': 'Quindío'},
+              // Tolima
+              {'name': 'Ibagué', 'department': 'Tolima'},
+              // Boyacá
+              {'name': 'Tunja', 'department': 'Boyacá'},
+              // Cauca
+              {'name': 'Popayán', 'department': 'Cauca'},
+              // Casanare
+              {'name': 'Yopal', 'department': 'Casanare'},
+              // Arauca
+              {'name': 'Arauca', 'department': 'Arauca'},
+              // Vaupés
+              {'name': 'Mitú', 'department': 'Vaupés'},
+              // Vichada
+              {'name': 'Puerto Carreño', 'department': 'Vichada'},
+              // Guainía
+              {'name': 'Puerto Inírida', 'department': 'Guainía'},
+              // Guaviare
+              {'name': 'San José del Guaviare', 'department': 'Guaviare'},
+              // Putumayo
+              {'name': 'Mocoa', 'department': 'Putumayo'},
+              // Caquetá
+              {'name': 'Florencia', 'department': 'Caquetá'},
+              // Amazonas
+              {'name': 'Leticia', 'department': 'Amazonas'},
+              // Chocó
+              {'name': 'Quibdó', 'department': 'Chocó'},
+              // La Guajira
+              {'name': 'Riohacha', 'department': 'La Guajira'},
+              // Sucre
+              {'name': 'Sincelejo', 'department': 'Sucre'},
+              // Córdoba
+              {'name': 'Montería', 'department': 'Córdoba'},
+              // San Andrés y Providencia
+              {'name': 'San Andrés', 'department': 'San Andrés y Providencia'}
+            ];
+            
+            cities.forEach(city => {
+              usersDb.get(`SELECT id FROM departments WHERE name = ?`, [city.department], (err, deptRow) => {
+                if (err) {
+                  console.error('Error buscando departamento:', err.message);
+                } else if (deptRow) {
+                  usersDb.run(`INSERT INTO cities (name, department_id) VALUES (?, ?)`, [city.name, deptRow.id]);
+                }
+              });
+            });
+            console.log('Ciudades principales de Colombia insertadas');
+          }
+        });
+      }
+    });
+
+  // Crear tabla de direcciones de usuarios si no existe
+  usersDb.run(`CREATE TABLE IF NOT EXISTS user_addresses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_email TEXT NOT NULL,
+      address_name TEXT NOT NULL,
+      department_id INTEGER,
+      city_id INTEGER,
+      type_via TEXT,
+      number_principal INTEGER,
+      number_secondary INTEGER,
+      number_final INTEGER,
+      additional_info TEXT,
+      address_icon TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_email) REFERENCES users(email),
+      FOREIGN KEY (department_id) REFERENCES departments(id),
+      FOREIGN KEY (city_id) REFERENCES cities(id)
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla user_addresses:', err.message);
+      } else {
+        console.log('Tabla user_addresses lista');
+        // Agregar columnas nuevas si no existen (para bases de datos existentes)
+        const columnsToAdd = [
+          'department_id INTEGER',
+          'city_id INTEGER',
+          'type_via TEXT',
+          'number_principal INTEGER',
+          'number_secondary INTEGER',
+          'number_final INTEGER',
+          'additional_info TEXT',
+          'address_icon TEXT'
+        ];
+        
+        columnsToAdd.forEach(column => {
+          const columnName = column.split(' ')[0];
+          usersDb.run(`ALTER TABLE user_addresses ADD COLUMN ${column}`, (err) => {
+            if (err && !err.message.includes('duplicate column')) {
+              console.error(`Error agregando columna ${columnName}:`, err.message);
+            }
+          });
+        });
+        
+        // Agregar foreign keys si no existen (no es posible directamente en SQLite, se crea una nueva tabla y se copian los datos)
+        // Esto se puede omitir para este ejemplo
+      }
+    });
   }
 });
 
@@ -477,6 +665,181 @@ app.put('/services-in-search/:id/assign', (req, res) => {
       return res.status(404).json({ error: 'Servicio no encontrado' });
     }
     res.json({ message: 'Servicio asignado exitosamente' });
+  });
+});
+
+// Endpoint para obtener direcciones de un usuario con información de departamento y ciudad
+app.get('/user-addresses', (req, res) => {
+  const { user_email } = req.query;
+
+  if (!user_email) {
+    return res.status(400).json({ error: 'Email de usuario es requerido' });
+  }
+
+  usersDb.all(`
+    SELECT 
+      ua.*,
+      d.name as department_name,
+      c.name as city_name
+    FROM user_addresses ua
+    LEFT JOIN departments d ON ua.department_id = d.id
+    LEFT JOIN cities c ON ua.city_id = c.id
+    WHERE ua.user_email = ? 
+    ORDER BY ua.created_at ASC`, 
+  [user_email], (err, rows) => {
+    if (err) {
+      console.error('Error obteniendo direcciones:', err);
+      return res.status(500).json({ error: 'Error obteniendo direcciones' });
+    }
+    res.json({ addresses: rows });
+  });
+});
+
+// Endpoint para obtener todos los departamentos de Colombia
+app.get('/departments', (req, res) => {
+  usersDb.all(`SELECT id, name FROM departments ORDER BY name ASC`, (err, rows) => {
+    if (err) {
+      console.error('Error obteniendo departamentos:', err);
+      return res.status(500).json({ error: 'Error obteniendo departamentos' });
+    }
+    res.json({ departments: rows });
+  });
+});
+
+// Endpoint para obtener ciudades por departamento
+app.get('/cities', (req, res) => {
+  const { department_id } = req.query;
+
+  if (!department_id) {
+    return res.status(400).json({ error: 'ID de departamento es requerido' });
+  }
+
+  usersDb.all(`SELECT id, name FROM cities WHERE department_id = ? ORDER BY name ASC`, [department_id], (err, rows) => {
+    if (err) {
+      console.error('Error obteniendo ciudades:', err);
+      return res.status(500).json({ error: 'Error obteniendo ciudades' });
+    }
+    res.json({ cities: rows });
+  });
+});
+
+// Endpoint para agregar una direccion
+app.post('/user-addresses', (req, res) => {
+  const { 
+    user_email, 
+    address_name, 
+    department_id, 
+    city_id, 
+    type_via, 
+    number_principal, 
+    number_secondary, 
+    number_final, 
+    additional_info, 
+    address_icon 
+  } = req.body;
+
+  if (!user_email || !address_name || !department_id || !city_id || !type_via || !number_principal) {
+    return res.status(400).json({ error: 'Email de usuario, nombre de direccion, departamento, ciudad, tipo de via y numero principal son requeridos' });
+  }
+
+  usersDb.run(`INSERT INTO user_addresses (
+    user_email, 
+    address_name, 
+    department_id, 
+    city_id, 
+    type_via, 
+    number_principal, 
+    number_secondary, 
+    number_final, 
+    additional_info, 
+    address_icon
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+  [
+    user_email, 
+    address_name, 
+    department_id, 
+    city_id, 
+    type_via, 
+    number_principal, 
+    number_secondary, 
+    number_final, 
+    additional_info, 
+    address_icon
+  ], function(err) {
+    if (err) {
+      console.error('Error agregando direccion:', err);
+      return res.status(500).json({ error: 'Error agregando direccion' });
+    }
+    res.json({ message: 'Direccion agregada exitosamente', id: this.lastID });
+  });
+});
+
+// Endpoint para actualizar una direccion
+app.put('/user-addresses/:id', (req, res) => {
+  const { id } = req.params;
+  const { 
+    address_name, 
+    department_id, 
+    city_id, 
+    type_via, 
+    number_principal, 
+    number_secondary, 
+    number_final, 
+    additional_info, 
+    address_icon 
+  } = req.body;
+
+  if (!address_name || !department_id || !city_id || !type_via || !number_principal) {
+    return res.status(400).json({ error: 'Nombre de direccion, departamento, ciudad, tipo de via y numero principal son requeridos' });
+  }
+
+  usersDb.run(`UPDATE user_addresses SET 
+    address_name = ?, 
+    department_id = ?, 
+    city_id = ?, 
+    type_via = ?, 
+    number_principal = ?, 
+    number_secondary = ?, 
+    number_final = ?, 
+    additional_info = ?, 
+    address_icon = ? 
+    WHERE id = ?`, 
+  [
+    address_name, 
+    department_id, 
+    city_id, 
+    type_via, 
+    number_principal, 
+    number_secondary, 
+    number_final, 
+    additional_info, 
+    address_icon,
+    id
+  ], function(err) {
+    if (err) {
+      console.error('Error actualizando direccion:', err);
+      return res.status(500).json({ error: 'Error actualizando direccion' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Direccion no encontrada' });
+    }
+    res.json({ message: 'Direccion actualizada exitosamente' });
+  });
+});
+
+// Endpoint para eliminar una direccion
+app.delete('/user-addresses/:id', (req, res) => {
+  const { id } = req.params;
+
+  usersDb.run(`DELETE FROM user_addresses WHERE id = ?`, [id], function(err) {
+    if (err) {
+      console.error('Error eliminando direccion:', err);
+      return res.status(500).json({ error: 'Error eliminando direccion' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Direccion no encontrada' });
+    }
+    res.json({ message: 'Direccion eliminada exitosamente' });
   });
 });
 

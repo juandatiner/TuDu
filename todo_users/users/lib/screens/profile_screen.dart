@@ -5,6 +5,7 @@ import '../config.dart';
 import 'home_screen.dart';
 import 'user_services_screen.dart';
 import 'user_personal_data_screen.dart';
+import 'user_addresses_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userEmail;
@@ -280,7 +281,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: Icons.location_on_outlined,
                         title: 'Mis direcciones',
                         onTap: () {
-                          // Sin funcionalidad por ahora
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => UserAddressesScreen(
+                                  userEmail: widget.userEmail),
+                            ),
+                          );
                         },
                       ),
 
