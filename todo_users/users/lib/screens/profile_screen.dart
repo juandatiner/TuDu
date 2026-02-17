@@ -40,7 +40,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
-          _userName = data['name'] ?? 'Usuario';
+          _userName =
+              '${data['nombre'] ?? ''} ${data['apellido'] ?? ''}'.trim() != ''
+                  ? '${data['nombre'] ?? ''} ${data['apellido'] ?? ''}'.trim()
+                  : 'Usuario';
           _avatarColor = data['avatar_color'] ?? '#78BF32';
           _avatarIcon = data['avatar_icon'] ?? 'person';
           _avatarImage = data['avatar_image'];
@@ -201,7 +204,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 ],
                               ),
-                              child: _avatarImage != null
+                              child: (_avatarImage != null &&
+                                      _avatarImage!.isNotEmpty)
                                   ? ClipOval(
                                       child: _avatarImage!
                                               .startsWith('data:image')

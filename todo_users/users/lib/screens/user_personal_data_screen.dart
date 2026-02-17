@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
-import 'dart:convert';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -22,10 +21,14 @@ class _MyDataScreenState extends State<MyDataScreen> {
   final _nameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
 
   String _completePhone = ''; // Teléfono completo con código de país
   String _countryCode = ''; // Código de país (ej: +57)
+  String _countryName = ''; // Nombre del país (ej: Angola)
   String _phoneNumber = ''; // Número sin código de país
+  String _initialCountryCode = 'CO'; // Código de país inicial para el selector
+  Key _phoneFieldKey = UniqueKey(); // Key para forzar reconstrucción del campo
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -35,10 +38,24 @@ class _MyDataScreenState extends State<MyDataScreen> {
   bool _usePhoto = false; // true si usa foto, false si usa icono
   final ImagePicker _picker = ImagePicker();
 
+  // Datos originales del usuario para comparar cambios
+  String? _originalName;
+  String? _originalLastName;
+  String? _originalPhone;
+  String? _originalAvatarColor;
+  String? _originalAvatarIcon;
+  String? _originalAvatarImage;
+  bool? _originalUsePhoto;
+
   @override
   void initState() {
     super.initState();
     _emailController.text = widget.userEmail;
+
+    // Agregar listeners a los controladores de texto para detectar cambios
+    _nameController.addListener(() => setState(() {}));
+    _lastNameController.addListener(() => setState(() {}));
+
     _loadUserData();
   }
 
@@ -47,10 +64,27 @@ class _MyDataScreenState extends State<MyDataScreen> {
     _nameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
   String? _avatarImage; // URL de la imagen de perfil existente
+
+  /// Obtiene el código ISO del país desde el código de marcación usando la API
+  Future<String> _getCountryCodeFromDialCode(String dialCode) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${Config.baseUrl}/countries/by-dial/$dialCode'),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['iso_code'] ?? 'CO';
+      }
+    } catch (e) {
+      print('Error obteniendo país: $e');
+    }
+    return 'CO';
+  }
 
   Future<void> _loadUserData() async {
     try {
@@ -60,25 +94,66 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final fullName = data['name'] ?? '';
-        final nameParts = fullName.split(' ');
 
         setState(() {
-          _nameController.text = nameParts.isNotEmpty ? nameParts[0] : '';
-          _lastNameController.text =
-              nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+          _nameController.text = data['nombre'] ?? '';
+          _lastNameController.text = data['apellido'] ?? '';
           _avatarColor = data['avatar_color'] ?? '#78BF32';
           _selectedIcon = data['avatar_icon'] ?? 'person';
           _avatarImage = data['avatar_image'];
+          _completePhone = data['phone'] ?? '';
+
+          // Cargar datos separados si están disponibles
+          final countryCodeFromDb = data['country_code'];
+          final countryNameFromDb = data['country_name'];
+          final phoneNumberFromDb = data['phone_number'];
+
+          if (countryCodeFromDb != null &&
+              countryCodeFromDb.isNotEmpty &&
+              phoneNumberFromDb != null &&
+              phoneNumberFromDb.isNotEmpty) {
+            // Usar los datos separados de la BD
+            _countryCode = countryCodeFromDb;
+            _countryName = countryNameFromDb ?? '';
+            _phoneNumber = phoneNumberFromDb;
+            _phoneController.text = _phoneNumber;
+            // Obtener el código ISO del país desde el código de marcación
+            _initialCountryCode = 'CO'; // Temporal, se actualizará después
+            _phoneFieldKey = UniqueKey();
+          } else if (_completePhone.isNotEmpty) {
+            // Fallback: el widget IntlPhoneField manejará el parseo
+            _phoneController.text = '';
+            _initialCountryCode = 'CO';
+          } else {
+            _phoneController.text = '';
+            _initialCountryCode = 'CO'; // Colombia por defecto
+          }
+
           // Si hay una imagen de perfil, marcar que se usa foto
           if (data['avatar_image'] != null) {
             _usePhoto = true;
           }
+
+          // Guardar datos originales
+          _originalName = data['nombre'] ?? '';
+          _originalLastName = data['apellido'] ?? '';
+          _originalAvatarColor = data['avatar_color'] ?? '#78BF32';
+          _originalAvatarIcon = data['avatar_icon'] ?? 'person';
+          _originalAvatarImage = data['avatar_image'];
+          _originalUsePhoto = data['avatar_image'] != null;
+          _originalPhone = data['phone'] ?? '';
+
           _isLoading = false;
         });
 
-        // Cargar teléfono si existe
-        _loadUserPhone();
+        // Si hay código de país, obtener el código ISO desde la API
+        if (_countryCode.isNotEmpty) {
+          final isoCode = await _getCountryCodeFromDialCode(_countryCode);
+          setState(() {
+            _initialCountryCode = isoCode;
+            _phoneFieldKey = UniqueKey();
+          });
+        }
       } else {
         setState(() {
           _isLoading = false;
@@ -103,6 +178,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
         final phone = data['phone'] ?? '';
         setState(() {
           _completePhone = phone;
+          _originalPhone = phone;
         });
       }
     } catch (e) {
@@ -127,6 +203,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
           'nombre': _nameController.text.trim(),
           'apellido': _lastNameController.text.trim(),
           'phone': _completePhone,
+          'country_code': _countryCode,
+          'country_name': _countryName,
+          'phone_number': _phoneNumber,
         }),
       );
 
@@ -477,6 +556,24 @@ class _MyDataScreenState extends State<MyDataScreen> {
     }
   }
 
+  bool _hasChanges() {
+    // Comparar datos básicos
+    if (_nameController.text.trim() != _originalName) return true;
+    if (_lastNameController.text.trim() != _originalLastName) return true;
+    if (_completePhone != _originalPhone) return true;
+
+    // Comparar avatar
+    if (_avatarColor != _originalAvatarColor) return true;
+    if (_selectedIcon != _originalAvatarIcon) return true;
+    if (_usePhoto != _originalUsePhoto) return true;
+    if (_usePhoto && _avatarImage != _originalAvatarImage) return true;
+
+    // Comparar imagen seleccionada
+    if (_selectedImage != null) return true;
+
+    return false;
+  }
+
   Color _parseColor(String hexColor) {
     hexColor = hexColor.replaceAll('#', '');
     return Color(int.parse('FF$hexColor', radix: 16));
@@ -537,26 +634,28 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                 ),
                               ],
                             ),
-                            child: _selectedImage != null
-                                ? ClipOval(
-                                    child: Image.file(
-                                      File(_selectedImage!.path),
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                : _avatarImage != null
+                            child: _usePhoto
+                                ? (_selectedImage != null
                                     ? ClipOval(
-                                        child: Image.memory(
-                                          base64Decode(
-                                              _avatarImage!.split(',')[1]),
+                                        child: Image.file(
+                                          File(_selectedImage!.path),
                                           fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) {
-                                            return _getIconWidget();
-                                          },
                                         ),
                                       )
-                                    : _getIconWidget(),
+                                    : _avatarImage != null
+                                        ? ClipOval(
+                                            child: Image.memory(
+                                              base64Decode(
+                                                  _avatarImage!.split(',')[1]),
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                return _getIconWidget();
+                                              },
+                                            ),
+                                          )
+                                        : _getIconWidget())
+                                : _getIconWidget(),
                           ),
                           GestureDetector(
                             onTap: _showAvatarOptions,
@@ -712,7 +811,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           ],
                         ),
                         child: IntlPhoneField(
-                          initialValue: _completePhone,
+                          key: _phoneFieldKey,
+                          controller: _phoneController,
                           decoration: const InputDecoration(
                             labelText: 'Teléfono',
                             labelStyle: TextStyle(color: Colors.grey),
@@ -730,17 +830,23 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           dropdownIconPosition: IconPosition.trailing,
                           showCountryFlag: true,
                           showDropdownIcon: true,
-                          initialCountryCode: 'CO', // Colombia por defecto
+                          initialCountryCode: _initialCountryCode,
                           onChanged: (phone) {
                             setState(() {
                               _completePhone = phone.completeNumber;
+                              // phone.countryCode es el código de marcación (ej: +57)
                               _countryCode = phone.countryCode;
                               _phoneNumber = phone.number;
                             });
                           },
                           onCountryChanged: (country) {
+                            // Al cambiar de país, limpiar el número
                             setState(() {
                               _countryCode = '+${country.dialCode}';
+                              _countryName = country.name;
+                              _phoneNumber = '';
+                              _completePhone = '';
+                              _phoneController.clear();
                             });
                           },
                           validator: (phone) {
@@ -760,9 +866,13 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         width: double.infinity,
                         height: 56,
                         child: ElevatedButton(
-                          onPressed: _isSaving ? null : _saveUserData,
+                          onPressed: _isSaving || !_hasChanges()
+                              ? null
+                              : _saveUserData,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF78BF32),
+                            backgroundColor: _hasChanges()
+                                ? const Color(0xFF78BF32)
+                                : Colors.grey,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -778,9 +888,11 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text(
-                                  'Guardar Cambios',
-                                  style: TextStyle(
+                              : Text(
+                                  _hasChanges()
+                                      ? 'Guardar Cambios'
+                                      : 'Aún no has hecho cambios',
+                                  style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                   ),
