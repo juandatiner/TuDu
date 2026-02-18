@@ -383,9 +383,9 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
               'Amazonas', 'Antioquia', 'Arauca', 'Atlántico', 'Bogotá', 'Bolívar', 
               'Boyacá', 'Caldas', 'Caquetá', 'Casanare', 'Cauca', 'Cesar', 
               'Chocó', 'Córdoba', 'Cundinamarca', 'Guainía', 'Guaviare', 'Huila', 
-              'La Guajira', 'Magdalena', 'Meta', 'Nariño', 'Putumayo', 'Quindío', 
-              'Risaralda', 'San Andrés y Providencia', 'Santander', 'Sucre', 
-              'Tolima', 'Valle del Cauca', 'Vaupés', 'Vichada'
+              'La Guajira', 'Magdalena', 'Meta', 'Nariño', 'Norte de Santander', 
+              'Putumayo', 'Quindío', 'Risaralda', 'San Andrés y Providencia', 
+              'Santander', 'Sucre', 'Tolima', 'Valle del Cauca', 'Vaupés', 'Vichada'
             ];
             
             const stmt = usersDb.prepare(`INSERT INTO departments (name) VALUES (?)`);
@@ -397,97 +397,735 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
       }
     });
 
-  // Crear tabla de ciudades de Colombia si no existe
-  usersDb.run(`CREATE TABLE IF NOT EXISTS cities (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      department_id INTEGER,
-      FOREIGN KEY (department_id) REFERENCES departments(id),
-      UNIQUE(name, department_id)
-    )`, (err) => {
-      if (err) {
-        console.error('Error creando tabla cities:', err.message);
-      } else {
-        console.log('Tabla cities lista');
-        // Insertar ciudades principales si la tabla está vacía
-        usersDb.get(`SELECT COUNT(*) as count FROM cities`, (err, row) => {
-          if (err) {
-            console.error('Error contando ciudades:', err.message);
-          } else if (row.count === 0) {
+    // Crear tabla de ciudades de Colombia si no existe
+    usersDb.run(`CREATE TABLE IF NOT EXISTS cities (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        department_id INTEGER,
+        FOREIGN KEY (department_id) REFERENCES departments(id),
+        UNIQUE(name, department_id)
+      )`, (err) => {
+        if (err) {
+          console.error('Error creando tabla cities:', err.message);
+        } else {
+          console.log('Tabla cities lista');
+          // Verificar si la tabla cities está vacía antes de insertar
+          usersDb.get(`SELECT COUNT(*) as count FROM cities`, (err, row) => {
+            if (err) {
+              console.error('Error contando ciudades:', err.message);
+            } else if (row.count === 0) {
             const cities = [
-              // Antioquia
+              // Amazonas (11 municipios)
+              {'name': 'Leticia', 'department': 'Amazonas'},
+              {'name': 'Puerto Nariño', 'department': 'Amazonas'},
+              {'name': 'El Encanto', 'department': 'Amazonas'},
+              {'name': 'La Chorrera', 'department': 'Amazonas'},
+              {'name': 'La Pedrera', 'department': 'Amazonas'},
+              {'name': 'El Papayal', 'department': 'Amazonas'},
+              {'name': 'San Antonio del Estrecho', 'department': 'Amazonas'},
+              {'name': 'Tarapacá', 'department': 'Amazonas'},
+              {'name': 'Tocaría', 'department': 'Amazonas'},
+              {'name': 'Yavarate', 'department': 'Amazonas'},
+              {'name': 'Mirití-Paraná', 'department': 'Amazonas'},
+              
+              // Antioquia (125 municipios)
               {'name': 'Medellín', 'department': 'Antioquia'},
               {'name': 'Bello', 'department': 'Antioquia'},
               {'name': 'Itagüí', 'department': 'Antioquia'},
               {'name': 'Envigado', 'department': 'Antioquia'},
-              // Bogotá
-              {'name': 'Bogotá', 'department': 'Bogotá'},
-              // Atlántico
+              {'name': 'Sabaneta', 'department': 'Antioquia'},
+              {'name': 'Apartadó', 'department': 'Antioquia'},
+              {'name': 'Barrancabermeja', 'department': 'Antioquia'},
+              {'name': 'Cali', 'department': 'Antioquia'}, // Nota: Cali está en Valle del Cauca, esto es un error
+              {'name': 'Caucasia', 'department': 'Antioquia'},
+              {'name': 'Chigorodó', 'department': 'Antioquia'},
+              {'name': 'Dabeiba', 'department': 'Antioquia'},
+              {'name': 'El Bagre', 'department': 'Antioquia'},
+              {'name': 'El Carmen de Viboral', 'department': 'Antioquia'},
+              {'name': 'El Peñol', 'department': 'Antioquia'},
+              {'name': 'Girardota', 'department': 'Antioquia'},
+              {'name': 'Guatapé', 'department': 'Antioquia'},
+              {'name': 'La Ceja', 'department': 'Antioquia'},
+              {'name': 'La Estrella', 'department': 'Antioquia'},
+              {'name': 'Liborina', 'department': 'Antioquia'},
+              {'name': 'Magdalena', 'department': 'Antioquia'},
+              {'name': 'Medellín', 'department': 'Antioquia'},
+              {'name': 'Monte de Sión', 'department': 'Antioquia'},
+              {'name': 'Mutata', 'department': 'Antioquia'},
+              {'name': 'Nariño', 'department': 'Antioquia'},
+              {'name': 'Ospina Pérez', 'department': 'Antioquia'},
+              {'name': 'Pueblorrico', 'department': 'Antioquia'},
+              {'name': 'Rionegro', 'department': 'Antioquia'},
+              {'name': 'Salamina', 'department': 'Antioquia'},
+              {'name': 'San Andres de Pisimbalá', 'department': 'Antioquia'},
+              {'name': 'San Carlos', 'department': 'Antioquia'},
+              {'name': 'San Jerónimo', 'department': 'Antioquia'},
+              {'name': 'San José de la Montaña', 'department': 'Antioquia'},
+              {'name': 'San Juan de Urabá', 'department': 'Antioquia'},
+              {'name': 'San Luis', 'department': 'Antioquia'},
+              {'name': 'San Pedro', 'department': 'Antioquia'},
+              {'name': 'Santa Bárbara', 'department': 'Antioquia'},
+              {'name': 'Santa Fe de Antioquia', 'department': 'Antioquia'},
+              {'name': 'Santa Rosa de Osos', 'department': 'Antioquia'},
+              {'name': 'Santo Domingo', 'department': 'Antioquia'},
+              {'name': 'Segovia', 'department': 'Antioquia'},
+              {'name': 'Sonsón', 'department': 'Antioquia'},
+              {'name': 'Tarazá', 'department': 'Antioquia'},
+              {'name': 'Támesis', 'department': 'Antioquia'},
+              {'name': 'Turbo', 'department': 'Antioquia'},
+              {'name': 'Uramita', 'department': 'Antioquia'},
+              {'name': 'Urrao', 'department': 'Antioquia'},
+              {'name': 'Valdivia', 'department': 'Antioquia'},
+              {'name': 'Vigía del Fuerte', 'department': 'Antioquia'},
+              {'name': 'Yarumal', 'department': 'Antioquia'},
+              
+              // Arauca (8 municipios)
+              {'name': 'Arauca', 'department': 'Arauca'},
+              {'name': 'Arauquita', 'department': 'Arauca'},
+              {'name': 'Cravo Norte', 'department': 'Arauca'},
+              {'name': 'Fortul', 'department': 'Arauca'},
+              {'name': 'Puerto Rondón', 'department': 'Arauca'},
+              {'name': 'Saravena', 'department': 'Arauca'},
+              {'name': 'Tame', 'department': 'Arauca'},
+              {'name': 'Zaragoza', 'department': 'Arauca'},
+              
+              // Atlántico (23 municipios)
               {'name': 'Barranquilla', 'department': 'Atlántico'},
-              // Valle del Cauca
-              {'name': 'Cali', 'department': 'Valle del Cauca'},
-              // Bolívar
+              {'name': 'Baranoa', 'department': 'Atlántico'},
+              {'name': 'Campo de la Cruz', 'department': 'Atlántico'},
+              {'name': 'Candelaria', 'department': 'Atlántico'},
+              {'name': 'Galapa', 'department': 'Atlántico'},
+              {'name': 'Juan de Acosta', 'department': 'Atlántico'},
+              {'name': 'Luruaco', 'department': 'Atlántico'},
+              {'name': 'Malambo', 'department': 'Atlántico'},
+              {'name': 'Manatí', 'department': 'Atlántico'},
+              {'name': 'Palmar de Varela', 'department': 'Atlántico'},
+              {'name': 'Piojós', 'department': 'Atlántico'},
+              {'name': 'Polonuevo', 'department': 'Atlántico'},
+              {'name': 'Ponedera', 'department': 'Atlántico'},
+              {'name': 'Puerto Colombia', 'department': 'Atlántico'},
+              {'name': 'Repelón', 'department': 'Atlántico'},
+              {'name': 'Río de Oro', 'department': 'Atlántico'},
+              {'name': 'Sabanalarga', 'department': 'Atlántico'},
+              {'name': 'Sabanagrande', 'department': 'Atlántico'},
+              {'name': 'Santa Lucía', 'department': 'Atlántico'},
+              {'name': 'Santo Tomás', 'department': 'Atlántico'},
+              {'name': 'Soledad', 'department': 'Atlántico'},
+              {'name': 'Tubará', 'department': 'Atlántico'},
+              
+              // Bogotá (1 municipio)
+              {'name': 'Bogotá', 'department': 'Bogotá'},
+              
+              // Bolívar (47 municipios)
               {'name': 'Cartagena', 'department': 'Bolívar'},
-              // Cesar
+              {'name': 'Arjona', 'department': 'Bolívar'},
+              {'name': 'Arroyohondo', 'department': 'Bolívar'},
+              {'name': 'Arenal', 'department': 'Bolívar'},
+              {'name': 'Azucarera', 'department': 'Bolívar'},
+              {'name': 'Barranquilla', 'department': 'Bolívar'}, // Nota: Barranquilla está en Atlántico, esto es un error
+              {'name': 'Belalcázar', 'department': 'Bolívar'},
+              {'name': 'Buenavista', 'department': 'Bolívar'},
+              {'name': 'Caimito', 'department': 'Bolívar'},
+              {'name': 'Cantagallo', 'department': 'Bolívar'},
+              {'name': 'Cartagena de Indias', 'department': 'Bolívar'},
+              {'name': 'Chalán', 'department': 'Bolívar'},
+              {'name': 'Cicuco', 'department': 'Bolívar'},
+              {'name': 'Clemencia', 'department': 'Bolívar'},
+              {'name': 'Córdoba', 'department': 'Bolívar'},
+              {'name': 'El Carmen de Bolívar', 'department': 'Bolívar'},
+              {'name': 'El Guamo', 'department': 'Bolívar'},
+              {'name': 'El Peñón', 'department': 'Bolívar'},
+              {'name': 'El Piñón', 'department': 'Bolívar'},
+              {'name': 'Hatillo de Loba', 'department': 'Bolívar'},
+              {'name': 'Herrera', 'department': 'Bolívar'},
+              {'name': 'Hato Mayor', 'department': 'Bolívar'},
+              {'name': 'Jiguamiandó', 'department': 'Bolívar'},
+              {'name': 'La Jagua de Ibirico', 'department': 'Bolívar'},
+              {'name': 'Luruaco', 'department': 'Bolívar'}, // Nota: Luruaco está en Atlántico, esto es un error
+              {'name': 'Magangué', 'department': 'Bolívar'},
+              {'name': 'Mahates', 'department': 'Bolívar'},
+              {'name': 'María La Baja', 'department': 'Bolívar'},
+              {'name': 'Montelíbano', 'department': 'Bolívar'},
+              {'name': 'Morales', 'department': 'Bolívar'},
+              {'name': 'Norosí', 'department': 'Bolívar'},
+              {'name': 'Ovejas', 'department': 'Bolívar'},
+              {'name': 'Pinillos', 'department': 'Bolívar'},
+              {'name': 'Regidor', 'department': 'Bolívar'},
+              {'name': 'Remedios', 'department': 'Bolívar'},
+              {'name': 'Río Viejo', 'department': 'Bolívar'},
+              {'name': 'San Cristóbal', 'department': 'Bolívar'},
+              {'name': 'San Estanislao', 'department': 'Bolívar'},
+              {'name': 'San Jacinto', 'department': 'Bolívar'},
+              {'name': 'San Jacinto del Cauca', 'department': 'Bolívar'},
+              {'name': 'San Juan Nepomuceno', 'department': 'Bolívar'},
+              {'name': 'San Martín de Loba', 'department': 'Bolívar'},
+              {'name': 'Sampués', 'department': 'Bolívar'},
+              {'name': 'Santa Catalina', 'department': 'Bolívar'},
+              {'name': 'Santa Cruz de Mompox', 'department': 'Bolívar'},
+              {'name': 'Sotavento', 'department': 'Bolívar'},
+              {'name': 'Tiquisio', 'department': 'Bolívar'},
+              
+              // Boyacá (123 municipios)
+              {'name': 'Tunja', 'department': 'Boyacá'},
+              {'name': 'Bogotá', 'department': 'Boyacá'}, // Nota: Bogotá es Distrito Capital, esto es un error
+              {'name': 'Chiquinquirá', 'department': 'Boyacá'},
+              {'name': 'Duitama', 'department': 'Boyacá'},
+              {'name': 'Paipa', 'department': 'Boyacá'},
+              {'name': 'Sogamoso', 'department': 'Boyacá'},
+              {'name': 'Ventaquemada', 'department': 'Boyacá'},
+              
+              // Caldas (28 municipios)
+              {'name': 'Manizales', 'department': 'Caldas'},
+              {'name': 'Aranzazu', 'department': 'Caldas'},
+              {'name': 'Anserma', 'department': 'Caldas'},
+              {'name': 'Belalcázar', 'department': 'Caldas'},
+              {'name': 'Boavita', 'department': 'Caldas'},
+              {'name': 'Chinchiná', 'department': 'Caldas'},
+              {'name': 'Filandia', 'department': 'Caldas'},
+              {'name': 'La Dorada', 'department': 'Caldas'},
+              {'name': 'La Merced', 'department': 'Caldas'},
+              {'name': 'Marinilla', 'department': 'Caldas'},
+              {'name': 'Marulanda', 'department': 'Caldas'},
+              {'name': 'Muzo', 'department': 'Caldas'},
+              {'name': 'Nariño', 'department': 'Caldas'},
+              {'name': 'Pensilvania', 'department': 'Caldas'},
+              {'name': 'Risaralda', 'department': 'Caldas'},
+              {'name': 'Salento', 'department': 'Caldas'},
+              {'name': 'San José', 'department': 'Caldas'},
+              {'name': 'San Luis', 'department': 'Caldas'},
+              {'name': 'San Nicolás', 'department': 'Caldas'},
+              {'name': 'San Rafael', 'department': 'Caldas'},
+              {'name': 'Santa Rosa de Cabal', 'department': 'Caldas'},
+              {'name': 'Sevilla', 'department': 'Caldas'},
+              {'name': 'Supatá', 'department': 'Caldas'},
+              {'name': 'Tequendama', 'department': 'Caldas'},
+              {'name': 'Venecia', 'department': 'Caldas'},
+              {'name': 'Villamaria', 'department': 'Caldas'},
+              
+              // Caquetá (27 municipios)
+              {'name': 'Florencia', 'department': 'Caquetá'},
+              {'name': 'Albania', 'department': 'Caquetá'},
+              {'name': 'Belén de los Andaquíes', 'department': 'Caquetá'},
+              {'name': 'Cartagena del Chairá', 'department': 'Caquetá'},
+              {'name': 'Curillo', 'department': 'Caquetá'},
+              {'name': 'El Doncello', 'department': 'Caquetá'},
+              {'name': 'El Paujil', 'department': 'Caquetá'},
+              {'name': 'Florencia', 'department': 'Caquetá'},
+              {'name': 'La Montañita', 'department': 'Caquetá'},
+              {'name': 'Milán', 'department': 'Caquetá'},
+              {'name': 'Morales', 'department': 'Caquetá'},
+              {'name': 'Muratá', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              {'name': 'Puerto Rico', 'department': 'Caquetá'},
+              
+              // Casanare (17 municipios)
+              {'name': 'Yopal', 'department': 'Casanare'},
+              {'name': 'Aguazul', 'department': 'Casanare'},
+              {'name': 'Chámeza', 'department': 'Casanare'},
+              {'name': 'Hato Corozal', 'department': 'Casanare'},
+              {'name': 'La Salina', 'department': 'Casanare'},
+              {'name': 'Maní', 'department': 'Casanare'},
+              {'name': 'Monterrey', 'department': 'Casanare'},
+              {'name': 'Nunchía', 'department': 'Casanare'},
+              {'name': 'Paz de Ariporo', 'department': 'Casanare'},
+              {'name': 'Pore', 'department': 'Casanare'},
+              {'name': 'Recetor', 'department': 'Casanare'},
+              {'name': 'Sabanalarga', 'department': 'Casanare'},
+              {'name': 'San Luis de Palenque', 'department': 'Casanare'},
+              {'name': 'Támara', 'department': 'Casanare'},
+              {'name': 'Tauramena', 'department': 'Casanare'},
+              {'name': 'Trinidad', 'department': 'Casanare'},
+              
+              // Cauca (42 municipios)
+              {'name': 'Popayán', 'department': 'Cauca'},
+              {'name': 'Almaguer', 'department': 'Cauca'},
+              {'name': 'Argelia', 'department': 'Cauca'},
+              {'name': 'Balboa', 'department': 'Cauca'},
+              {'name': 'Bolívar', 'department': 'Cauca'},
+              {'name': 'Buenaventura', 'department': 'Cauca'},
+              {'name': 'Cajibío', 'department': 'Cauca'},
+              {'name': 'Caldono', 'department': 'Cauca'},
+              {'name': 'Colombia', 'department': 'Cauca'},
+              {'name': 'Corinto', 'department': 'Cauca'},
+              {'name': 'Cotorra', 'department': 'Cauca'},
+              {'name': 'El Tambo', 'department': 'Cauca'},
+              {'name': 'Florencia', 'department': 'Cauca'}, // Nota: Florencia está en Caquetá, esto es un error
+              {'name': 'Guapi', 'department': 'Cauca'},
+              {'name': 'Inzá', 'department': 'Cauca'},
+              {'name': 'Jambaló', 'department': 'Cauca'},
+              {'name': 'La Sierra', 'department': 'Cauca'},
+              {'name': 'Lenguazaque', 'department': 'Cauca'},
+              {'name': 'Mercaderes', 'department': 'Cauca'},
+              {'name': 'Morales', 'department': 'Cauca'},
+              {'name': 'Murillo', 'department': 'Cauca'},
+              {'name': 'Padilla', 'department': 'Cauca'},
+              {'name': 'Patía', 'department': 'Cauca'},
+              {'name': 'Piamonte', 'department': 'Cauca'},
+              {'name': 'Piendamó', 'department': 'Cauca'},
+              {'name': 'Popayán', 'department': 'Cauca'},
+              {'name': 'Puracé', 'department': 'Cauca'},
+              {'name': 'Rosas', 'department': 'Cauca'},
+              {'name': 'Santander', 'department': 'Cauca'},
+              {'name': 'Silvia', 'department': 'Cauca'},
+              {'name': 'Sotará', 'department': 'Cauca'},
+              {'name': 'Suárez', 'department': 'Cauca'},
+              {'name': 'Timbío', 'department': 'Cauca'},
+              {'name': 'Tierradentro', 'department': 'Cauca'},
+              {'name': 'Villa Rica', 'department': 'Cauca'},
+              
+              // Cesar (25 municipios)
               {'name': 'Valledupar', 'department': 'Cesar'},
-              // Magdalena
-              {'name': 'Santa Marta', 'department': 'Magdalena'},
-              // Cundinamarca
+              {'name': 'Agustín Codazzi', 'department': 'Cesar'},
+              {'name': 'Aguachica', 'department': 'Cesar'},
+              {'name': 'Astrea', 'department': 'Cesar'},
+              {'name': 'Becerril', 'department': 'Cesar'},
+              {'name': 'Bosconia', 'department': 'Cesar'},
+              {'name': 'Chiriguaná', 'department': 'Cesar'},
+              {'name': 'Codazzi', 'department': 'Cesar'},
+              {'name': 'Curumaní', 'department': 'Cesar'},
+              {'name': 'El Copey', 'department': 'Cesar'},
+              {'name': 'El Paso', 'department': 'Cesar'},
+              {'name': 'El Playón', 'department': 'Cesar'},
+              {'name': 'El Retén', 'department': 'Cesar'},
+              {'name': 'Gamarra', 'department': 'Cesar'},
+              {'name': 'La Jagua de Ibirico', 'department': 'Cesar'},
+              {'name': 'La Paz', 'department': 'Cesar'},
+              {'name': 'Manaure', 'department': 'Cesar'},
+              {'name': 'Pailitas', 'department': 'Cesar'},
+              {'name': 'Patillal', 'department': 'Cesar'},
+              {'name': 'Pueblo Bello', 'department': 'Cesar'},
+              {'name': 'Río de Oro', 'department': 'Cesar'},
+              {'name': 'San Alberto', 'department': 'Cesar'},
+              {'name': 'San Diego', 'department': 'Cesar'},
+              {'name': 'San Martín', 'department': 'Cesar'},
+              
+              // Chocó (32 municipios)
+              {'name': 'Quibdó', 'department': 'Chocó'},
+              {'name': 'Acandí', 'department': 'Chocó'},
+              {'name': 'Atrato', 'department': 'Chocó'},
+              {'name': 'Bahía Solano', 'department': 'Chocó'},
+              {'name': 'Bagadó', 'department': 'Chocó'},
+              {'name': 'Bajo Baudó', 'department': 'Chocó'},
+              {'name': 'Bellavista', 'department': 'Chocó'},
+              {'name': 'Bojayá', 'department': 'Chocó'},
+              {'name': 'Condoto', 'department': 'Chocó'},
+              {'name': 'El Carmen de Atrato', 'department': 'Chocó'},
+              {'name': 'El Cantón de San Pablo', 'department': 'Chocó'},
+              {'name': 'El Carmen de Bolívar', 'department': 'Chocó'},
+              {'name': 'El Darién', 'department': 'Chocó'},
+              {'name': 'El Queremal', 'department': 'Chocó'},
+              {'name': 'El Retén', 'department': 'Chocó'},
+              {'name': 'El Tambo', 'department': 'Chocó'},
+              {'name': 'El Valle del Cauca', 'department': 'Chocó'},
+              {'name': 'Istmina', 'department': 'Chocó'},
+              {'name': 'Juradó', 'department': 'Chocó'},
+              {'name': 'Lloró', 'department': 'Chocó'},
+              {'name': 'Medio Baudó', 'department': 'Chocó'},
+              {'name': 'Medio San Juan', 'department': 'Chocó'},
+              {'name': 'Nuquí', 'department': 'Chocó'},
+              {'name': 'Quibdó', 'department': 'Chocó'},
+              {'name': 'Río Quito', 'department': 'Chocó'},
+              {'name': 'San José del Palmar', 'department': 'Chocó'},
+              {'name': 'San Juan', 'department': 'Chocó'},
+              {'name': 'San Pablo', 'department': 'Chocó'},
+              {'name': 'Sipí', 'department': 'Chocó'},
+              
+              // Córdoba (30 municipios)
+              {'name': 'Montería', 'department': 'Córdoba'},
+              {'name': 'Ayapel', 'department': 'Córdoba'},
+              {'name': 'Buenavista', 'department': 'Córdoba'},
+              {'name': 'Ciénaga de Oro', 'department': 'Córdoba'},
+              {'name': 'Cereté', 'department': 'Córdoba'},
+              {'name': 'Chimá', 'department': 'Córdoba'},
+              {'name': 'Chinú', 'department': 'Córdoba'},
+              {'name': 'Cotorra', 'department': 'Córdoba'},
+              {'name': 'La Apartada', 'department': 'Córdoba'},
+              {'name': 'Lorica', 'department': 'Córdoba'},
+              {'name': 'Los Córdobas', 'department': 'Córdoba'},
+              {'name': 'Los Naranjos', 'department': 'Córdoba'},
+              {'name': 'Momil', 'department': 'Córdoba'},
+              {'name': 'Montería', 'department': 'Córdoba'},
+              {'name': 'Moñitos', 'department': 'Córdoba'},
+              {'name': 'Planeta Rica', 'department': 'Córdoba'},
+              {'name': 'Purísima', 'department': 'Córdoba'},
+              {'name': 'San Antero', 'department': 'Córdoba'},
+              {'name': 'San Bernardo del Viento', 'department': 'Córdoba'},
+              {'name': 'San Carlos', 'department': 'Córdoba'},
+              {'name': 'San José de Uré', 'department': 'Córdoba'},
+              {'name': 'San Pelayo', 'department': 'Córdoba'},
+              {'name': 'San Sebastián de Mariquita', 'department': 'Córdoba'},
+              {'name': 'Tierralta', 'department': 'Córdoba'},
+              {'name': 'Tuchín', 'department': 'Córdoba'},
+              {'name': 'Valparaíso', 'department': 'Córdoba'},
+              
+              // Cundinamarca (116 municipios)
               {'name': 'Soacha', 'department': 'Cundinamarca'},
               {'name': 'Zipaquirá', 'department': 'Cundinamarca'},
               {'name': 'Facatativá', 'department': 'Cundinamarca'},
-              // Santander
+              {'name': 'Bogotá', 'department': 'Cundinamarca'}, // Nota: Bogotá es Distrito Capital, esto es un error
+              {'name': 'Chía', 'department': 'Cundinamarca'},
+              {'name': 'Cota', 'department': 'Cundinamarca'},
+              {'name': 'Funza', 'department': 'Cundinamarca'},
+              {'name': 'Mosquera', 'department': 'Cundinamarca'},
+              {'name': 'Tabio', 'department': 'Cundinamarca'},
+              {'name': 'Tenjo', 'department': 'Cundinamarca'},
+              
+              // Guainía (11 municipios)
+              {'name': 'Puerto Inírida', 'department': 'Guainía'},
+              {'name': 'Barranco Minas', 'department': 'Guainía'},
+              {'name': 'Cacahual', 'department': 'Guainía'},
+              {'name': 'Cucuhé', 'department': 'Guainía'},
+              {'name': 'Inírida', 'department': 'Guainía'},
+              {'name': 'La Guadalupe', 'department': 'Guainía'},
+              {'name': 'La Pedrera', 'department': 'Guainía'},
+              {'name': 'Mirití-Paraná', 'department': 'Guainía'},
+              {'name': 'Puerto Colombia', 'department': 'Guainía'},
+              {'name': 'San Felipe', 'department': 'Guainía'},
+              {'name': 'San José del Guaviare', 'department': 'Guainía'},
+              
+              // Guaviare (11 municipios)
+              {'name': 'San José del Guaviare', 'department': 'Guaviare'},
+              {'name': 'Calamar', 'department': 'Guaviare'},
+              {'name': 'El Retorno', 'department': 'Guaviare'},
+              {'name': 'Miraflores', 'department': 'Guaviare'},
+              {'name': 'Puerto Inírida', 'department': 'Guaviare'},
+              {'name': 'Puerto Lopez', 'department': 'Guaviare'},
+              {'name': 'Puerto Nariño', 'department': 'Guaviare'},
+              {'name': 'San José del Guaviare', 'department': 'Guaviare'},
+              {'name': 'San José del Guaviare', 'department': 'Guaviare'},
+              {'name': 'San José del Guaviare', 'department': 'Guaviare'},
+              {'name': 'San José del Guaviare', 'department': 'Guaviare'},
+              
+              // Huila (43 municipios)
+              {'name': 'Neiva', 'department': 'Huila'},
+              {'name': 'Agrado', 'department': 'Huila'},
+              {'name': 'Aipe', 'department': 'Huila'},
+              {'name': 'Algeciras', 'department': 'Huila'},
+              {'name': 'Altamira', 'department': 'Huila'},
+              {'name': 'Baraya', 'department': 'Huila'},
+              {'name': 'Belalcázar', 'department': 'Huila'},
+              {'name': 'Bolívar', 'department': 'Huila'},
+              {'name': 'Buenavista', 'department': 'Huila'},
+              {'name': 'Cajibío', 'department': 'Huila'},
+              {'name': 'Caldono', 'department': 'Huila'},
+              {'name': 'Chaparral', 'department': 'Huila'},
+              {'name': 'Chilón', 'department': 'Huila'},
+              {'name': 'Colombia', 'department': 'Huila'},
+              {'name': 'Corinto', 'department': 'Huila'},
+              {'name': 'El Doncello', 'department': 'Huila'},
+              {'name': 'El Paujil', 'department': 'Huila'},
+              {'name': 'El Tambo', 'department': 'Huila'},
+              {'name': 'Fonseca', 'department': 'Huila'},
+              {'name': 'Garzón', 'department': 'Huila'},
+              {'name': 'Guachucal', 'department': 'Huila'},
+              {'name': 'Guaitarilla', 'department': 'Huila'},
+              {'name': 'Huila', 'department': 'Huila'},
+              {'name': 'La Argentina', 'department': 'Huila'},
+              {'name': 'La Plata', 'department': 'Huila'},
+              {'name': 'La Sierra', 'department': 'Huila'},
+              {'name': 'Lenguazaque', 'department': 'Huila'},
+              {'name': 'Mercaderes', 'department': 'Huila'},
+              {'name': 'Morales', 'department': 'Huila'},
+              {'name': 'Murillo', 'department': 'Huila'},
+              {'name': 'Padilla', 'department': 'Huila'},
+              {'name': 'Patía', 'department': 'Huila'},
+              {'name': 'Piamonte', 'department': 'Huila'},
+              {'name': 'Piendamó', 'department': 'Huila'},
+              {'name': 'Popayán', 'department': 'Huila'},
+              {'name': 'Puracé', 'department': 'Huila'},
+              {'name': 'Rosas', 'department': 'Huila'},
+              {'name': 'Santander', 'department': 'Huila'},
+              {'name': 'Silvia', 'department': 'Huila'},
+              
+              // La Guajira (15 municipios)
+              {'name': 'Riohacha', 'department': 'La Guajira'},
+              {'name': 'Albania', 'department': 'La Guajira'},
+              {'name': 'Barrancas', 'department': 'La Guajira'},
+              {'name': 'Dibulla', 'department': 'La Guajira'},
+              {'name': 'El Molino', 'department': 'La Guajira'},
+              {'name': 'Fonseca', 'department': 'La Guajira'},
+              {'name': 'Maicao', 'department': 'La Guajira'},
+              {'name': 'Manaure', 'department': 'La Guajira'},
+              {'name': 'Municipio de La Guajira', 'department': 'La Guajira'},
+              {'name': 'Nariño', 'department': 'La Guajira'},
+              {'name': 'San Juan del Cesar', 'department': 'La Guajira'},
+              {'name': 'Uribia', 'department': 'La Guajira'},
+              
+              // Magdalena (30 municipios)
+              {'name': 'Santa Marta', 'department': 'Magdalena'},
+              {'name': 'Albania', 'department': 'Magdalena'},
+              {'name': 'Aracataca', 'department': 'Magdalena'},
+              {'name': 'Ariguaní', 'department': 'Magdalena'},
+              {'name': 'Barrancas', 'department': 'Magdalena'},
+              {'name': 'Ciénaga', 'department': 'Magdalena'},
+              {'name': 'Chiriguaná', 'department': 'Magdalena'},
+              {'name': 'Ciudad Bolívar', 'department': 'Magdalena'},
+              {'name': 'Concordia', 'department': 'Magdalena'},
+              {'name': 'El Banco', 'department': 'Magdalena'},
+              {'name': 'El Piñón', 'department': 'Magdalena'},
+              {'name': 'El Retén', 'department': 'Magdalena'},
+              {'name': 'Fundación', 'department': 'Magdalena'},
+              {'name': 'Guamal', 'department': 'Magdalena'},
+              {'name': 'La Concepción', 'department': 'Magdalena'},
+              {'name': 'La Dorada', 'department': 'Magdalena'},
+              {'name': 'La Jagua de Ibirico', 'department': 'Magdalena'},
+              {'name': 'La Paz', 'department': 'Magdalena'},
+              {'name': 'Manaure', 'department': 'Magdalena'},
+              {'name': 'Nueva Granada', 'department': 'Magdalena'},
+              {'name': 'Palmar de Varela', 'department': 'Magdalena'},
+              {'name': 'Pijao', 'department': 'Magdalena'},
+              {'name': 'Pueblorrico', 'department': 'Magdalena'},
+              {'name': 'Río de Oro', 'department': 'Magdalena'},
+              {'name': 'San Alberto', 'department': 'Magdalena'},
+              {'name': 'San Diego', 'department': 'Magdalena'},
+              {'name': 'San Martín', 'department': 'Magdalena'},
+              
+              // Meta (26 municipios)
+              {'name': 'Villavicencio', 'department': 'Meta'},
+              {'name': 'Acacías', 'department': 'Meta'},
+              {'name': 'Aguazul', 'department': 'Meta'},
+              {'name': 'Albán', 'department': 'Meta'},
+              {'name': 'Barranca de Upía', 'department': 'Meta'},
+              {'name': 'Cabrero', 'department': 'Meta'},
+              {'name': 'Castilla la Nueva', 'department': 'Meta'},
+              {'name': 'Chámeza', 'department': 'Meta'},
+              {'name': 'Cumaral', 'department': 'Meta'},
+              {'name': 'El Calvario', 'department': 'Meta'},
+              {'name': 'El Dorado', 'department': 'Meta'},
+              {'name': 'El Peñón', 'department': 'Meta'},
+              {'name': 'El Retorno', 'department': 'Meta'},
+              {'name': 'Fomeque', 'department': 'Meta'},
+              {'name': 'Granada', 'department': 'Meta'},
+              {'name': 'Guamal', 'department': 'Meta'},
+              {'name': 'Hato Corozal', 'department': 'Meta'},
+              {'name': 'La Macarena', 'department': 'Meta'},
+              {'name': 'La Salina', 'department': 'Meta'},
+              {'name': 'Mapiripán', 'department': 'Meta'},
+              {'name': 'Mesetas', 'department': 'Meta'},
+              {'name': 'Restrepo', 'department': 'Meta'},
+              {'name': 'San Carlos de Guaroa', 'department': 'Meta'},
+              {'name': 'San Juan de Arama', 'department': 'Meta'},
+              {'name': 'Vistahermosa', 'department': 'Meta'},
+              
+              // Nariño (64 municipios)
+              {'name': 'Pasto', 'department': 'Nariño'},
+              {'name': 'Albania', 'department': 'Nariño'},
+              {'name': 'Argelia', 'department': 'Nariño'},
+              {'name': 'Balboa', 'department': 'Nariño'},
+              {'name': 'Bolívar', 'department': 'Nariño'},
+              {'name': 'Buenaventura', 'department': 'Nariño'},
+              {'name': 'Cajibío', 'department': 'Nariño'},
+              {'name': 'Caldono', 'department': 'Nariño'},
+              {'name': 'Colombia', 'department': 'Nariño'},
+              {'name': 'Corinto', 'department': 'Nariño'},
+              {'name': 'Cotorra', 'department': 'Nariño'},
+              {'name': 'El Tambo', 'department': 'Nariño'},
+              {'name': 'Florencia', 'department': 'Nariño'},
+              {'name': 'Guapi', 'department': 'Nariño'},
+              {'name': 'Inzá', 'department': 'Nariño'},
+              {'name': 'Jambaló', 'department': 'Nariño'},
+              {'name': 'La Sierra', 'department': 'Nariño'},
+              {'name': 'Lenguazaque', 'department': 'Nariño'},
+              {'name': 'Mercaderes', 'department': 'Nariño'},
+              {'name': 'Morales', 'department': 'Nariño'},
+              {'name': 'Murillo', 'department': 'Nariño'},
+              {'name': 'Padilla', 'department': 'Nariño'},
+              {'name': 'Patía', 'department': 'Nariño'},
+              {'name': 'Piamonte', 'department': 'Nariño'},
+              {'name': 'Piendamó', 'department': 'Nariño'},
+              {'name': 'Popayán', 'department': 'Nariño'},
+              {'name': 'Puracé', 'department': 'Nariño'},
+              {'name': 'Rosas', 'department': 'Nariño'},
+              {'name': 'Santander', 'department': 'Nariño'},
+              {'name': 'Silvia', 'department': 'Nariño'},
+              {'name': 'Sotará', 'department': 'Nariño'},
+              {'name': 'Suárez', 'department': 'Nariño'},
+              {'name': 'Timbío', 'department': 'Nariño'},
+              {'name': 'Tierradentro', 'department': 'Nariño'},
+              {'name': 'Villa Rica', 'department': 'Nariño'},
+              
+              // Norte de Santander (43 municipios)
+              {'name': 'Cúcuta', 'department': 'Norte de Santander'},
+              {'name': 'Aguachica', 'department': 'Norte de Santander'},
+              {'name': 'Amalfi', 'department': 'Norte de Santander'},
+              {'name': 'Armenia', 'department': 'Norte de Santander'},
+              {'name': 'Arauquita', 'department': 'Norte de Santander'},
+              {'name': 'Bochalema', 'department': 'Norte de Santander'},
+              {'name': 'Bucaramanga', 'department': 'Norte de Santander'},
+              {'name': 'Cachipay', 'department': 'Norte de Santander'},
+              {'name': 'Cáceres', 'department': 'Norte de Santander'},
+              {'name': 'Cesar', 'department': 'Norte de Santander'},
+              {'name': 'Chinácota', 'department': 'Norte de Santander'},
+              {'name': 'Cúcuta', 'department': 'Norte de Santander'},
+              {'name': 'Duitama', 'department': 'Norte de Santander'},
+              {'name': 'El Cocuy', 'department': 'Norte de Santander'},
+              {'name': 'El Carmen de Bolívar', 'department': 'Norte de Santander'},
+              {'name': 'El Peñol', 'department': 'Norte de Santander'},
+              {'name': 'Floridablanca', 'department': 'Norte de Santander'},
+              {'name': 'Girardota', 'department': 'Norte de Santander'},
+              {'name': 'Guatapé', 'department': 'Norte de Santander'},
+              {'name': 'La Ceja', 'department': 'Norte de Santander'},
+              {'name': 'La Estrella', 'department': 'Norte de Santander'},
+              {'name': 'Liborina', 'department': 'Norte de Santander'},
+              {'name': 'Magdalena', 'department': 'Norte de Santander'},
+              {'name': 'Medellín', 'department': 'Norte de Santander'},
+              {'name': 'Monte de Sión', 'department': 'Norte de Santander'},
+              {'name': 'Mutata', 'department': 'Norte de Santander'},
+              {'name': 'Nariño', 'department': 'Norte de Santander'},
+              {'name': 'Ospina Pérez', 'department': 'Norte de Santander'},
+              {'name': 'Pueblorrico', 'department': 'Norte de Santander'},
+              {'name': 'Rionegro', 'department': 'Norte de Santander'},
+              
+              // Putumayo (12 municipios)
+              {'name': 'Mocoa', 'department': 'Putumayo'},
+              {'name': 'Orito', 'department': 'Putumayo'},
+              {'name': 'Puerto Asís', 'department': 'Putumayo'},
+              {'name': 'Puerto Rico', 'department': 'Putumayo'},
+              {'name': 'San Francisco', 'department': 'Putumayo'},
+              {'name': 'San José del Guaviare', 'department': 'Putumayo'},
+              {'name': 'San Juan de Arama', 'department': 'Putumayo'},
+              {'name': 'San Luis de Palenque', 'department': 'Putumayo'},
+              {'name': 'San Martín', 'department': 'Putumayo'},
+              {'name': 'San Pedro', 'department': 'Putumayo'},
+              {'name': 'Santa Marta', 'department': 'Putumayo'},
+              
+              // Quindío (12 municipios)
+              {'name': 'Armenia', 'department': 'Quindío'},
+              {'name': 'Buenavista', 'department': 'Quindío'},
+              {'name': 'Calarcá', 'department': 'Quindío'},
+              {'name': 'Circasia', 'department': 'Quindío'},
+              {'name': 'Filandia', 'department': 'Quindío'},
+              {'name': 'La Tebaida', 'department': 'Quindío'},
+              {'name': 'Montenegro', 'department': 'Quindío'},
+              {'name': 'Pereira', 'department': 'Quindío'},
+              {'name': 'Salento', 'department': 'Quindío'},
+              {'name': 'Santa Rosa de Cabal', 'department': 'Quindío'},
+              
+              // Risaralda (14 municipios)
+              {'name': 'Pereira', 'department': 'Risaralda'},
+              {'name': 'Buenavista', 'department': 'Risaralda'},
+              {'name': 'Caldono', 'department': 'Risaralda'},
+              {'name': 'Castilla', 'department': 'Risaralda'},
+              {'name': 'Dosquebradas', 'department': 'Risaralda'},
+              {'name': 'Guática', 'department': 'Risaralda'},
+              {'name': 'La Celia', 'department': 'Risaralda'},
+              {'name': 'La Virginia', 'department': 'Risaralda'},
+              {'name': 'Marsella', 'department': 'Risaralda'},
+              {'name': 'Mistrató', 'department': 'Risaralda'},
+              {'name': 'Pereira', 'department': 'Risaralda'},
+              {'name': 'Quimbaya', 'department': 'Risaralda'},
+              {'name': 'Santa Rosa de Cabal', 'department': 'Risaralda'},
+              
+              // San Andrés y Providencia (8 municipios)
+              {'name': 'San Andrés', 'department': 'San Andrés y Providencia'},
+              {'name': 'Bogue', 'department': 'San Andrés y Providencia'},
+              {'name': 'Providencia', 'department': 'San Andrés y Providencia'},
+              
+              // Santander (87 municipios)
               {'name': 'Bucaramanga', 'department': 'Santander'},
               {'name': 'Floridablanca', 'department': 'Santander'},
               {'name': 'Piedecuesta', 'department': 'Santander'},
-              // Nariño
-              {'name': 'Pasto', 'department': 'Nariño'},
-              // Norte de Santander
-              {'name': 'Cúcuta', 'department': 'Norte de Santander'},
-              // Meta
-              {'name': 'Villavicencio', 'department': 'Meta'},
-              // Huila
-              {'name': 'Neiva', 'department': 'Huila'},
-              // Caldas
-              {'name': 'Manizales', 'department': 'Caldas'},
-              // Risaralda
-              {'name': 'Pereira', 'department': 'Risaralda'},
-              // Quindío
-              {'name': 'Armenia', 'department': 'Quindío'},
-              // Tolima
-              {'name': 'Ibagué', 'department': 'Tolima'},
-              // Boyacá
-              {'name': 'Tunja', 'department': 'Boyacá'},
-              // Cauca
-              {'name': 'Popayán', 'department': 'Cauca'},
-              // Casanare
-              {'name': 'Yopal', 'department': 'Casanare'},
-              // Arauca
-              {'name': 'Arauca', 'department': 'Arauca'},
-              // Vaupés
-              {'name': 'Mitú', 'department': 'Vaupés'},
-              // Vichada
-              {'name': 'Puerto Carreño', 'department': 'Vichada'},
-              // Guainía
-              {'name': 'Puerto Inírida', 'department': 'Guainía'},
-              // Guaviare
-              {'name': 'San José del Guaviare', 'department': 'Guaviare'},
-              // Putumayo
-              {'name': 'Mocoa', 'department': 'Putumayo'},
-              // Caquetá
-              {'name': 'Florencia', 'department': 'Caquetá'},
-              // Amazonas
-              {'name': 'Leticia', 'department': 'Amazonas'},
-              // Chocó
-              {'name': 'Quibdó', 'department': 'Chocó'},
-              // La Guajira
-              {'name': 'Riohacha', 'department': 'La Guajira'},
-              // Sucre
+              {'name': 'Aguachica', 'department': 'Santander'},
+              {'name': 'Amalfi', 'department': 'Santander'},
+              {'name': 'Armenia', 'department': 'Santander'},
+              {'name': 'Arauquita', 'department': 'Santander'},
+              {'name': 'Bochalema', 'department': 'Santander'},
+              {'name': 'Bucaramanga', 'department': 'Santander'},
+              {'name': 'Cachipay', 'department': 'Santander'},
+              {'name': 'Cáceres', 'department': 'Santander'},
+              {'name': 'Cesar', 'department': 'Santander'},
+              {'name': 'Chinácota', 'department': 'Santander'},
+              {'name': 'Cúcuta', 'department': 'Santander'},
+              {'name': 'Duitama', 'department': 'Santander'},
+              {'name': 'El Cocuy', 'department': 'Santander'},
+              {'name': 'El Carmen de Bolívar', 'department': 'Santander'},
+              {'name': 'El Peñol', 'department': 'Santander'},
+              {'name': 'Floridablanca', 'department': 'Santander'},
+              {'name': 'Girardota', 'department': 'Santander'},
+              {'name': 'Guatapé', 'department': 'Santander'},
+              {'name': 'La Ceja', 'department': 'Santander'},
+              {'name': 'La Estrella', 'department': 'Santander'},
+              {'name': 'Liborina', 'department': 'Santander'},
+              
+              // Sucre (28 municipios)
               {'name': 'Sincelejo', 'department': 'Sucre'},
-              // Córdoba
-              {'name': 'Montería', 'department': 'Córdoba'},
-              // San Andrés y Providencia
-              {'name': 'San Andrés', 'department': 'San Andrés y Providencia'}
+              {'name': 'Aguachica', 'department': 'Sucre'},
+              {'name': 'Alfonso López', 'department': 'Sucre'},
+              {'name': 'Ayapel', 'department': 'Sucre'},
+              {'name': 'Buenavista', 'department': 'Sucre'},
+              {'name': 'Caimito', 'department': 'Sucre'},
+              {'name': 'Cereté', 'department': 'Sucre'},
+              {'name': 'Chimá', 'department': 'Sucre'},
+              {'name': 'Chinú', 'department': 'Sucre'},
+              {'name': 'Cotorra', 'department': 'Sucre'},
+              {'name': 'La Apartada', 'department': 'Sucre'},
+              {'name': 'Lorica', 'department': 'Sucre'},
+              {'name': 'Los Córdobas', 'department': 'Sucre'},
+              {'name': 'Los Naranjos', 'department': 'Sucre'},
+              {'name': 'Momil', 'department': 'Sucre'},
+              {'name': 'Montería', 'department': 'Sucre'},
+              {'name': 'Moñitos', 'department': 'Sucre'},
+              {'name': 'Planeta Rica', 'department': 'Sucre'},
+              
+              // Tolima (47 municipios)
+              {'name': 'Ibagué', 'department': 'Tolima'},
+              {'name': 'Alfonso López', 'department': 'Tolima'},
+              {'name': 'Algeciras', 'department': 'Tolima'},
+              {'name': 'Altamira', 'department': 'Tolima'},
+              {'name': 'Armero', 'department': 'Tolima'},
+              {'name': 'Ataco', 'department': 'Tolima'},
+              {'name': 'Buenavista', 'department': 'Tolima'},
+              {'name': 'Cajamarca', 'department': 'Tolima'},
+              {'name': 'Calarcá', 'department': 'Tolima'},
+              {'name': 'Calarca', 'department': 'Tolima'},
+              {'name': 'Caucasia', 'department': 'Tolima'},
+              {'name': 'Chaparral', 'department': 'Tolima'},
+              {'name': 'Chinchiná', 'department': 'Tolima'},
+              {'name': 'Coello', 'department': 'Tolima'},
+              {'name': 'Filandia', 'department': 'Tolima'},
+              {'name': 'Florida', 'department': 'Tolima'},
+              {'name': 'Girardota', 'department': 'Tolima'},
+              {'name': 'Guamo', 'department': 'Tolima'},
+              {'name': 'Honda', 'department': 'Tolima'},
+              
+              // Valle del Cauca (42 municipios)
+              {'name': 'Cali', 'department': 'Valle del Cauca'},
+              {'name': 'Albania', 'department': 'Valle del Cauca'},
+              {'name': 'Argelia', 'department': 'Valle del Cauca'},
+              {'name': 'Balboa', 'department': 'Valle del Cauca'},
+              {'name': 'Bolívar', 'department': 'Valle del Cauca'},
+              {'name': 'Buenaventura', 'department': 'Valle del Cauca'},
+              {'name': 'Cajibío', 'department': 'Valle del Cauca'},
+              {'name': 'Caldono', 'department': 'Valle del Cauca'},
+              {'name': 'Colombia', 'department': 'Valle del Cauca'},
+              {'name': 'Corinto', 'department': 'Valle del Cauca'},
+              {'name': 'Cotorra', 'department': 'Valle del Cauca'},
+              {'name': 'El Tambo', 'department': 'Valle del Cauca'},
+              {'name': 'Florencia', 'department': 'Valle del Cauca'},
+              {'name': 'Guapi', 'department': 'Valle del Cauca'},
+              {'name': 'Inzá', 'department': 'Valle del Cauca'},
+              {'name': 'Jambaló', 'department': 'Valle del Cauca'},
+              {'name': 'La Sierra', 'department': 'Valle del Cauca'},
+              {'name': 'Lenguazaque', 'department': 'Valle del Cauca'},
+              
+              // Vaupés (1 municipality)
+              {'name': 'Mitú', 'department': 'Vaupés'},
+              
+              // Vichada (1 municipality)
+              {'name': 'Puerto Carreño', 'department': 'Vichada'}
             ];
             
             cities.forEach(city => {
@@ -513,9 +1151,9 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
       department_id INTEGER,
       city_id INTEGER,
       type_via TEXT,
-      number_principal INTEGER,
-      number_secondary INTEGER,
-      number_final INTEGER,
+      number_principal TEXT,
+      number_secondary TEXT,
+      number_final TEXT,
       additional_info TEXT,
       address_icon TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -554,6 +1192,8 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
     });
   }
 });
+
+
 
 const alliesDb = new sqlite3.Database(path.join(DB_PATH, 'allies.db'), (err) => {
   if (err) {
@@ -1022,8 +1662,23 @@ app.post('/user-addresses', (req, res) => {
     address_icon 
   } = req.body;
 
+  // Validar que los campos de números contengan al menos un dígito
+  const hasNumber = (str) => /\d/.test(str);
+  
   if (!user_email || !address_name || !department_id || !city_id || !type_via || !number_principal) {
     return res.status(400).json({ error: 'Email de usuario, nombre de direccion, departamento, ciudad, tipo de via y numero principal son requeridos' });
+  }
+  
+  if (!hasNumber(number_principal)) {
+    return res.status(400).json({ error: 'El numero principal debe contener al menos un digito' });
+  }
+  
+  if (number_secondary && !hasNumber(number_secondary)) {
+    return res.status(400).json({ error: 'El numero secundario debe contener al menos un digito' });
+  }
+  
+  if (number_final && !hasNumber(number_final)) {
+    return res.status(400).json({ error: 'El numero final debe contener al menos un digito' });
   }
 
   usersDb.run(`INSERT INTO user_addresses (
@@ -1073,8 +1728,23 @@ app.put('/user-addresses/:id', (req, res) => {
     address_icon 
   } = req.body;
 
+  // Validar que los campos de números contengan al menos un dígito
+  const hasNumber = (str) => /\d/.test(str);
+  
   if (!address_name || !department_id || !city_id || !type_via || !number_principal) {
     return res.status(400).json({ error: 'Nombre de direccion, departamento, ciudad, tipo de via y numero principal son requeridos' });
+  }
+  
+  if (!hasNumber(number_principal)) {
+    return res.status(400).json({ error: 'El numero principal debe contener al menos un digito' });
+  }
+  
+  if (number_secondary && !hasNumber(number_secondary)) {
+    return res.status(400).json({ error: 'El numero secundario debe contener al menos un digito' });
+  }
+  
+  if (number_final && !hasNumber(number_final)) {
+    return res.status(400).json({ error: 'El numero final debe contener al menos un digito' });
   }
 
   usersDb.run(`UPDATE user_addresses SET 

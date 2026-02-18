@@ -21,6 +21,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
   final TextEditingController _addressNameController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
 
+  // Estados para errores de validación
+  String? _numberPrincipalError;
+  String? _numberSecondaryError;
+  String? _numberFinalError;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +59,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
   }
 
   Future<void> _addAddress() async {
+    // Limpiar errores anteriores
+    setState(() {
+      _numberPrincipalError = null;
+      _numberSecondaryError = null;
+      _numberFinalError = null;
+    });
+
+    // Validar que los campos de números contengan al menos un dígito
+    final hasNumber = (String str) => RegExp(r'\d').hasMatch(str);
+    bool isValid = true;
+
     if (_selectedDepartmentId == null ||
         _selectedCityId == null ||
         _selectedTypeVia == null ||
@@ -64,6 +80,33 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
           backgroundColor: Colors.red,
         ),
       );
+      return;
+    }
+
+    if (!hasNumber(_numberPrincipalController.text)) {
+      setState(() {
+        _numberPrincipalError = 'Debe contener al menos un dígito';
+      });
+      isValid = false;
+    }
+
+    if (_numberSecondaryController.text.isNotEmpty &&
+        !hasNumber(_numberSecondaryController.text)) {
+      setState(() {
+        _numberSecondaryError = 'Debe contener al menos un dígito';
+      });
+      isValid = false;
+    }
+
+    if (_numberFinalController.text.isNotEmpty &&
+        !hasNumber(_numberFinalController.text)) {
+      setState(() {
+        _numberFinalError = 'Debe contener al menos un dígito';
+      });
+      isValid = false;
+    }
+
+    if (!isValid) {
       return;
     }
 
@@ -81,12 +124,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
           'department_id': _selectedDepartmentId,
           'city_id': _selectedCityId,
           'type_via': _selectedTypeVia,
-          'number_principal': int.tryParse(_numberPrincipalController.text),
+          'number_principal': _numberPrincipalController.text,
           'number_secondary': _numberSecondaryController.text.isNotEmpty
-              ? int.tryParse(_numberSecondaryController.text)
+              ? _numberSecondaryController.text
               : null,
           'number_final': _numberFinalController.text.isNotEmpty
-              ? int.tryParse(_numberFinalController.text)
+              ? _numberFinalController.text
               : null,
           'additional_info': _additionalInfoController.text.isNotEmpty
               ? _additionalInfoController.text
@@ -122,6 +165,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
   Future<void> _updateAddress() async {
     if (_editingAddressId == null) return;
 
+    // Limpiar errores anteriores
+    setState(() {
+      _numberPrincipalError = null;
+      _numberSecondaryError = null;
+      _numberFinalError = null;
+    });
+
+    // Validar que los campos de números contengan al menos un dígito
+    final hasNumber = (String str) => RegExp(r'\d').hasMatch(str);
+    bool isValid = true;
+
     if (_selectedDepartmentId == null ||
         _selectedCityId == null ||
         _selectedTypeVia == null ||
@@ -132,6 +186,33 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
           backgroundColor: Colors.red,
         ),
       );
+      return;
+    }
+
+    if (!hasNumber(_numberPrincipalController.text)) {
+      setState(() {
+        _numberPrincipalError = 'Debe contener al menos un dígito';
+      });
+      isValid = false;
+    }
+
+    if (_numberSecondaryController.text.isNotEmpty &&
+        !hasNumber(_numberSecondaryController.text)) {
+      setState(() {
+        _numberSecondaryError = 'Debe contener al menos un dígito';
+      });
+      isValid = false;
+    }
+
+    if (_numberFinalController.text.isNotEmpty &&
+        !hasNumber(_numberFinalController.text)) {
+      setState(() {
+        _numberFinalError = 'Debe contener al menos un dígito';
+      });
+      isValid = false;
+    }
+
+    if (!isValid) {
       return;
     }
 
@@ -148,12 +229,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
           'department_id': _selectedDepartmentId,
           'city_id': _selectedCityId,
           'type_via': _selectedTypeVia,
-          'number_principal': int.tryParse(_numberPrincipalController.text),
+          'number_principal': _numberPrincipalController.text,
           'number_secondary': _numberSecondaryController.text.isNotEmpty
-              ? int.tryParse(_numberSecondaryController.text)
+              ? _numberSecondaryController.text
               : null,
           'number_final': _numberFinalController.text.isNotEmpty
-              ? int.tryParse(_numberFinalController.text)
+              ? _numberFinalController.text
               : null,
           'additional_info': _additionalInfoController.text.isNotEmpty
               ? _additionalInfoController.text
@@ -251,29 +332,30 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
         setState(() {
           _departments = json.decode(response.body)['departments'];
         });
+        print('Departamentos cargados: ${_departments.length}');
       }
     } catch (e) {
       print('Error al cargar departamentos: $e');
     }
   }
 
-  Future<void> _loadCities(int departmentId) async {
+  Future<List<dynamic>> _loadCities(int departmentId) async {
     try {
       final response = await http.get(
         Uri.parse('${Config.baseUrl}/cities?department_id=$departmentId'),
       );
       if (response.statusCode == 200) {
-        setState(() {
-          _cities = json.decode(response.body)['cities'];
-          _selectedCityId = null;
-        });
+        final cities = json.decode(response.body)['cities'];
+        print('Ciudades cargadas: ${cities.length}');
+        return cities;
       }
     } catch (e) {
       print('Error al cargar ciudades: $e');
     }
+    return [];
   }
 
-  void _showAddAddressDialog() {
+  Future<void> _showAddAddressDialog() async {
     _selectedIcon = null;
     _selectedDepartmentId = null;
     _selectedCityId = null;
@@ -283,351 +365,424 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     _numberFinalController.clear();
     _additionalInfoController.clear();
     _cities.clear();
-    _loadDepartments();
+    // Limpiar errores de validación
+    setState(() {
+      _numberPrincipalError = null;
+      _numberSecondaryError = null;
+      _numberFinalError = null;
+    });
+
+    print('Cargando departamentos...');
+    await _loadDepartments();
+    print('Departamentos cargados: ${_departments.length}');
+    print('Departamentos: $_departments');
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        backgroundColor: const Color(0xFFF4F2F2),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Title
-                const Text(
-                  'Agregar Dirección',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                // Address Name Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _addressNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre',
-                      labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                      hintText: 'ej: Casa',
-                      prefixIcon: Icon(Icons.label_outline,
-                          color: Color(0xFF78BF32), size: 18),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: const Color(0xFFF4F2F2),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Title
+                  const Text(
+                    'Agregar Dirección',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
                     ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 12),
-                // Department Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  child: DropdownButton<int>(
-                    value: _selectedDepartmentId,
-                    hint: const Text('Departamento',
-                        style: TextStyle(fontSize: 14)),
-                    isExpanded: true,
-                    underline: Container(),
-                    items: _departments.map((department) {
-                      return DropdownMenuItem<int>(
-                        value: department['id'],
-                        child: Text(department['name'],
-                            style: const TextStyle(fontSize: 14)),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedDepartmentId = value;
-                        if (value != null) {
-                          _loadCities(value);
-                        }
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // City Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  child: DropdownButton<int>(
-                    value: _selectedCityId,
-                    hint: const Text('Ciudad', style: TextStyle(fontSize: 14)),
-                    isExpanded: true,
-                    underline: Container(),
-                    items: _cities.map((city) {
-                      return DropdownMenuItem<int>(
-                        value: city['id'],
-                        child: Text(city['name'],
-                            style: const TextStyle(fontSize: 14)),
-                      );
-                    }).toList(),
-                    onChanged: _selectedDepartmentId == null || _cities.isEmpty
-                        ? null
-                        : (value) {
-                            setState(() {
-                              _selectedCityId = value;
-                            });
-                          },
-                    disabledHint: _selectedDepartmentId == null
-                        ? const Text('Selecciona un departamento primero',
-                            style: TextStyle(fontSize: 14))
-                        : const Text('No hay ciudades disponibles',
-                            style: TextStyle(fontSize: 14)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Type Via Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  child: DropdownButton<String>(
-                    value: _selectedTypeVia,
-                    hint: const Text('Tipo de vía',
-                        style: TextStyle(fontSize: 14)),
-                    isExpanded: true,
-                    underline: Container(),
-                    items: _typeViaOptions.map((type) {
-                      return DropdownMenuItem<String>(
-                        value: type,
-                        child: Text(type, style: const TextStyle(fontSize: 14)),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedTypeVia = value;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Number Principal Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _numberPrincipalController,
-                    decoration: const InputDecoration(
-                      labelText: 'Número Principal',
-                      labelStyle: TextStyle(color: Colors.grey),
-                      hintText: 'ej: 123',
-                      prefixIcon: Icon(Icons.numbers, color: Color(0xFF78BF32)),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
+                  const SizedBox(height: 24),
+                  // Address Name Field
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Number Secondary Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _numberSecondaryController,
-                    decoration: const InputDecoration(
-                      labelText: 'Número Secundario',
-                      labelStyle: TextStyle(color: Colors.grey),
-                      hintText: 'ej: 45',
-                      prefixIcon: Icon(Icons.tag, color: Color(0xFF78BF32)),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Number Final Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _numberFinalController,
-                    decoration: const InputDecoration(
-                      labelText: 'Número Final',
-                      labelStyle: TextStyle(color: Colors.grey),
-                      hintText: 'ej: 67',
-                      prefixIcon:
-                          Icon(Icons.signpost, color: Color(0xFF78BF32)),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Additional Info Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _additionalInfoController,
-                    decoration: const InputDecoration(
-                      labelText: 'Info Adicional',
-                      labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                      hintText: 'ej: Edificio X',
-                      prefixIcon: Icon(Icons.info_outline,
-                          color: Color(0xFF78BF32), size: 18),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                    ),
-                    maxLines: 1,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Icon Selection
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Icono',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                    child: TextField(
+                      controller: _addressNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre',
+                        labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                        hintText: 'Casa, Empresa...',
+                        prefixIcon: Icon(Icons.label_outline,
+                            color: Color(0xFF78BF32), size: 18),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 60,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Department and City Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                          child: DropdownButton<int>(
+                            value: _selectedDepartmentId,
+                            hint: const Text('Departamento',
+                                style: TextStyle(fontSize: 14)),
+                            isExpanded: true,
+                            underline: Container(),
+                            items: _departments.map((department) {
+                              return DropdownMenuItem<int>(
+                                value: department['id'],
+                                child: Text(department['name'],
+                                    style: const TextStyle(fontSize: 14)),
+                              );
+                            }).toList(),
+                            onChanged: (value) async {
+                              if (value != null) {
+                                print('Seleccionado departamento: $value');
+                                final cities = await _loadCities(value);
+                                print('Ciudades cargadas: $cities');
+                                setDialogState(() {
+                                  _selectedDepartmentId = value;
+                                  _selectedCityId = null;
+                                  _cities = cities;
+                                });
+                              } else {
+                                setDialogState(() {
+                                  _selectedDepartmentId = null;
+                                  _selectedCityId = null;
+                                  _cities = [];
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                          child: DropdownButton<int>(
+                            value: _selectedCityId,
+                            hint: const Text('Ciudad',
+                                style: TextStyle(fontSize: 14)),
+                            isExpanded: true,
+                            underline: Container(),
+                            items: _cities.map((city) {
+                              return DropdownMenuItem<int>(
+                                value: city['id'],
+                                child: Text(city['name'],
+                                    style: const TextStyle(fontSize: 14)),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setDialogState(() {
+                                _selectedCityId = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Type Via and Number Principal Row
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 12),
+                          child: DropdownButton<String>(
+                            value: _selectedTypeVia,
+                            hint: const Text('Tipo vía',
+                                style: TextStyle(fontSize: 14)),
+                            isExpanded: true,
+                            underline: Container(),
+                            items: _typeViaOptions.map((type) {
+                              return DropdownMenuItem<String>(
+                                value: type,
+                                child: Text(type,
+                                    style: const TextStyle(fontSize: 14)),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setDialogState(() {
+                                _selectedTypeVia = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: _numberPrincipalController,
+                            decoration: InputDecoration(
+                              labelText: '# Principal',
+                              labelStyle: const TextStyle(
+                                  color: Colors.grey, fontSize: 14),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              errorText: _numberPrincipalError,
+                              errorStyle: const TextStyle(
+                                  fontSize: 12, color: Colors.red),
+                            ),
+                            keyboardType: TextInputType.text,
+                            style: const TextStyle(fontSize: 14),
+                            onChanged: (value) {
+                              if (_numberPrincipalError != null) {
+                                setState(() {
+                                  _numberPrincipalError = null;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Number Secondary and Number Final Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: _numberSecondaryController,
+                            decoration: InputDecoration(
+                              labelText: '# Secundario',
+                              labelStyle: const TextStyle(
+                                  color: Colors.grey, fontSize: 14),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              errorText: _numberSecondaryError,
+                              errorStyle: const TextStyle(
+                                  fontSize: 12, color: Colors.red),
+                            ),
+                            keyboardType: TextInputType.text,
+                            style: const TextStyle(fontSize: 14),
+                            onChanged: (value) {
+                              if (_numberSecondaryError != null) {
+                                setState(() {
+                                  _numberSecondaryError = null;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: _numberFinalController,
+                            decoration: InputDecoration(
+                              labelText: '# Final',
+                              labelStyle: const TextStyle(
+                                  color: Colors.grey, fontSize: 14),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              errorText: _numberFinalError,
+                              errorStyle: const TextStyle(
+                                  fontSize: 12, color: Colors.red),
+                            ),
+                            keyboardType: TextInputType.text,
+                            style: const TextStyle(fontSize: 14),
+                            onChanged: (value) {
+                              if (_numberFinalError != null) {
+                                setState(() {
+                                  _numberFinalError = null;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Additional Info Field
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _additionalInfoController,
+                      decoration: const InputDecoration(
+                        labelText: 'Información Adicional',
+                        labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                        hintText: 'ej: Edificio X, Apto 101',
+                        prefixIcon: Icon(Icons.info_outline,
+                            color: Color(0xFF78BF32), size: 18),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Icon Selection
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Icono',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 1.5,
+                          ),
                           itemCount: _addressIcons.length,
                           itemBuilder: (context, index) {
                             final iconData = _addressIcons[index];
                             return GestureDetector(
                               onTap: () {
-                                setState(() {
+                                setDialogState(() {
                                   _selectedIcon = iconData['icon'];
                                 });
                               },
                               child: Container(
-                                margin: const EdgeInsets.only(right: 12),
-                                padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
                                   color: _selectedIcon == iconData['icon']
                                       ? const Color(0xFF78BF32).withOpacity(0.2)
@@ -641,88 +796,94 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 ),
                                 child: Icon(
                                   iconData['icon'],
-                                  size: 32,
+                                  size: 20,
                                   color: const Color(0xFF78BF32),
                                 ),
                               ),
                             );
                           },
                         ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _addressNameController.clear();
+                            _selectedIcon = null;
+                            _selectedDepartmentId = null;
+                            _selectedCityId = null;
+                            _selectedTypeVia = null;
+                            _numberPrincipalController.clear();
+                            _numberSecondaryController.clear();
+                            _numberFinalController.clear();
+                            _additionalInfoController.clear();
+                            _cities.clear();
+                            // Limpiar errores de validación
+                            setState(() {
+                              _numberPrincipalError = null;
+                              _numberSecondaryError = null;
+                              _numberFinalError = null;
+                            });
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                            side: const BorderSide(color: Colors.grey),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: const Text(
+                            'Cancelar',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isAddingAddress ? null : _addAddress,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF78BF32),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: _isAddingAddress
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
+                                  ),
+                                )
+                              : const Text(
+                                  'Agregar',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                // Action Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          _addressNameController.clear();
-                          _selectedIcon = null;
-                          _selectedDepartmentId = null;
-                          _selectedCityId = null;
-                          _selectedTypeVia = null;
-                          _numberPrincipalController.clear();
-                          _numberSecondaryController.clear();
-                          _numberFinalController.clear();
-                          _additionalInfoController.clear();
-                          _cities.clear();
-                          Navigator.pop(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          side: const BorderSide(color: Colors.grey),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text(
-                          'Cancelar',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _isAddingAddress ? null : _addAddress,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF78BF32),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: _isAddingAddress
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
-                                ),
-                              )
-                            : const Text(
-                                'Agregar',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -730,7 +891,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     );
   }
 
-  void _showEditAddressDialog(Map<String, dynamic> address) {
+  Future<void> _showEditAddressDialog(Map<String, dynamic> address) async {
     _editingAddressId = address['id'];
     _addressNameController.text = address['address_name'];
     _selectedIcon = address['address_icon'] != null
@@ -747,459 +908,507 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     _additionalInfoController.text = address['additional_info'] ?? '';
     _cities.clear();
 
-    _loadDepartments().then((_) {
-      if (_selectedDepartmentId != null) {
-        _loadCities(_selectedDepartmentId!);
-      }
-    });
+    await _loadDepartments();
+    if (_selectedDepartmentId != null) {
+      _cities = await _loadCities(_selectedDepartmentId!);
+    }
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        backgroundColor: const Color(0xFFF4F2F2),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Title
-              const Text(
-                'Editar Dirección',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              // Address Name Field
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: TextField(
-                  controller: _addressNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre',
-                    labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                    hintText: 'ej: Casa',
-                    prefixIcon: Icon(Icons.label_outline,
-                        color: Color(0xFF78BF32), size: 18),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Department Field
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                child: DropdownButton<int>(
-                  value: _selectedDepartmentId,
-                  hint: const Text('Departamento',
-                      style: TextStyle(fontSize: 14)),
-                  isExpanded: true,
-                  underline: Container(),
-                  items: _departments.map((department) {
-                    return DropdownMenuItem<int>(
-                      value: department['id'],
-                      child: Text(department['name'],
-                          style: const TextStyle(fontSize: 14)),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedDepartmentId = value;
-                      if (value != null) {
-                        _loadCities(value);
-                      }
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
-              // City Field
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                child: DropdownButton<int>(
-                  value: _selectedCityId,
-                  hint: const Text('Ciudad', style: TextStyle(fontSize: 14)),
-                  isExpanded: true,
-                  underline: Container(),
-                  items: _cities.map((city) {
-                    return DropdownMenuItem<int>(
-                      value: city['id'],
-                      child: Text(city['name'],
-                          style: const TextStyle(fontSize: 14)),
-                    );
-                  }).toList(),
-                  onChanged: _selectedDepartmentId == null || _cities.isEmpty
-                      ? null
-                      : (value) {
-                          setState(() {
-                            _selectedCityId = value;
-                          });
-                        },
-                  disabledHint: _selectedDepartmentId == null
-                      ? const Text('Selecciona un departamento primero',
-                          style: TextStyle(fontSize: 14))
-                      : const Text('No hay ciudades disponibles',
-                          style: TextStyle(fontSize: 14)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Type Via Field
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                child: DropdownButton<String>(
-                  value: _selectedTypeVia,
-                  hint:
-                      const Text('Tipo de vía', style: TextStyle(fontSize: 14)),
-                  isExpanded: true,
-                  underline: Container(),
-                  items: _typeViaOptions.map((type) {
-                    return DropdownMenuItem<String>(
-                      value: type,
-                      child: Text(type, style: const TextStyle(fontSize: 14)),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedTypeVia = value;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Number Fields in a Row
-              Row(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: const Color(0xFFF4F2F2),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            spreadRadius: 1,
-                            blurRadius: 3,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                  // Title
+                  const Text(
+                    'Editar Dirección',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  // Address Name Field
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _addressNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre',
+                        labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                        hintText: 'Casa, Empresa...',
+                        prefixIcon: Icon(Icons.label_outline,
+                            color: Color(0xFF78BF32), size: 18),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                       ),
-                      child: TextField(
-                        controller: _numberPrincipalController,
-                        decoration: const InputDecoration(
-                          labelText: 'Principal',
-                          labelStyle:
-                              TextStyle(color: Colors.grey, fontSize: 14),
-                          hintText: '123',
-                          prefixIcon: Icon(Icons.numbers,
-                              color: Color(0xFF78BF32), size: 18),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Department and City Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                          child: DropdownButton<int>(
+                            value: _selectedDepartmentId,
+                            hint: const Text('Departamento',
+                                style: TextStyle(fontSize: 14)),
+                            isExpanded: true,
+                            underline: Container(),
+                            items: _departments.map((department) {
+                              return DropdownMenuItem<int>(
+                                value: department['id'],
+                                child: Text(department['name'],
+                                    style: const TextStyle(fontSize: 14)),
+                              );
+                            }).toList(),
+                            onChanged: (value) async {
+                              if (value != null) {
+                                print('Seleccionado departamento: $value');
+                                final cities = await _loadCities(value);
+                                print('Ciudades cargadas: $cities');
+                                setDialogState(() {
+                                  _selectedDepartmentId = value;
+                                  _selectedCityId = null;
+                                  _cities = cities;
+                                });
+                              } else {
+                                setDialogState(() {
+                                  _selectedDepartmentId = null;
+                                  _selectedCityId = null;
+                                  _cities = [];
+                                });
+                              }
+                            },
                           ),
                         ),
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            spreadRadius: 1,
-                            blurRadius: 3,
-                            offset: const Offset(0, 2),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: _numberSecondaryController,
-                        decoration: const InputDecoration(
-                          labelText: 'Secundario',
-                          labelStyle:
-                              TextStyle(color: Colors.grey, fontSize: 14),
-                          hintText: '45',
-                          prefixIcon: Icon(Icons.tag,
-                              color: Color(0xFF78BF32), size: 18),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                        ),
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
-                            spreadRadius: 1,
-                            blurRadius: 3,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: _numberFinalController,
-                        decoration: const InputDecoration(
-                          labelText: 'Final',
-                          labelStyle:
-                              TextStyle(color: Colors.grey, fontSize: 14),
-                          hintText: '67',
-                          prefixIcon: Icon(Icons.signpost,
-                              color: Color(0xFF78BF32), size: 18),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                        ),
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Additional Info Field
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: TextField(
-                  controller: _additionalInfoController,
-                  decoration: const InputDecoration(
-                    labelText: 'Info Adicional',
-                    labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                    hintText: 'ej: Edificio X',
-                    prefixIcon: Icon(Icons.info_outline,
-                        color: Color(0xFF78BF32), size: 18),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                  ),
-                  maxLines: 1,
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Icon Selection
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Icono',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 60,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _addressIcons.length,
-                        itemBuilder: (context, index) {
-                          final iconData = _addressIcons[index];
-                          return GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _selectedIcon = iconData['icon'];
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                          child: DropdownButton<int>(
+                            value: _selectedCityId,
+                            hint: const Text('Ciudad',
+                                style: TextStyle(fontSize: 14)),
+                            isExpanded: true,
+                            underline: Container(),
+                            items: _cities.map((city) {
+                              return DropdownMenuItem<int>(
+                                value: city['id'],
+                                child: Text(city['name'],
+                                    style: const TextStyle(fontSize: 14)),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setDialogState(() {
+                                _selectedCityId = value;
                               });
                             },
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 12),
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: _selectedIcon == iconData['icon']
-                                    ? const Color(0xFF78BF32).withOpacity(0.2)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: _selectedIcon == iconData['icon']
-                                      ? const Color(0xFF78BF32)
-                                      : Colors.grey.withOpacity(0.3),
-                                ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Type Via and Number Principal Row
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
                               ),
-                              child: Icon(
-                                iconData['icon'],
-                                size: 32,
-                                color: const Color(0xFF78BF32),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 12),
+                          child: DropdownButton<String>(
+                            value: _selectedTypeVia,
+                            hint: const Text('Tipo vía',
+                                style: TextStyle(fontSize: 14)),
+                            isExpanded: true,
+                            underline: Container(),
+                            items: _typeViaOptions.map((type) {
+                              return DropdownMenuItem<String>(
+                                value: type,
+                                child: Text(type,
+                                    style: const TextStyle(fontSize: 14)),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setDialogState(() {
+                                _selectedTypeVia = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
                               ),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: _numberPrincipalController,
+                            decoration: InputDecoration(
+                              labelText: '# Principal',
+                              labelStyle: const TextStyle(
+                                  color: Colors.grey, fontSize: 14),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              errorText: _numberPrincipalError,
+                              errorStyle: const TextStyle(
+                                  fontSize: 12, color: Colors.red),
                             ),
-                          );
-                        },
+                            keyboardType: TextInputType.text,
+                            style: const TextStyle(fontSize: 14),
+                            onChanged: (value) {
+                              if (_numberPrincipalError != null) {
+                                setState(() {
+                                  _numberPrincipalError = null;
+                                });
+                              }
+                            },
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Number Secondary and Number Final Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: _numberSecondaryController,
+                            decoration: InputDecoration(
+                              labelText: '# Secundario',
+                              labelStyle: const TextStyle(
+                                  color: Colors.grey, fontSize: 14),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              errorText: _numberSecondaryError,
+                              errorStyle: const TextStyle(
+                                  fontSize: 12, color: Colors.red),
+                            ),
+                            keyboardType: TextInputType.text,
+                            style: const TextStyle(fontSize: 14),
+                            onChanged: (value) {
+                              if (_numberSecondaryError != null) {
+                                setState(() {
+                                  _numberSecondaryError = null;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: _numberFinalController,
+                            decoration: InputDecoration(
+                              labelText: '# Final',
+                              labelStyle: const TextStyle(
+                                  color: Colors.grey, fontSize: 14),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              errorText: _numberFinalError,
+                              errorStyle: const TextStyle(
+                                  fontSize: 12, color: Colors.red),
+                            ),
+                            keyboardType: TextInputType.text,
+                            style: const TextStyle(fontSize: 14),
+                            onChanged: (value) {
+                              if (_numberFinalError != null) {
+                                setState(() {
+                                  _numberFinalError = null;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Additional Info Field
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Action Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        _addressNameController.clear();
-                        _addressController.clear();
-                        _editingAddressId = null;
-                        _selectedIcon = null;
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        side: const BorderSide(color: Colors.grey),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: const Text(
-                        'Cancelar',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                    child: TextField(
+                      controller: _additionalInfoController,
+                      decoration: const InputDecoration(
+                        labelText: 'Información Adicional',
+                        labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                        hintText: 'ej: Edificio X, Apto 101',
+                        prefixIcon: Icon(Icons.info_outline,
+                            color: Color(0xFF78BF32), size: 18),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
                         ),
                       ),
+                      maxLines: 1,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _isEditingAddress ? null : _updateAddress,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF78BF32),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 12),
+                  // Icon Selection
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, 2),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: _isEditingAddress
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Text(
-                              'Guardar',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                      ],
                     ),
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Icono',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 1.5,
+                          ),
+                          itemCount: _addressIcons.length,
+                          itemBuilder: (context, index) {
+                            final iconData = _addressIcons[index];
+                            return GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  _selectedIcon = iconData['icon'];
+                                });
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: _selectedIcon == iconData['icon']
+                                      ? const Color(0xFF78BF32).withOpacity(0.2)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: _selectedIcon == iconData['icon']
+                                        ? const Color(0xFF78BF32)
+                                        : Colors.grey.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Icon(
+                                  iconData['icon'],
+                                  size: 20,
+                                  color: const Color(0xFF78BF32),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _addressNameController.clear();
+                            _addressController.clear();
+                            _editingAddressId = null;
+                            _selectedIcon = null;
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                            side: const BorderSide(color: Colors.grey),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: const Text(
+                            'Cancelar',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isEditingAddress ? null : _updateAddress,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF78BF32),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: _isEditingAddress
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
+                                  ),
+                                )
+                              : const Text(
+                                  'Guardar',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
