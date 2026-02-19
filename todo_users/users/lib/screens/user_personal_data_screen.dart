@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 import '../config.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -610,34 +610,48 @@ class _MyDataScreenState extends State<MyDataScreen> {
       imageQuality: 70,
     );
     if (image != null) {
-      CroppedFile? croppedFile = await ImageCropper().cropImage(
-        sourcePath: image.path,
-        aspectRatio: CropAspectRatio(ratioX: 1, ratioY: 1),
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Recortar Imagen',
-            toolbarColor: Colors.deepOrange,
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.original,
-            lockAspectRatio: false,
+      // Validar tamaño y peso de la imagen
+      final file = File(image.path);
+      final sizeInBytes = file.lengthSync();
+      final sizeInMB = sizeInBytes / (1024 * 1024);
+
+      // Limitar tamaño de imagen (ej: 5 MB)
+      const maxSizeMB = 5;
+      // Limitar dimensiones (ej: 4000x4000 píxeles)
+      const maxDimension = 4000;
+
+      if (sizeInMB > maxSizeMB) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('La imagen es demasiado pesada. Máximo 5 MB.'),
+            backgroundColor: Colors.red,
           ),
-          IOSUiSettings(
-            title: 'Recortar Imagen',
-          ),
-        ],
-      );
-      if (croppedFile != null) {
-        // Convertir imagen a base64
-        final bytes = await File(croppedFile.path).readAsBytes();
-        final base64Image = base64Encode(bytes);
-        setState(() {
-          _selectedImage = XFile(croppedFile.path);
-          _usePhoto = true;
-          _avatarImage = 'data:image/jpeg;base64,$base64Image';
-          _avatarColor =
-              '#78BF32'; // Restablecer color por defecto al subir foto
-        });
+        );
+        return;
       }
+
+      // Obtener dimensiones de la imagen
+      final imageFile = await decodeImageFromList(await file.readAsBytes());
+      if (imageFile.width > maxDimension || imageFile.height > maxDimension) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'La imagen es demasiado grande. Máximo 4000x4000 píxeles.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Convertir imagen a base64
+      final bytes = await file.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      setState(() {
+        _selectedImage = XFile(image.path);
+        _usePhoto = true;
+        _avatarImage = 'data:image/jpeg;base64,$base64Image';
+        _avatarColor = '#78BF32'; // Restablecer color por defecto al subir foto
+      });
     }
   }
 
