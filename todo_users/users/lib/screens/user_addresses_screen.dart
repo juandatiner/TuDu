@@ -1902,6 +1902,10 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
   }
 
   void _showAddressDetailsDialog(Map<String, dynamic> address) {
+    final addressIcon = address['address_icon'] != null
+        ? _getIconFromString(address['address_icon'])
+        : _getAddressIcon(address['address_name']);
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -1916,15 +1920,37 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Title
-                Text(
-                  address['address_name'],
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                  textAlign: TextAlign.center,
+                // Title with Icon
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF78BF32).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        addressIcon,
+                        size: 24,
+                        color: const Color(0xFF78BF32),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        address['address_name'],
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
                 ),
                 const SizedBox(height: 24),
                 // Address Details
@@ -1952,6 +1978,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         '${address['number_final'] != null ? ' - ${address['number_final']}' : ''}',
                         style: const TextStyle(
                           fontSize: 16,
+                          fontWeight: FontWeight.w500,
                           color: Colors.black,
                         ),
                       ),
@@ -1989,28 +2016,6 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           ),
                         ],
                       ),
-                      // Icon
-                      if (address['address_icon'] != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12.0),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.label_outline,
-                                color: Color(0xFF78BF32),
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                address['address_icon'],
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF757575),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                     ],
                   ),
                 ),
