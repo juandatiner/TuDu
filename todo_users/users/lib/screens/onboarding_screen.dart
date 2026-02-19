@@ -62,6 +62,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Calcular tamaño de fuente responsivo basado en el tamaño de la pantalla
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+
+    // El texto "To\nDo" (dos líneas) debe caber en la pantalla con márgenes seguros
+    // Calculamos el tamaño basado en el ancho para que cada letra quepa
+    // y consideramos que son 2 líneas con espacio entre ellas
+    // El factor 0.7 para el ancho permite que "To" o "Do" quepan con margen
+    // y el texto se vea grande y prominente
+    final responsiveFontSize = (screenWidth * 0.7).clamp(100.0, 500.0);
+
     return Scaffold(
       body: AnimatedBuilder(
         animation: _backgroundAnimation,
@@ -77,8 +89,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ],
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 100.0),
+            child: SafeArea(
               child: Center(
                 child: AnimatedBuilder(
                   animation: _scaleAnimation,
@@ -88,15 +99,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       child: AnimatedBuilder(
                         animation: _textAnimation,
                         builder: (context, child) {
-                          return Text(
-                            'To Do',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontFamily: 'TitanOne',
-                              fontSize: 300,
-                              fontWeight: FontWeight.bold,
-                              color: _textAnimation.value ?? Colors.white,
-                              height: 1.0, // Espacio normal entre líneas
+                          return FittedBox(
+                            fit: BoxFit.contain,
+                            child: Text(
+                              'To\nDo',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'TitanOne',
+                                fontSize: responsiveFontSize,
+                                fontWeight: FontWeight.bold,
+                                color: _textAnimation.value ?? Colors.white,
+                                height: 0.9,
+                              ),
                             ),
                           );
                         },
