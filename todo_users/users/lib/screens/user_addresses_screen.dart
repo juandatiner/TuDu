@@ -581,6 +581,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             _addressNameError = null;
                           });
                         }
+                        // Actualizar estado para reevaluar _hasChanges()
+                        setDialogState(() {});
                       },
                     ),
                   ),
@@ -805,6 +807,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   _numberPrincipalError = null;
                                 });
                               }
+                              // Actualizar estado para reevaluar _hasChanges()
+                              setDialogState(() {});
                             },
                           ),
                         ),
@@ -866,6 +870,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   _numberSecondaryError = null;
                                 });
                               }
+                              // Actualizar estado para reevaluar _hasChanges()
+                              setDialogState(() {});
                             },
                           ),
                         ),
@@ -911,6 +917,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   _numberFinalError = null;
                                 });
                               }
+                              // Actualizar estado para reevaluar _hasChanges()
+                              setDialogState(() {});
                             },
                           ),
                         ),
@@ -974,6 +982,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             _additionalInfoError = null;
                           });
                         }
+                        // Actualizar estado para reevaluar _hasChanges()
+                        setDialogState(() {});
                       },
                     ),
                   ),
@@ -1282,6 +1292,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             _addressNameError = null;
                           });
                         }
+                        // Actualizar estado para reevaluar _hasChanges()
+                        setDialogState(() {});
                       },
                     ),
                   ),
@@ -1506,6 +1518,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   _numberPrincipalError = null;
                                 });
                               }
+                              // Actualizar estado para reevaluar _hasChanges()
+                              setDialogState(() {});
                             },
                           ),
                         ),
@@ -1567,6 +1581,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   _numberSecondaryError = null;
                                 });
                               }
+                              // Actualizar estado para reevaluar _hasChanges()
+                              setDialogState(() {});
                             },
                           ),
                         ),
@@ -1612,6 +1628,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   _numberFinalError = null;
                                 });
                               }
+                              // Actualizar estado para reevaluar _hasChanges()
+                              setDialogState(() {});
                             },
                           ),
                         ),
@@ -1675,6 +1693,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             _additionalInfoError = null;
                           });
                         }
+                        // Actualizar estado para reevaluar _hasChanges()
+                        setDialogState(() {});
                       },
                     ),
                   ),
