@@ -6,6 +6,7 @@ import 'home_screen.dart';
 import 'user_services_screen.dart';
 import 'user_personal_data_screen.dart';
 import 'user_addresses_screen.dart';
+import 'terms_and_conditions_screen.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -593,7 +594,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: Icons.description_outlined,
                         title: 'Términos y Condiciones',
                         onTap: () {
-                          // Sin funcionalidad por ahora
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const TermsAndConditionsScreen(),
+                            ),
+                          );
                         },
                       ),
                       _buildSettingsItem(
