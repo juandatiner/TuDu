@@ -482,7 +482,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           horizontal: 12,
                           vertical: 10,
                         ),
+                        counterText: '', // Oculta el contador
                       ),
+                      maxLength: 25,
                       onChanged: (value) {
                         if (_addressNameError != null) {
                           setDialogState(() {
@@ -706,9 +708,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 horizontal: 12,
                                 vertical: 10,
                               ),
+                              counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
+                            maxLength: 8,
                             onChanged: (value) {
                               if (_numberPrincipalError != null) {
                                 setDialogState(() {
@@ -769,9 +773,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 horizontal: 12,
                                 vertical: 10,
                               ),
+                              counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
+                            maxLength: 8,
                             onChanged: (value) {
                               if (_numberSecondaryError != null) {
                                 setDialogState(() {
@@ -816,9 +822,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 horizontal: 12,
                                 vertical: 10,
                               ),
+                              counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
+                            maxLength: 8,
                             onChanged: (value) {
                               if (_numberFinalError != null) {
                                 setDialogState(() {
@@ -1193,7 +1201,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           horizontal: 12,
                           vertical: 10,
                         ),
+                        counterText: '', // Oculta el contador
                       ),
+                      maxLength: 25,
                       onChanged: (value) {
                         if (_addressNameError != null) {
                           setDialogState(() {
@@ -1417,9 +1427,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 horizontal: 12,
                                 vertical: 10,
                               ),
+                              counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
+                            maxLength: 8,
                             onChanged: (value) {
                               if (_numberPrincipalError != null) {
                                 setDialogState(() {
@@ -1480,9 +1492,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 horizontal: 12,
                                 vertical: 10,
                               ),
+                              counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
+                            maxLength: 8,
                             onChanged: (value) {
                               if (_numberSecondaryError != null) {
                                 setDialogState(() {
@@ -1527,9 +1541,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 horizontal: 12,
                                 vertical: 10,
                               ),
+                              counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
+                            maxLength: 8,
                             onChanged: (value) {
                               if (_numberFinalError != null) {
                                 setDialogState(() {
