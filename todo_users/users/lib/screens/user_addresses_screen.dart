@@ -73,7 +73,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     }
   }
 
-  Future<void> _addAddress(Function(VoidCallback) setDialogState) async {
+  bool _validateAddress(Function(VoidCallback) setDialogState) {
     // Limpiar errores anteriores
     setDialogState(() {
       _addressNameError = null;
@@ -170,7 +170,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
       isValid = false;
     }
 
-    if (!isValid) {
+    return isValid;
+  }
+
+  Future<void> _addAddress(Function(VoidCallback) setDialogState) async {
+    if (!_validateAddress(setDialogState)) {
       return;
     }
 
@@ -237,103 +241,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
   Future<void> _updateAddress(Function(VoidCallback) setDialogState) async {
     if (_editingAddressId == null) return;
 
-    // Limpiar errores anteriores
-    setDialogState(() {
-      _addressNameError = null;
-      _departmentError = null;
-      _cityError = null;
-      _typeViaError = null;
-      _numberPrincipalError = null;
-      _numberSecondaryError = null;
-      _numberFinalError = null;
-      _additionalInfoError = null;
-      _addressIconError = null;
-      _generalError = null;
-    });
-
-    // Validar que los campos de números contengan al menos un dígito
-    final hasNumber = (String str) => RegExp(r'\d').hasMatch(str);
-    bool isValid = true;
-
-    if (_addressNameController.text.isEmpty) {
-      setDialogState(() {
-        _addressNameError = 'Campo obligatorio';
-      });
-      isValid = false;
-    }
-
-    if (_selectedDepartmentId == null) {
-      setDialogState(() {
-        _departmentError = 'Campo obligatorio';
-      });
-      isValid = false;
-    }
-
-    if (_selectedCityId == null) {
-      setDialogState(() {
-        _cityError = 'Campo obligatorio';
-      });
-      isValid = false;
-    }
-
-    if (_selectedTypeVia == null) {
-      setDialogState(() {
-        _typeViaError = 'Campo obligatorio';
-      });
-      isValid = false;
-    }
-
-    if (_numberPrincipalController.text.isEmpty) {
-      setDialogState(() {
-        _numberPrincipalError = 'Campo obligatorio';
-      });
-      isValid = false;
-    } else if (!hasNumber(_numberPrincipalController.text)) {
-      setDialogState(() {
-        _numberPrincipalError = 'Debe contener al menos un dígito';
-      });
-      isValid = false;
-    }
-
-    if (_numberSecondaryController.text.isEmpty) {
-      setDialogState(() {
-        _numberSecondaryError = 'Campo obligatorio';
-      });
-      isValid = false;
-    } else if (!hasNumber(_numberSecondaryController.text)) {
-      setDialogState(() {
-        _numberSecondaryError = 'Debe contener al menos un dígito';
-      });
-      isValid = false;
-    }
-
-    if (_numberFinalController.text.isEmpty) {
-      setDialogState(() {
-        _numberFinalError = 'Campo obligatorio';
-      });
-      isValid = false;
-    } else if (!hasNumber(_numberFinalController.text)) {
-      setDialogState(() {
-        _numberFinalError = 'Debe contener al menos un dígito';
-      });
-      isValid = false;
-    }
-
-    if (_additionalInfoController.text.isEmpty) {
-      setDialogState(() {
-        _additionalInfoError = 'Campo obligatorio';
-      });
-      isValid = false;
-    }
-
-    if (_selectedIcon == null) {
-      setDialogState(() {
-        _addressIconError = 'Campo obligatorio';
-      });
-      isValid = false;
-    }
-
-    if (!isValid) {
+    if (!_validateAddress(setDialogState)) {
       return;
     }
 
@@ -1904,7 +1812,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
   void _showAddressDetailsDialog(Map<String, dynamic> address) {
     final addressIcon = address['address_icon'] != null
         ? _getIconFromString(address['address_icon'])
-        : _getAddressIcon(address['address_name']);
+        : Icons.location_on;
 
     showDialog(
       context: context,
@@ -2266,66 +2174,6 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     return Icons.location_on;
   }
 
-  IconData _getAddressIcon(String addressName) {
-    final name = addressName.toLowerCase();
-    if (name.contains('casa') || name.contains('home')) {
-      return Icons.home;
-    } else if (name.contains('apartamento') ||
-        name.contains('apartamento') ||
-        name.contains('apt') ||
-        name.contains('piso')) {
-      return Icons.apartment;
-    } else if (name.contains('finca') ||
-        name.contains('hacienda') ||
-        name.contains('rancho')) {
-      return Icons.villa;
-    } else if (name.contains('empresa') ||
-        name.contains('empresa') ||
-        name.contains('trabajo') ||
-        name.contains('work') ||
-        name.contains('oficina')) {
-      return Icons.work;
-    } else if (name.contains('colegio') ||
-        name.contains('escuela') ||
-        name.contains('universidad') ||
-        name.contains('school') ||
-        name.contains('instituto')) {
-      return Icons.school;
-    } else if (name.contains('tienda') ||
-        name.contains('store') ||
-        name.contains('comercio') ||
-        name.contains('tienda')) {
-      return Icons.store;
-    } else if (name.contains('iglesia') ||
-        name.contains('templo') ||
-        name.contains('catedral') ||
-        name.contains('parroquia')) {
-      return Icons.account_balance;
-    } else if (name.contains('hospital') ||
-        name.contains('clinica') ||
-        name.contains('medico')) {
-      return Icons.local_hospital;
-    } else if (name.contains('restaurante') ||
-        name.contains('cafeteria') ||
-        name.contains('bar')) {
-      return Icons.restaurant;
-    } else if (name.contains('hotel') ||
-        name.contains('hostal') ||
-        name.contains('motel')) {
-      return Icons.hotel;
-    } else if (name.contains('gym') ||
-        name.contains('gimnasio') ||
-        name.contains('fitness')) {
-      return Icons.fitness_center;
-    } else if (name.contains('parque') ||
-        name.contains('jardin') ||
-        name.contains('plaza')) {
-      return Icons.park;
-    } else {
-      return Icons.location_on;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2468,8 +2316,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                           address['address_icon'] != null
                                               ? _getIconFromString(
                                                   address['address_icon'])
-                                              : _getAddressIcon(
-                                                  address['address_name']),
+                                              : Icons.location_on,
                                           size: 32,
                                           color: const Color(0xFF78BF32),
                                         ),
