@@ -8,6 +8,7 @@ import 'user_personal_data_screen.dart';
 import 'user_addresses_screen.dart';
 import 'terms_and_conditions_screen.dart';
 import 'login_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userEmail;
@@ -481,14 +482,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                 return _getIconWidget();
                                               },
                                             )
-                                          : Image.network(
-                                              _avatarImage!,
+                                          : CachedNetworkImage(
+                                              imageUrl: _avatarImage!,
                                               fit: BoxFit.cover,
-                                              gaplessPlayback: true,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                return _getIconWidget();
-                                              },
+                                              errorWidget:
+                                                  (context, url, error) =>
+                                                      _getIconWidget(),
+                                              placeholder: (context, url) =>
+                                                  const CircularProgressIndicator(),
                                             ),
                                     )
                                   : _getIconWidget(),

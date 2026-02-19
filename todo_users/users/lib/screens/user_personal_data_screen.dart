@@ -6,6 +6,7 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import '../config.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MyDataScreen extends StatefulWidget {
   final String userEmail;
