@@ -1899,6 +1899,34 @@ app.put('/user-addresses/:id', (req, res) => {
   });
 });
 
+// Endpoint para eliminar una cuenta de usuario
+app.delete('/users/:email', (req, res) => {
+  const { email } = req.params;
+
+  // Eliminar todas las direcciones del usuario
+  usersDb.run('DELETE FROM user_addresses WHERE user_email = ?', [email], (err) => {
+    if (err) {
+      console.error('Error eliminando direcciones:', err.message);
+    }
+  });
+
+  // Eliminar todos los teléfonos del usuario
+  usersDb.run('DELETE FROM user_phones WHERE user_email = ?', [email], (err) => {
+    if (err) {
+      console.error('Error eliminando teléfonos:', err.message);
+    }
+  });
+
+  // Eliminar el usuario
+  usersDb.run('DELETE FROM users WHERE email = ?', [email], (err) => {
+    if (err) {
+      console.error('Error eliminando usuario:', err.message);
+      return res.status(500).json({ success: false, message: 'Error al eliminar la cuenta' });
+    }
+    res.json({ success: true, message: 'Cuenta eliminada correctamente' });
+  });
+});
+
 // Endpoint para eliminar una direccion
 app.delete('/user-addresses/:id', (req, res) => {
   const { id } = req.params;
