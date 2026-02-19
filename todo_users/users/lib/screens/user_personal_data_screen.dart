@@ -218,8 +218,11 @@ class _MyDataScreenState extends State<MyDataScreen> {
         body: json.encode({
           'email': widget.userEmail,
           'avatar_image': _usePhoto ? _avatarImage : null,
-          'avatar_color': _avatarColor,
-          'avatar_icon': _selectedIcon,
+          // Solo enviar color y icono si no se usa foto
+          if (!_usePhoto) ...{
+            'avatar_color': _avatarColor,
+            'avatar_icon': _selectedIcon,
+          },
         }),
       );
       if (avatarResponse.statusCode != 200) {
@@ -630,6 +633,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
           _selectedImage = XFile(croppedFile.path);
           _usePhoto = true;
           _avatarImage = 'data:image/jpeg;base64,$base64Image';
+          _avatarColor =
+              '#78BF32'; // Restablecer color por defecto al subir foto
         });
       }
     }

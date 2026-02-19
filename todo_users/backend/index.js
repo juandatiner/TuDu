@@ -2130,14 +2130,17 @@ app.put('/users/profile/avatar', (req, res) => {
   let updates = [];
   let values = [];
 
-  if (avatar_color) {
-    updates.push('avatar_color = ?');
-    values.push(avatar_color);
-  }
+  // Solo actualizar color y icono si no hay imagen (usando avatar)
+  if (avatar_image === null) {
+    if (avatar_color) {
+      updates.push('avatar_color = ?');
+      values.push(avatar_color);
+    }
 
-  if (avatar_icon) {
-    updates.push('avatar_icon = ?');
-    values.push(avatar_icon);
+    if (avatar_icon) {
+      updates.push('avatar_icon = ?');
+      values.push(avatar_icon);
+    }
   }
 
   if (avatar_image !== undefined) {
