@@ -2130,8 +2130,8 @@ app.put('/users/profile/avatar', (req, res) => {
   let updates = [];
   let values = [];
 
-  // Solo actualizar color y icono si no hay imagen (usando avatar)
   if (avatar_image === null) {
+    // Usando icono: actualizar color y icono
     if (avatar_color) {
       updates.push('avatar_color = ?');
       values.push(avatar_color);
@@ -2141,11 +2141,16 @@ app.put('/users/profile/avatar', (req, res) => {
       updates.push('avatar_icon = ?');
       values.push(avatar_icon);
     }
-  }
 
-  if (avatar_image !== undefined) {
+    updates.push('avatar_image = NULL');
+  } else if (avatar_image !== undefined) {
+    // Usando foto: eliminar campos de icono (restablecer a valores por defecto)
     updates.push('avatar_image = ?');
     values.push(avatar_image);
+    updates.push('avatar_color = ?');
+    values.push('#78BF32'); // Color por defecto
+    updates.push('avatar_icon = ?');
+    values.push('person'); // Icono por defecto
   }
 
   if (updates.length === 0) {
