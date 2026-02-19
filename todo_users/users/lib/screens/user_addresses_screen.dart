@@ -22,9 +22,15 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
   final TextEditingController _addressController = TextEditingController();
 
   // Estados para errores de validación
+  String? _addressNameError;
+  String? _departmentError;
+  String? _cityError;
+  String? _typeViaError;
   String? _numberPrincipalError;
   String? _numberSecondaryError;
   String? _numberFinalError;
+  String? _generalError;
+  Map<String, dynamic>? _originalAddress;
 
   @override
   void initState() {
@@ -58,33 +64,58 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     }
   }
 
-  Future<void> _addAddress() async {
+  Future<void> _addAddress(Function(VoidCallback) setDialogState) async {
     // Limpiar errores anteriores
-    setState(() {
+    setDialogState(() {
+      _addressNameError = null;
+      _departmentError = null;
+      _cityError = null;
+      _typeViaError = null;
       _numberPrincipalError = null;
       _numberSecondaryError = null;
       _numberFinalError = null;
+      _generalError = null;
     });
 
     // Validar que los campos de números contengan al menos un dígito
     final hasNumber = (String str) => RegExp(r'\d').hasMatch(str);
     bool isValid = true;
 
-    if (_selectedDepartmentId == null ||
-        _selectedCityId == null ||
-        _selectedTypeVia == null ||
-        _numberPrincipalController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor completa todos los campos obligatorios'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+    if (_addressNameController.text.isEmpty) {
+      setDialogState(() {
+        _addressNameError = 'Campo obligatorio';
+      });
+      isValid = false;
     }
 
-    if (!hasNumber(_numberPrincipalController.text)) {
-      setState(() {
+    if (_selectedDepartmentId == null) {
+      setDialogState(() {
+        _departmentError = 'Campo obligatorio';
+      });
+      isValid = false;
+    }
+
+    if (_selectedCityId == null) {
+      setDialogState(() {
+        _cityError = 'Campo obligatorio';
+      });
+      isValid = false;
+    }
+
+    if (_selectedTypeVia == null) {
+      setDialogState(() {
+        _typeViaError = 'Campo obligatorio';
+      });
+      isValid = false;
+    }
+
+    if (_numberPrincipalController.text.isEmpty) {
+      setDialogState(() {
+        _numberPrincipalError = 'Campo obligatorio';
+      });
+      isValid = false;
+    } else if (!hasNumber(_numberPrincipalController.text)) {
+      setDialogState(() {
         _numberPrincipalError = 'Debe contener al menos un dígito';
       });
       isValid = false;
@@ -92,7 +123,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     if (_numberSecondaryController.text.isNotEmpty &&
         !hasNumber(_numberSecondaryController.text)) {
-      setState(() {
+      setDialogState(() {
         _numberSecondaryError = 'Debe contener al menos un dígito';
       });
       isValid = false;
@@ -100,7 +131,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     if (_numberFinalController.text.isNotEmpty &&
         !hasNumber(_numberFinalController.text)) {
-      setState(() {
+      setDialogState(() {
         _numberFinalError = 'Debe contener al menos un dígito';
       });
       isValid = false;
@@ -110,7 +141,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
       return;
     }
 
-    setState(() {
+    setDialogState(() {
       _isAddingAddress = true;
     });
 
@@ -152,45 +183,78 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
         _cities.clear();
         _loadAddresses();
         Navigator.pop(context);
+      } else {
+        final errorData = json.decode(response.body);
+        setDialogState(() {
+          _generalError = errorData['error'];
+        });
       }
     } catch (e) {
       print('Error agregando dirección: $e');
+      setDialogState(() {
+        _generalError = 'Error al agregar dirección';
+      });
     } finally {
-      setState(() {
+      setDialogState(() {
         _isAddingAddress = false;
       });
     }
   }
 
-  Future<void> _updateAddress() async {
+  Future<void> _updateAddress(Function(VoidCallback) setDialogState) async {
     if (_editingAddressId == null) return;
 
     // Limpiar errores anteriores
-    setState(() {
+    setDialogState(() {
+      _addressNameError = null;
+      _departmentError = null;
+      _cityError = null;
+      _typeViaError = null;
       _numberPrincipalError = null;
       _numberSecondaryError = null;
       _numberFinalError = null;
+      _generalError = null;
     });
 
     // Validar que los campos de números contengan al menos un dígito
     final hasNumber = (String str) => RegExp(r'\d').hasMatch(str);
     bool isValid = true;
 
-    if (_selectedDepartmentId == null ||
-        _selectedCityId == null ||
-        _selectedTypeVia == null ||
-        _numberPrincipalController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor completa todos los campos obligatorios'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+    if (_addressNameController.text.isEmpty) {
+      setDialogState(() {
+        _addressNameError = 'Campo obligatorio';
+      });
+      isValid = false;
     }
 
-    if (!hasNumber(_numberPrincipalController.text)) {
-      setState(() {
+    if (_selectedDepartmentId == null) {
+      setDialogState(() {
+        _departmentError = 'Campo obligatorio';
+      });
+      isValid = false;
+    }
+
+    if (_selectedCityId == null) {
+      setDialogState(() {
+        _cityError = 'Campo obligatorio';
+      });
+      isValid = false;
+    }
+
+    if (_selectedTypeVia == null) {
+      setDialogState(() {
+        _typeViaError = 'Campo obligatorio';
+      });
+      isValid = false;
+    }
+
+    if (_numberPrincipalController.text.isEmpty) {
+      setDialogState(() {
+        _numberPrincipalError = 'Campo obligatorio';
+      });
+      isValid = false;
+    } else if (!hasNumber(_numberPrincipalController.text)) {
+      setDialogState(() {
         _numberPrincipalError = 'Debe contener al menos un dígito';
       });
       isValid = false;
@@ -198,7 +262,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     if (_numberSecondaryController.text.isNotEmpty &&
         !hasNumber(_numberSecondaryController.text)) {
-      setState(() {
+      setDialogState(() {
         _numberSecondaryError = 'Debe contener al menos un dígito';
       });
       isValid = false;
@@ -206,7 +270,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     if (_numberFinalController.text.isNotEmpty &&
         !hasNumber(_numberFinalController.text)) {
-      setState(() {
+      setDialogState(() {
         _numberFinalError = 'Debe contener al menos un dígito';
       });
       isValid = false;
@@ -216,7 +280,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
       return;
     }
 
-    setState(() {
+    setDialogState(() {
       _isEditingAddress = true;
     });
 
@@ -258,11 +322,19 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
         _editingAddressId = null;
         _loadAddresses();
         Navigator.pop(context);
+      } else {
+        final errorData = json.decode(response.body);
+        setDialogState(() {
+          _generalError = errorData['error'];
+        });
       }
     } catch (e) {
       print('Error actualizando dirección: $e');
+      setDialogState(() {
+        _generalError = 'Error al actualizar dirección';
+      });
     } finally {
-      setState(() {
+      setDialogState(() {
         _isEditingAddress = false;
       });
     }
@@ -367,9 +439,14 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     _cities.clear();
     // Limpiar errores de validación
     setState(() {
+      _addressNameError = null;
+      _departmentError = null;
+      _cityError = null;
+      _typeViaError = null;
       _numberPrincipalError = null;
       _numberSecondaryError = null;
       _numberFinalError = null;
+      _generalError = null;
     });
 
     print('Cargando departamentos...');
@@ -388,7 +465,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
           ),
           backgroundColor: const Color(0xFFF4F2F2),
           child: Container(
-            padding: const EdgeInsets.all(24),
+            width: MediaQuery.of(context).size.width * 0.95,
+            padding: const EdgeInsets.all(20),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -417,23 +495,47 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           offset: const Offset(0, 2),
                         ),
                       ],
+                      border: Border.all(
+                        color: _addressNameError != null
+                            ? Colors.red
+                            : Colors.transparent,
+                        width: 2,
+                      ),
                     ),
                     child: TextField(
                       controller: _addressNameController,
                       decoration: const InputDecoration(
                         labelText: 'Nombre',
-                        labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                        labelStyle: TextStyle(color: Colors.grey, fontSize: 13),
                         hintText: 'Casa, Empresa...',
                         prefixIcon: Icon(Icons.label_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: 12,
-                          vertical: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      onChanged: (value) {
+                        if (_addressNameError != null) {
+                          setDialogState(() {
+                            _addressNameError = null;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  if (_addressNameError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _addressNameError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
                         ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 12),
                   // Department and City Row
                   Row(
@@ -451,20 +553,26 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _departmentError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedDepartmentId,
                             hint: const Text('Departamento',
-                                style: TextStyle(fontSize: 14)),
+                                style: TextStyle(fontSize: 13)),
                             isExpanded: true,
                             underline: Container(),
                             items: _departments.map((department) {
                               return DropdownMenuItem<int>(
                                 value: department['id'],
                                 child: Text(department['name'],
-                                    style: const TextStyle(fontSize: 14)),
+                                    style: const TextStyle(fontSize: 13)),
                               );
                             }).toList(),
                             onChanged: (value) async {
@@ -476,6 +584,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   _selectedDepartmentId = value;
                                   _selectedCityId = null;
                                   _cities = cities;
+                                  _departmentError = null;
+                                  _cityError = null;
                                 });
                               } else {
                                 setDialogState(() {
@@ -502,25 +612,32 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _cityError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedCityId,
                             hint: const Text('Ciudad',
-                                style: TextStyle(fontSize: 14)),
+                                style: TextStyle(fontSize: 13)),
                             isExpanded: true,
                             underline: Container(),
                             items: _cities.map((city) {
                               return DropdownMenuItem<int>(
                                 value: city['id'],
                                 child: Text(city['name'],
-                                    style: const TextStyle(fontSize: 14)),
+                                    style: const TextStyle(fontSize: 13)),
                               );
                             }).toList(),
                             onChanged: (value) {
                               setDialogState(() {
                                 _selectedCityId = value;
+                                _cityError = null;
                               });
                             },
                           ),
@@ -528,6 +645,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ),
                     ],
                   ),
+                  if (_departmentError != null || _cityError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _departmentError ?? _cityError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   // Type Via and Number Principal Row
                   Row(
@@ -546,12 +674,18 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _typeViaError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 12),
                           child: DropdownButton<String>(
                             value: _selectedTypeVia,
-                            hint: const Text('Tipo vía',
+                            hint: const Text('Tipo de vía',
                                 style: TextStyle(fontSize: 14)),
                             isExpanded: true,
                             underline: Container(),
@@ -559,12 +693,13 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               return DropdownMenuItem<String>(
                                 value: type,
                                 child: Text(type,
-                                    style: const TextStyle(fontSize: 14)),
+                                    style: const TextStyle(fontSize: 13)),
                               );
                             }).toList(),
                             onChanged: (value) {
                               setDialogState(() {
                                 _selectedTypeVia = value;
+                                _typeViaError = null;
                               });
                             },
                           ),
@@ -584,27 +719,30 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _numberPrincipalError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           child: TextField(
                             controller: _numberPrincipalController,
                             decoration: InputDecoration(
                               labelText: '# Principal',
                               labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 14),
+                                  color: Colors.grey, fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
-                                vertical: 12,
+                                vertical: 10,
                               ),
-                              errorText: _numberPrincipalError,
-                              errorStyle: const TextStyle(
-                                  fontSize: 12, color: Colors.red),
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
                             onChanged: (value) {
                               if (_numberPrincipalError != null) {
-                                setState(() {
+                                setDialogState(() {
                                   _numberPrincipalError = null;
                                 });
                               }
@@ -614,6 +752,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ),
                     ],
                   ),
+                  if (_typeViaError != null || _numberPrincipalError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _typeViaError ?? _numberPrincipalError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   // Number Secondary and Number Final Row
                   Row(
@@ -631,27 +780,30 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _numberSecondaryError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           child: TextField(
                             controller: _numberSecondaryController,
                             decoration: InputDecoration(
                               labelText: '# Secundario',
                               labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 14),
+                                  color: Colors.grey, fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
-                                vertical: 12,
+                                vertical: 10,
                               ),
-                              errorText: _numberSecondaryError,
-                              errorStyle: const TextStyle(
-                                  fontSize: 12, color: Colors.red),
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
                             onChanged: (value) {
                               if (_numberSecondaryError != null) {
-                                setState(() {
+                                setDialogState(() {
                                   _numberSecondaryError = null;
                                 });
                               }
@@ -673,27 +825,30 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _numberFinalError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           child: TextField(
                             controller: _numberFinalController,
                             decoration: InputDecoration(
                               labelText: '# Final',
                               labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 14),
+                                  color: Colors.grey, fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
-                                vertical: 12,
+                                vertical: 10,
                               ),
-                              errorText: _numberFinalError,
-                              errorStyle: const TextStyle(
-                                  fontSize: 12, color: Colors.red),
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
                             onChanged: (value) {
                               if (_numberFinalError != null) {
-                                setState(() {
+                                setDialogState(() {
                                   _numberFinalError = null;
                                 });
                               }
@@ -703,6 +858,18 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ),
                     ],
                   ),
+                  if (_numberSecondaryError != null ||
+                      _numberFinalError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _numberSecondaryError ?? _numberFinalError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   // Additional Info Field
                   Container(
@@ -768,10 +935,10 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                            childAspectRatio: 1.5,
+                            crossAxisCount: 6,
+                            mainAxisSpacing: 4,
+                            crossAxisSpacing: 4,
+                            childAspectRatio: 1.0,
                           ),
                           itemCount: _addressIcons.length,
                           itemBuilder: (context, index) {
@@ -787,7 +954,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   color: _selectedIcon == iconData['icon']
                                       ? const Color(0xFF78BF32).withOpacity(0.2)
                                       : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
                                     color: _selectedIcon == iconData['icon']
                                         ? const Color(0xFF78BF32)
@@ -796,7 +963,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 ),
                                 child: Icon(
                                   iconData['icon'],
-                                  size: 20,
+                                  size: 16,
                                   color: const Color(0xFF78BF32),
                                 ),
                               ),
@@ -852,7 +1019,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _isAddingAddress ? null : _addAddress,
+                          onPressed: _isAddingAddress
+                              ? null
+                              : () => _addAddress(setDialogState),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF78BF32),
                             foregroundColor: Colors.white,
@@ -882,6 +1051,20 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ),
                     ],
                   ),
+                  // Error Message
+                  if (_generalError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        _generalError!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.red,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -893,6 +1076,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
   Future<void> _showEditAddressDialog(Map<String, dynamic> address) async {
     _editingAddressId = address['id'];
+    _originalAddress = Map.from(address); // Guardar dirección original
     _addressNameController.text = address['address_name'];
     _selectedIcon = address['address_icon'] != null
         ? _getIconFromString(address['address_icon'])
@@ -907,6 +1091,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     _numberFinalController.text = address['number_final']?.toString() ?? '';
     _additionalInfoController.text = address['additional_info'] ?? '';
     _cities.clear();
+    // Limpiar errores de validación
+    setState(() {
+      _addressNameError = null;
+      _departmentError = null;
+      _cityError = null;
+      _typeViaError = null;
+      _numberPrincipalError = null;
+      _numberSecondaryError = null;
+      _numberFinalError = null;
+      _generalError = null;
+    });
 
     await _loadDepartments();
     if (_selectedDepartmentId != null) {
@@ -924,7 +1119,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
           ),
           backgroundColor: const Color(0xFFF4F2F2),
           child: Container(
-            padding: const EdgeInsets.all(24),
+            width: MediaQuery.of(context).size.width * 0.95,
+            padding: const EdgeInsets.all(20),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -953,23 +1149,47 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           offset: const Offset(0, 2),
                         ),
                       ],
+                      border: Border.all(
+                        color: _addressNameError != null
+                            ? Colors.red
+                            : Colors.transparent,
+                        width: 2,
+                      ),
                     ),
                     child: TextField(
                       controller: _addressNameController,
                       decoration: const InputDecoration(
                         labelText: 'Nombre',
-                        labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                        labelStyle: TextStyle(color: Colors.grey, fontSize: 13),
                         hintText: 'Casa, Empresa...',
                         prefixIcon: Icon(Icons.label_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: 12,
-                          vertical: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      onChanged: (value) {
+                        if (_addressNameError != null) {
+                          setDialogState(() {
+                            _addressNameError = null;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  if (_addressNameError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _addressNameError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
                         ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 12),
                   // Department and City Row
                   Row(
@@ -987,20 +1207,26 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _departmentError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedDepartmentId,
                             hint: const Text('Departamento',
-                                style: TextStyle(fontSize: 14)),
+                                style: TextStyle(fontSize: 13)),
                             isExpanded: true,
                             underline: Container(),
                             items: _departments.map((department) {
                               return DropdownMenuItem<int>(
                                 value: department['id'],
                                 child: Text(department['name'],
-                                    style: const TextStyle(fontSize: 14)),
+                                    style: const TextStyle(fontSize: 13)),
                               );
                             }).toList(),
                             onChanged: (value) async {
@@ -1012,6 +1238,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   _selectedDepartmentId = value;
                                   _selectedCityId = null;
                                   _cities = cities;
+                                  _departmentError = null;
+                                  _cityError = null;
                                 });
                               } else {
                                 setDialogState(() {
@@ -1038,25 +1266,32 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _cityError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedCityId,
                             hint: const Text('Ciudad',
-                                style: TextStyle(fontSize: 14)),
+                                style: TextStyle(fontSize: 13)),
                             isExpanded: true,
                             underline: Container(),
                             items: _cities.map((city) {
                               return DropdownMenuItem<int>(
                                 value: city['id'],
                                 child: Text(city['name'],
-                                    style: const TextStyle(fontSize: 14)),
+                                    style: const TextStyle(fontSize: 13)),
                               );
                             }).toList(),
                             onChanged: (value) {
                               setDialogState(() {
                                 _selectedCityId = value;
+                                _cityError = null;
                               });
                             },
                           ),
@@ -1064,6 +1299,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ),
                     ],
                   ),
+                  if (_departmentError != null || _cityError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _departmentError ?? _cityError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   // Type Via and Number Principal Row
                   Row(
@@ -1082,25 +1328,32 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _typeViaError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 12),
                           child: DropdownButton<String>(
                             value: _selectedTypeVia,
                             hint: const Text('Tipo vía',
-                                style: TextStyle(fontSize: 14)),
+                                style: TextStyle(fontSize: 13)),
                             isExpanded: true,
                             underline: Container(),
                             items: _typeViaOptions.map((type) {
                               return DropdownMenuItem<String>(
                                 value: type,
                                 child: Text(type,
-                                    style: const TextStyle(fontSize: 14)),
+                                    style: const TextStyle(fontSize: 13)),
                               );
                             }).toList(),
                             onChanged: (value) {
                               setDialogState(() {
                                 _selectedTypeVia = value;
+                                _typeViaError = null;
                               });
                             },
                           ),
@@ -1120,27 +1373,30 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _numberPrincipalError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           child: TextField(
                             controller: _numberPrincipalController,
                             decoration: InputDecoration(
                               labelText: '# Principal',
                               labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 14),
+                                  color: Colors.grey, fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
-                                vertical: 12,
+                                vertical: 10,
                               ),
-                              errorText: _numberPrincipalError,
-                              errorStyle: const TextStyle(
-                                  fontSize: 12, color: Colors.red),
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
                             onChanged: (value) {
                               if (_numberPrincipalError != null) {
-                                setState(() {
+                                setDialogState(() {
                                   _numberPrincipalError = null;
                                 });
                               }
@@ -1150,6 +1406,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ),
                     ],
                   ),
+                  if (_typeViaError != null || _numberPrincipalError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _typeViaError ?? _numberPrincipalError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   // Number Secondary and Number Final Row
                   Row(
@@ -1167,27 +1434,30 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _numberSecondaryError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           child: TextField(
                             controller: _numberSecondaryController,
                             decoration: InputDecoration(
                               labelText: '# Secundario',
                               labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 14),
+                                  color: Colors.grey, fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
-                                vertical: 12,
+                                vertical: 10,
                               ),
-                              errorText: _numberSecondaryError,
-                              errorStyle: const TextStyle(
-                                  fontSize: 12, color: Colors.red),
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
                             onChanged: (value) {
                               if (_numberSecondaryError != null) {
-                                setState(() {
+                                setDialogState(() {
                                   _numberSecondaryError = null;
                                 });
                               }
@@ -1209,27 +1479,30 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 offset: const Offset(0, 2),
                               ),
                             ],
+                            border: Border.all(
+                              color: _numberFinalError != null
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                           child: TextField(
                             controller: _numberFinalController,
                             decoration: InputDecoration(
                               labelText: '# Final',
                               labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 14),
+                                  color: Colors.grey, fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
-                                vertical: 12,
+                                vertical: 10,
                               ),
-                              errorText: _numberFinalError,
-                              errorStyle: const TextStyle(
-                                  fontSize: 12, color: Colors.red),
                             ),
                             keyboardType: TextInputType.text,
                             style: const TextStyle(fontSize: 14),
                             onChanged: (value) {
                               if (_numberFinalError != null) {
-                                setState(() {
+                                setDialogState(() {
                                   _numberFinalError = null;
                                 });
                               }
@@ -1239,6 +1512,18 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ),
                     ],
                   ),
+                  if (_numberSecondaryError != null ||
+                      _numberFinalError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _numberSecondaryError ?? _numberFinalError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   // Additional Info Field
                   Container(
@@ -1304,10 +1589,10 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                            childAspectRatio: 1.5,
+                            crossAxisCount: 6,
+                            mainAxisSpacing: 4,
+                            crossAxisSpacing: 4,
+                            childAspectRatio: 1.0,
                           ),
                           itemCount: _addressIcons.length,
                           itemBuilder: (context, index) {
@@ -1323,7 +1608,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   color: _selectedIcon == iconData['icon']
                                       ? const Color(0xFF78BF32).withOpacity(0.2)
                                       : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
                                     color: _selectedIcon == iconData['icon']
                                         ? const Color(0xFF78BF32)
@@ -1332,7 +1617,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 ),
                                 child: Icon(
                                   iconData['icon'],
-                                  size: 20,
+                                  size: 16,
                                   color: const Color(0xFF78BF32),
                                 ),
                               ),
@@ -1376,7 +1661,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _isEditingAddress ? null : _updateAddress,
+                          onPressed: _isEditingAddress
+                              ? null
+                              : () => _updateAddress(setDialogState),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF78BF32),
                             foregroundColor: Colors.white,
@@ -1406,6 +1693,20 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ),
                     ],
                   ),
+                  // Error Message
+                  if (_generalError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        _generalError!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.red,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                 ],
               ),
             ),

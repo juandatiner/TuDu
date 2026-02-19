@@ -1,4 +1,4 @@
- const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const mailgun = require('mailgun-js');
 const sqlite3 = require('sqlite3').verbose();
@@ -1681,35 +1681,85 @@ app.post('/user-addresses', (req, res) => {
     return res.status(400).json({ error: 'El numero final debe contener al menos un digito' });
   }
 
-  usersDb.run(`INSERT INTO user_addresses (
-    user_email, 
-    address_name, 
-    department_id, 
-    city_id, 
-    type_via, 
-    number_principal, 
-    number_secondary, 
-    number_final, 
-    additional_info, 
-    address_icon
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-  [
-    user_email, 
-    address_name, 
-    department_id, 
-    city_id, 
-    type_via, 
-    number_principal, 
-    number_secondary, 
-    number_final, 
-    additional_info, 
-    address_icon
-  ], function(err) {
+  // Validar que la información adicional no exceda 60 caracteres
+  if (additional_info && additional_info.length > 60) {
+    return res.status(400).json({ error: 'La informacion adicional no puede exceder 60 caracteres' });
+  }
+
+  // Validar que no exista una dirección con el mismo nombre para el usuario
+  usersDb.get(`
+    SELECT id FROM user_addresses 
+    WHERE user_email = ? AND address_name = ?`, 
+  [user_email, address_name], (err, row) => {
     if (err) {
-      console.error('Error agregando direccion:', err);
-      return res.status(500).json({ error: 'Error agregando direccion' });
+      console.error('Error verificando nombre de direccion:', err);
+      return res.status(500).json({ error: 'Error verificando nombre de direccion' });
     }
-    res.json({ message: 'Direccion agregada exitosamente', id: this.lastID });
+
+    if (row) {
+      return res.status(400).json({ error: 'Ya existe una direccion con este nombre' });
+    }
+
+    // Validar que no exista una dirección idéntica (sin importar nombre o info adicional)
+    usersDb.get(`
+      SELECT id FROM user_addresses 
+      WHERE user_email = ? 
+      AND department_id = ? 
+      AND city_id = ? 
+      AND type_via = ? 
+      AND number_principal = ? 
+      AND number_secondary = ? 
+      AND number_final = ?`, 
+    [
+      user_email, 
+      department_id, 
+      city_id, 
+      type_via, 
+      number_principal, 
+      number_secondary || null, 
+      number_final || null
+    ], (err, row) => {
+      if (err) {
+        console.error('Error verificando direccion duplicada:', err);
+        return res.status(500).json({ error: 'Error verificando direccion duplicada' });
+      }
+
+      if (row) {
+        return res.status(400).json({ error: 'Ya existe una direccion identica' });
+      }
+
+      // Insertar la dirección si todas las validaciones pasan
+      usersDb.run(`INSERT INTO user_addresses (
+        user_email, 
+        address_name, 
+        department_id, 
+        city_id, 
+        type_via, 
+        number_principal, 
+        number_secondary, 
+        number_final, 
+        additional_info, 
+        address_icon
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+      [
+        user_email, 
+        address_name, 
+        department_id, 
+        city_id, 
+        type_via, 
+        number_principal, 
+        number_secondary, 
+        number_final, 
+        additional_info, 
+        address_icon
+      ], function(err) {
+        if (err) {
+          console.error('Error agregando direccion:', err);
+          return res.status(500).json({ error: 'Error agregando direccion' });
+        }
+        res.json({ message: 'Direccion agregada exitosamente', id: this.lastID });
+      });
+    });
   });
 });
 
@@ -1747,37 +1797,105 @@ app.put('/user-addresses/:id', (req, res) => {
     return res.status(400).json({ error: 'El numero final debe contener al menos un digito' });
   }
 
-  usersDb.run(`UPDATE user_addresses SET 
-    address_name = ?, 
-    department_id = ?, 
-    city_id = ?, 
-    type_via = ?, 
-    number_principal = ?, 
-    number_secondary = ?, 
-    number_final = ?, 
-    additional_info = ?, 
-    address_icon = ? 
-    WHERE id = ?`, 
-  [
-    address_name, 
-    department_id, 
-    city_id, 
-    type_via, 
-    number_principal, 
-    number_secondary, 
-    number_final, 
-    additional_info, 
-    address_icon,
-    id
-  ], function(err) {
+  // Validar que la información adicional no exceda 60 caracteres
+  if (additional_info && additional_info.length > 60) {
+    return res.status(400).json({ error: 'La informacion adicional no puede exceder 60 caracteres' });
+  }
+
+  // Obtener la dirección original para verificar el usuario
+  usersDb.get(`SELECT user_email FROM user_addresses WHERE id = ?`, [id], (err, originalRow) => {
     if (err) {
-      console.error('Error actualizando direccion:', err);
-      return res.status(500).json({ error: 'Error actualizando direccion' });
+      console.error('Error obteniendo direccion original:', err);
+      return res.status(500).json({ error: 'Error obteniendo direccion original' });
     }
-    if (this.changes === 0) {
+
+    if (!originalRow) {
       return res.status(404).json({ error: 'Direccion no encontrada' });
     }
-    res.json({ message: 'Direccion actualizada exitosamente' });
+
+    const userEmail = originalRow.user_email;
+
+    // Validar que no exista otra dirección con el mismo nombre para el usuario
+    usersDb.get(`
+      SELECT id FROM user_addresses 
+      WHERE user_email = ? 
+      AND address_name = ? 
+      AND id != ?`, 
+    [userEmail, address_name, id], (err, row) => {
+      if (err) {
+        console.error('Error verificando nombre de direccion:', err);
+        return res.status(500).json({ error: 'Error verificando nombre de direccion' });
+      }
+
+      if (row) {
+        return res.status(400).json({ error: 'Ya existe una direccion con este nombre' });
+      }
+
+      // Validar que no exista otra dirección idéntica (sin importar nombre o info adicional)
+      usersDb.get(`
+        SELECT id FROM user_addresses 
+        WHERE user_email = ? 
+        AND department_id = ? 
+        AND city_id = ? 
+        AND type_via = ? 
+        AND number_principal = ? 
+        AND number_secondary = ? 
+        AND number_final = ? 
+        AND id != ?`, 
+      [
+        userEmail, 
+        department_id, 
+        city_id, 
+        type_via, 
+        number_principal, 
+        number_secondary || null, 
+        number_final || null,
+        id
+      ], (err, row) => {
+        if (err) {
+          console.error('Error verificando direccion duplicada:', err);
+          return res.status(500).json({ error: 'Error verificando direccion duplicada' });
+        }
+
+        if (row) {
+          return res.status(400).json({ error: 'Ya existe una direccion identica' });
+        }
+
+        // Actualizar la dirección si todas las validaciones pasan
+        usersDb.run(`UPDATE user_addresses SET 
+          address_name = ?, 
+          department_id = ?, 
+          city_id = ?, 
+          type_via = ?, 
+          number_principal = ?, 
+          number_secondary = ?, 
+          number_final = ?, 
+          additional_info = ?, 
+          address_icon = ? 
+          WHERE id = ?`, 
+        [
+          address_name, 
+          department_id, 
+          city_id, 
+          type_via, 
+          number_principal, 
+          number_secondary, 
+          number_final, 
+          additional_info, 
+          address_icon,
+          id
+        ], function(err) {
+          if (err) {
+            console.error('Error actualizando direccion:', err);
+            return res.status(500).json({ error: 'Error actualizando direccion' });
+          }
+          if (this.changes === 0) {
+            return res.status(404).json({ error: 'Direccion no encontrada' });
+          }
+          res.json({ message: 'Direccion actualizada exitosamente' });
+        });
+      });
+    });
   });
 });
 

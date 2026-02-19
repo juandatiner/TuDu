@@ -15,7 +15,7 @@ dependencies:
   intl_phone_field: ^3.2.0
   http: ^1.1.0
   image_picker: ^1.1.0
-  image_cropper: ^5.0.1
+  image_cropper: ^11.0.0
 
 dev_dependencies:
   flutter_test:
