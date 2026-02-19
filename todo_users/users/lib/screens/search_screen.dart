@@ -564,22 +564,40 @@ class _SearchScreenState extends State<SearchScreen> {
               const SizedBox(height: 6),
               LayoutBuilder(
                 builder: (context, constraints) {
-                  // Calcula el número de círculos que caben en la pantalla
-                  // Tamaño del círculo + margen derecho (70px total por elemento)
-                  int maxCircles = (constraints.maxWidth ~/ 70);
-                  // Asegura un mínimo de 4 círculos (para celulares) y máximo razonable
-                  int circleCount = max(4, min(maxCircles, 10));
+                  // Tamaño máximo y mínimo de cada círculo
+                  const double maxCircleSize = 66.0;
+                  const double minCircleSize = 50.0;
+                  const double marginBetween = 10.0;
+
+                  // Calcular cuántos círculos caben con el tamaño máximo
+                  int maxCirclesThatFit =
+                      ((constraints.maxWidth + marginBetween) /
+                              (maxCircleSize + marginBetween))
+                          .floor();
+                  // Mínimo 4 círculos, máximo 10
+                  int circleCount = max(4, min(maxCirclesThatFit, 10));
+
+                  // Calcular el tamaño real de cada círculo para que quepan todos centrados
+                  double totalMarginSpace = (circleCount - 1) * marginBetween;
+                  double availableWidthForCircles =
+                      constraints.maxWidth - totalMarginSpace;
+                  double calculatedSize =
+                      availableWidthForCircles / circleCount;
+                  // Limitar entre minCircleSize y maxCircleSize
+                  double circleSize =
+                      calculatedSize.clamp(minCircleSize, maxCircleSize);
 
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(circleCount, (index) {
                       return Container(
-                        margin: const EdgeInsets.only(right: 10),
-                        width: 66, // 10% más grande que 60px
-                        height: 66, // 10% más grande que 60px
+                        margin: EdgeInsets.only(
+                            right: index < circleCount - 1 ? marginBetween : 0),
+                        width: circleSize,
+                        height: circleSize,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(33),
+                          borderRadius: BorderRadius.circular(circleSize / 2),
                           border: Border.all(color: Colors.grey),
                         ),
                         child: const Center(),

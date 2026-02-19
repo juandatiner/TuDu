@@ -2228,7 +2228,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         const Text(
                           'No tienes direcciones guardadas',
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.black,
                           ),
