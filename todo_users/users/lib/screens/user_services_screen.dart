@@ -1096,6 +1096,11 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                 },
                               ),
               ),
+              // Espacio gris inferior antes de la barra de navegación
+              Container(
+                height: 16,
+                color: const Color(0xFFF4F2F2),
+              ),
             ],
           ),
         ),
