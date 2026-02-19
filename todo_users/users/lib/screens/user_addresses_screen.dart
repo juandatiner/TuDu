@@ -29,6 +29,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
   String? _numberPrincipalError;
   String? _numberSecondaryError;
   String? _numberFinalError;
+  String? _additionalInfoError;
+  String? _addressIconError;
   String? _generalError;
   Map<String, dynamic>? _originalAddress;
 
@@ -36,6 +38,13 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
   void initState() {
     super.initState();
     _loadAddresses();
+
+    // Agregar listeners a los controladores de texto para detectar cambios
+    _addressNameController.addListener(() => setState(() {}));
+    _numberPrincipalController.addListener(() => setState(() {}));
+    _numberSecondaryController.addListener(() => setState(() {}));
+    _numberFinalController.addListener(() => setState(() {}));
+    _additionalInfoController.addListener(() => setState(() {}));
   }
 
   Future<void> _loadAddresses() async {
@@ -74,6 +83,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
       _numberPrincipalError = null;
       _numberSecondaryError = null;
       _numberFinalError = null;
+      _additionalInfoError = null;
+      _addressIconError = null;
       _generalError = null;
     });
 
@@ -121,18 +132,40 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
       isValid = false;
     }
 
-    if (_numberSecondaryController.text.isNotEmpty &&
-        !hasNumber(_numberSecondaryController.text)) {
+    if (_numberSecondaryController.text.isEmpty) {
+      setDialogState(() {
+        _numberSecondaryError = 'Campo obligatorio';
+      });
+      isValid = false;
+    } else if (!hasNumber(_numberSecondaryController.text)) {
       setDialogState(() {
         _numberSecondaryError = 'Debe contener al menos un dígito';
       });
       isValid = false;
     }
 
-    if (_numberFinalController.text.isNotEmpty &&
-        !hasNumber(_numberFinalController.text)) {
+    if (_numberFinalController.text.isEmpty) {
+      setDialogState(() {
+        _numberFinalError = 'Campo obligatorio';
+      });
+      isValid = false;
+    } else if (!hasNumber(_numberFinalController.text)) {
       setDialogState(() {
         _numberFinalError = 'Debe contener al menos un dígito';
+      });
+      isValid = false;
+    }
+
+    if (_additionalInfoController.text.isEmpty) {
+      setDialogState(() {
+        _additionalInfoError = 'Campo obligatorio';
+      });
+      isValid = false;
+    }
+
+    if (_selectedIcon == null) {
+      setDialogState(() {
+        _addressIconError = 'Campo obligatorio';
       });
       isValid = false;
     }
@@ -213,6 +246,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
       _numberPrincipalError = null;
       _numberSecondaryError = null;
       _numberFinalError = null;
+      _additionalInfoError = null;
+      _addressIconError = null;
       _generalError = null;
     });
 
@@ -260,18 +295,40 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
       isValid = false;
     }
 
-    if (_numberSecondaryController.text.isNotEmpty &&
-        !hasNumber(_numberSecondaryController.text)) {
+    if (_numberSecondaryController.text.isEmpty) {
+      setDialogState(() {
+        _numberSecondaryError = 'Campo obligatorio';
+      });
+      isValid = false;
+    } else if (!hasNumber(_numberSecondaryController.text)) {
       setDialogState(() {
         _numberSecondaryError = 'Debe contener al menos un dígito';
       });
       isValid = false;
     }
 
-    if (_numberFinalController.text.isNotEmpty &&
-        !hasNumber(_numberFinalController.text)) {
+    if (_numberFinalController.text.isEmpty) {
+      setDialogState(() {
+        _numberFinalError = 'Campo obligatorio';
+      });
+      isValid = false;
+    } else if (!hasNumber(_numberFinalController.text)) {
       setDialogState(() {
         _numberFinalError = 'Debe contener al menos un dígito';
+      });
+      isValid = false;
+    }
+
+    if (_additionalInfoController.text.isEmpty) {
+      setDialogState(() {
+        _additionalInfoError = 'Campo obligatorio';
+      });
+      isValid = false;
+    }
+
+    if (_selectedIcon == null) {
+      setDialogState(() {
+        _addressIconError = 'Campo obligatorio';
       });
       isValid = false;
     }
@@ -446,6 +503,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
       _numberPrincipalError = null;
       _numberSecondaryError = null;
       _numberFinalError = null;
+      _additionalInfoError = null;
+      _addressIconError = null;
       _generalError = null;
     });
 
@@ -884,6 +943,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           offset: const Offset(0, 2),
                         ),
                       ],
+                      border: Border.all(
+                        color: _additionalInfoError != null
+                            ? Colors.red
+                            : Colors.transparent,
+                        width: 2,
+                      ),
                     ),
                     child: TextField(
                       controller: _additionalInfoController,
@@ -898,10 +963,31 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           horizontal: 12,
                           vertical: 12,
                         ),
+                        counterText: '', // Oculta el contador
                       ),
-                      maxLines: 1,
+                      maxLines: null, // Permite múltiples líneas
+                      maxLength: 60, // Límite de 60 caracteres
+                      keyboardType: TextInputType.multiline,
+                      onChanged: (value) {
+                        if (_additionalInfoError != null) {
+                          setDialogState(() {
+                            _additionalInfoError = null;
+                          });
+                        }
+                      },
                     ),
                   ),
+                  if (_additionalInfoError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _additionalInfoError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   // Icon Selection
                   Container(
@@ -916,6 +1002,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           offset: const Offset(0, 2),
                         ),
                       ],
+                      border: Border.all(
+                        color: _addressIconError != null
+                            ? Colors.red
+                            : Colors.transparent,
+                        width: 2,
+                      ),
                     ),
                     padding: const EdgeInsets.all(12),
                     child: Column(
@@ -947,6 +1039,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               onTap: () {
                                 setDialogState(() {
                                   _selectedIcon = iconData['icon'];
+                                  _addressIconError = null;
                                 });
                               },
                               child: Container(
@@ -973,6 +1066,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ],
                     ),
                   ),
+                  if (_addressIconError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _addressIconError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   // Action Buttons
                   Row(
@@ -1080,7 +1184,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     _addressNameController.text = address['address_name'];
     _selectedIcon = address['address_icon'] != null
         ? _getIconFromString(address['address_icon'])
-        : _getAddressIcon(address['address_name']);
+        : null;
     _selectedDepartmentId = address['department_id'];
     _selectedCityId = address['city_id'];
     _selectedTypeVia = address['type_via'];
@@ -1100,6 +1204,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
       _numberPrincipalError = null;
       _numberSecondaryError = null;
       _numberFinalError = null;
+      _additionalInfoError = null;
+      _addressIconError = null;
       _generalError = null;
     });
 
@@ -1538,6 +1644,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           offset: const Offset(0, 2),
                         ),
                       ],
+                      border: Border.all(
+                        color: _additionalInfoError != null
+                            ? Colors.red
+                            : Colors.transparent,
+                        width: 2,
+                      ),
                     ),
                     child: TextField(
                       controller: _additionalInfoController,
@@ -1552,10 +1664,31 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           horizontal: 12,
                           vertical: 12,
                         ),
+                        counterText: '', // Oculta el contador
                       ),
-                      maxLines: 1,
+                      maxLines: null, // Permite múltiples líneas
+                      maxLength: 60, // Límite de 60 caracteres
+                      keyboardType: TextInputType.multiline,
+                      onChanged: (value) {
+                        if (_additionalInfoError != null) {
+                          setDialogState(() {
+                            _additionalInfoError = null;
+                          });
+                        }
+                      },
                     ),
                   ),
+                  if (_additionalInfoError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _additionalInfoError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   // Icon Selection
                   Container(
@@ -1570,6 +1703,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           offset: const Offset(0, 2),
                         ),
                       ],
+                      border: Border.all(
+                        color: _addressIconError != null
+                            ? Colors.red
+                            : Colors.transparent,
+                        width: 2,
+                      ),
                     ),
                     padding: const EdgeInsets.all(12),
                     child: Column(
@@ -1601,6 +1740,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               onTap: () {
                                 setDialogState(() {
                                   _selectedIcon = iconData['icon'];
+                                  _addressIconError = null;
                                 });
                               },
                               child: Container(
@@ -1627,6 +1767,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ],
                     ),
                   ),
+                  if (_addressIconError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _addressIconError!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   // Action Buttons
                   Row(
@@ -1661,12 +1812,15 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _isEditingAddress
+                          onPressed: _isEditingAddress || !_hasChanges()
                               ? null
                               : () => _updateAddress(setDialogState),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF78BF32),
-                            foregroundColor: Colors.white,
+                            backgroundColor: _hasChanges()
+                                ? const Color(0xFF78BF32)
+                                : Colors.grey[300],
+                            foregroundColor:
+                                _hasChanges() ? Colors.white : Colors.grey[600],
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -1693,6 +1847,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ),
                     ],
                   ),
+                  if (!_hasChanges())
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        'Aún no has hecho cambios',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                   // Error Message
                   if (_generalError != null)
                     Container(
@@ -1716,29 +1881,329 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     );
   }
 
-  void _showDeleteConfirmDialog(int id) {
+  void _showAddressDetailsDialog(Map<String, dynamic> address) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar Dirección'),
-        content:
-            const Text('¿Estás seguro de que quieres eliminar esta dirección?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        backgroundColor: const Color(0xFFF4F2F2),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.95,
+          padding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Title
+                Text(
+                  address['address_name'],
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                // Address Details
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 3,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Full Address
+                      Text(
+                        '${address['type_via']} ${address['number_principal']}'
+                        '${address['number_secondary'] != null ? ' #${address['number_secondary']}' : ''}'
+                        '${address['number_final'] != null ? ' - ${address['number_final']}' : ''}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black,
+                        ),
+                      ),
+                      // Additional Info
+                      if (address['additional_info'] != null &&
+                          address['additional_info'].isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            address['additional_info'],
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF757575),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                      // Location
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on,
+                            color: Color(0xFF78BF32),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${address['city_name']}, ${address['department_name']}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF757575),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Icon
+                      if (address['address_icon'] != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12.0),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.label_outline,
+                                color: Color(0xFF78BF32),
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                address['address_icon'],
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF757575),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Close Button
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF78BF32),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 32),
+                  ),
+                  child: const Text(
+                    'Cerrar',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteAddress(id);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Eliminar'),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  void _showDeleteConfirmDialog(int id) {
+    final addressToDelete = _addresses.firstWhere((addr) => addr['id'] == id);
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        backgroundColor: const Color(0xFFF4F2F2),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.95,
+          padding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Title
+                const Text(
+                  'Eliminar Dirección',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                // Content
+                RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                    children: [
+                      const TextSpan(
+                          text:
+                              '¿Estás seguro de que quieres eliminar la dirección '),
+                      TextSpan(
+                        text: addressToDelete['address_name'],
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const TextSpan(text: '?'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                          side: const BorderSide(color: Colors.grey),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text(
+                          'Cancelar',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _deleteAddress(id);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text(
+                          'Eliminar',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _hasChanges() {
+    if (_originalAddress == null) return true;
+
+    print('=== Comparando cambios ===');
+    print(
+        'Nombre: ${_addressNameController.text} vs ${_originalAddress!['address_name']}');
+    print(
+        'Número principal: ${_numberPrincipalController.text} vs ${_originalAddress!['number_principal']}');
+    print(
+        'Número secundario: ${_numberSecondaryController.text} vs ${_originalAddress!['number_secondary']}');
+    print(
+        'Número final: ${_numberFinalController.text} vs ${_originalAddress!['number_final']}');
+    print(
+        'Info adicional: ${_additionalInfoController.text} vs ${_originalAddress!['additional_info']}');
+    print(
+        'Departamento: ${_selectedDepartmentId} vs ${_originalAddress!['department_id']}');
+    print('Ciudad: ${_selectedCityId} vs ${_originalAddress!['city_id']}');
+    print('Tipo vía: ${_selectedTypeVia} vs ${_originalAddress!['type_via']}');
+
+    // Comparar campos de texto
+    if (_addressNameController.text != _originalAddress!['address_name']) {
+      print('Cambio en Nombre');
+      return true;
+    }
+    if (_numberPrincipalController.text !=
+        (_originalAddress!['number_principal']?.toString() ?? '')) {
+      print('Cambio en Número principal');
+      return true;
+    }
+    if (_numberSecondaryController.text !=
+        (_originalAddress!['number_secondary']?.toString() ?? '')) {
+      print('Cambio en Número secundario');
+      return true;
+    }
+    if (_numberFinalController.text !=
+        (_originalAddress!['number_final']?.toString() ?? '')) {
+      print('Cambio en Número final');
+      return true;
+    }
+    if (_additionalInfoController.text !=
+        (_originalAddress!['additional_info'] ?? '')) {
+      print('Cambio en Info adicional');
+      return true;
+    }
+
+    // Comparar valores seleccionados
+    if (_selectedDepartmentId != _originalAddress!['department_id']) {
+      print('Cambio en Departamento');
+      return true;
+    }
+    if (_selectedCityId != _originalAddress!['city_id']) {
+      print('Cambio en Ciudad');
+      return true;
+    }
+    if (_selectedTypeVia != _originalAddress!['type_via']) {
+      print('Cambio en Tipo vía');
+      return true;
+    }
+
+    // Comparar icono
+    final currentIconName =
+        _selectedIcon != null ? _getIconName(_selectedIcon!) : null;
+    if (currentIconName != _originalAddress!['address_icon']) {
+      print(
+          'Cambio en Icono: $currentIconName vs ${_originalAddress!['address_icon']}');
+      return true;
+    }
+
+    print('=== No hay cambios ===');
+    return false;
   }
 
   String _getIconName(IconData iconData) {
@@ -1762,11 +2227,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
       buffer.write(' - ${address['number_final']}');
     }
 
-    if (address['additional_info'] != null &&
-        address['additional_info'].isNotEmpty) {
-      buffer.write('. ${address['additional_info']}');
-    }
-
+    // No mostrar información adicional en la lista
     return buffer.toString();
   }
 
@@ -1877,109 +2338,113 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         itemCount: _addresses.length,
                         itemBuilder: (context, index) {
                           final address = _addresses[index];
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.1),
-                                  spreadRadius: 1,
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Address Icon
-                                Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF4F2F2),
-                                    borderRadius: BorderRadius.circular(12),
+                          return GestureDetector(
+                            onTap: () => _showAddressDetailsDialog(address),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.1),
+                                    spreadRadius: 1,
+                                    blurRadius: 3,
+                                    offset: const Offset(0, 2),
                                   ),
-                                  child: Icon(
-                                    address['address_icon'] != null
-                                        ? _getIconFromString(
-                                            address['address_icon'])
-                                        : _getAddressIcon(
-                                            address['address_name']),
-                                    size: 32,
-                                    color: const Color(0xFF78BF32),
+                                ],
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Address Icon
+                                  Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF4F2F2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      address['address_icon'] != null
+                                          ? _getIconFromString(
+                                              address['address_icon'])
+                                          : _getAddressIcon(
+                                              address['address_name']),
+                                      size: 32,
+                                      color: const Color(0xFF78BF32),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 16),
-                                // Address Details
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                  const SizedBox(width: 16),
+                                  // Address Details
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          address['address_name'],
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        // Formatted Address
+                                        Text(
+                                          _formatAddress(address),
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            color: Colors.grey[600],
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        // Location Info
+                                        Text(
+                                          '${address['city_name']}, ${address['department_name']}',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[500],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Action Buttons
+                                  Row(
                                     children: [
-                                      Text(
-                                        address['address_name'],
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
+                                      IconButton(
+                                        onPressed: () =>
+                                            _showEditAddressDialog(address),
+                                        icon: const Icon(
+                                          Icons.edit,
                                           color: Colors.black,
+                                          size: 20,
                                         ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
                                       ),
-                                      const SizedBox(height: 8),
-                                      // Formatted Address
-                                      Text(
-                                        _formatAddress(address),
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: Colors.grey[600],
+                                      const SizedBox(width: 2),
+                                      IconButton(
+                                        onPressed: () =>
+                                            _showDeleteConfirmDialog(
+                                                address['id']),
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                          size: 20,
                                         ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      // Location Info
-                                      Text(
-                                        '${address['city_name']}, ${address['department_name']}',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.grey[500],
-                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
                                       ),
                                     ],
                                   ),
-                                ),
-                                // Action Buttons
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      onPressed: () =>
-                                          _showEditAddressDialog(address),
-                                      icon: const Icon(
-                                        Icons.edit,
-                                        color: Colors.black,
-                                        size: 20,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                    ),
-                                    const SizedBox(width: 2),
-                                    IconButton(
-                                      onPressed: () => _showDeleteConfirmDialog(
-                                          address['id']),
-                                      icon: const Icon(
-                                        Icons.delete,
-                                        color: Colors.red,
-                                        size: 20,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           );
                         },
