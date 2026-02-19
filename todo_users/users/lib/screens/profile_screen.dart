@@ -475,6 +475,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               base64Decode(
                                                   _avatarImage!.split(',')[1]),
                                               fit: BoxFit.cover,
+                                              gaplessPlayback: true,
                                               errorBuilder:
                                                   (context, error, stackTrace) {
                                                 return _getIconWidget();
@@ -483,6 +484,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           : Image.network(
                                               _avatarImage!,
                                               fit: BoxFit.cover,
+                                              gaplessPlayback: true,
                                               errorBuilder:
                                                   (context, error, stackTrace) {
                                                 return _getIconWidget();

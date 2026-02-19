@@ -28,6 +28,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       );
       return;
     }
+    if (_nombreController.text.length > 20) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El nombre no puede exceder 20 caracteres'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    if (_apellidoController.text.length > 20) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El apellido no puede exceder 20 caracteres'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -135,6 +153,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 // Campo Nombre
                 TextField(
                   controller: _nombreController,
+                  maxLength: 20,
                   decoration: InputDecoration(
                     labelText: 'Nombre',
                     filled: true,
@@ -158,6 +177,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         width: 2,
                       ),
                     ),
+                    counterText: '', // Oculta el contador
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -165,6 +185,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 // Campo Apellido
                 TextField(
                   controller: _apellidoController,
+                  maxLength: 20,
                   decoration: InputDecoration(
                     labelText: 'Apellido',
                     filled: true,
@@ -188,6 +209,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         width: 2,
                       ),
                     ),
+                    counterText: '', // Oculta el contador
                   ),
                 ),
                 const SizedBox(height: 40),

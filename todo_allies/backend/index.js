@@ -224,6 +224,14 @@ app.post('/register-ally', (req, res) => {
     return res.status(400).json({ error: 'Email, nombre y apellido son requeridos' });
   }
 
+  if (nombre.length > 20) {
+    return res.status(400).json({ error: 'El nombre no puede exceder 20 caracteres' });
+  }
+
+  if (apellido.length > 20) {
+    return res.status(400).json({ error: 'El apellido no puede exceder 20 caracteres' });
+  }
+
   alliesDb.run(`INSERT INTO allies (email, nombre, apellido) VALUES (?, ?, ?)`, [email, nombre, apellido], function(err) {
     if (err) {
       if (err.code === 'SQLITE_CONSTRAINT' || err.code === 'SQLITE_CONSTRAINT_UNIQUE') {

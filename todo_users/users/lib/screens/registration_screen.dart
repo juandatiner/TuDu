@@ -28,21 +28,41 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       );
       return;
     }
+    if (_nombreController.text.length > 20) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El nombre no puede exceder 20 caracteres'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    if (_apellidoController.text.length > 20) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El apellido no puede exceder 20 caracteres'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/register-user'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': widget.email,
-          'nombre': _nombreController.text,
-          'apellido': _apellidoController.text,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('${Config.baseUrl}/register-user'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': widget.email,
+              'nombre': _nombreController.text,
+              'apellido': _apellidoController.text,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         Navigator.pushReplacement(
@@ -133,22 +153,27 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 // Campo Nombre
                 TextField(
                   controller: _nombreController,
+                  maxLength: 20,
                   decoration: InputDecoration(
                     labelText: 'Nombre',
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                      borderSide:
+                          BorderSide(color: Colors.black.withOpacity(0.3)),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                      borderSide:
+                          BorderSide(color: Colors.black.withOpacity(0.3)),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF78BF32), width: 2),
+                      borderSide:
+                          const BorderSide(color: Color(0xFF78BF32), width: 2),
                     ),
+                    counterText: '', // Oculta el contador
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -156,22 +181,27 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 // Campo Apellido
                 TextField(
                   controller: _apellidoController,
+                  maxLength: 20,
                   decoration: InputDecoration(
                     labelText: 'Apellido',
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                      borderSide:
+                          BorderSide(color: Colors.black.withOpacity(0.3)),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                      borderSide:
+                          BorderSide(color: Colors.black.withOpacity(0.3)),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF78BF32), width: 2),
+                      borderSide:
+                          const BorderSide(color: Color(0xFF78BF32), width: 2),
                     ),
+                    counterText: '', // Oculta el contador
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -182,7 +212,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF78BF32),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 48),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 48),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -194,7 +225,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text(

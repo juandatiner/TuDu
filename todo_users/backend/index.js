@@ -1453,6 +1453,14 @@ app.post('/register-user', (req, res) => {
     return res.status(400).json({ error: 'Email, nombre y apellido son requeridos' });
   }
 
+  if (nombre.length > 20) {
+    return res.status(400).json({ error: 'El nombre no puede exceder 20 caracteres' });
+  }
+
+  if (apellido.length > 20) {
+    return res.status(400).json({ error: 'El apellido no puede exceder 20 caracteres' });
+  }
+
   usersDb.run(`INSERT INTO users (email, nombre, apellido) VALUES (?, ?, ?)`, [email, nombre, apellido], function(err) {
     if (err) {
       if (err.code === 'SQLITE_CONSTRAINT' || err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -1471,6 +1479,14 @@ app.post('/register-ally', (req, res) => {
 
   if (!email || !nombre || !apellido) {
     return res.status(400).json({ error: 'Email, nombre y apellido son requeridos' });
+  }
+
+  if (nombre.length > 20) {
+    return res.status(400).json({ error: 'El nombre no puede exceder 20 caracteres' });
+  }
+
+  if (apellido.length > 20) {
+    return res.status(400).json({ error: 'El apellido no puede exceder 20 caracteres' });
   }
 
   alliesDb.run(`INSERT INTO allies (email, nombre, apellido) VALUES (?, ?, ?)`, [email, nombre, apellido], function(err) {
@@ -2174,6 +2190,14 @@ app.put('/users/profile/data', (req, res) => {
 
   if (!email) {
     return res.status(400).json({ error: 'Email es requerido' });
+  }
+
+  if (nombre !== undefined && nombre !== null && nombre.length > 20) {
+    return res.status(400).json({ error: 'El nombre no puede exceder 20 caracteres' });
+  }
+
+  if (apellido !== undefined && apellido !== null && apellido.length > 20) {
+    return res.status(400).json({ error: 'El apellido no puede exceder 20 caracteres' });
   }
 
   // Construir la query dinámicamente según los campos proporcionados para users

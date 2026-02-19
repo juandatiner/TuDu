@@ -132,6 +132,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
           // Si hay una imagen de perfil, marcar que se usa foto
           if (data['avatar_image'] != null) {
             _usePhoto = true;
+          } else {
+            _usePhoto = false;
           }
 
           // Guardar datos originales
@@ -725,6 +727,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                               base64Decode(
                                                   _avatarImage!.split(',')[1]),
                                               fit: BoxFit.cover,
+                                              gaplessPlayback: true,
                                               errorBuilder:
                                                   (context, error, stackTrace) {
                                                 return _getIconWidget();
@@ -781,7 +784,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         ),
                         child: TextFormField(
                           controller: _nameController,
-                          maxLength: 50,
+                          maxLength: 20,
                           decoration: const InputDecoration(
                             labelText: 'Nombre',
                             labelStyle: TextStyle(color: Colors.grey),
@@ -796,8 +799,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
                             if (value == null || value.trim().isEmpty) {
                               return 'Por favor ingresa tu nombre';
                             }
-                            if (value.trim().length > 50) {
-                              return 'El nombre no puede exceder 50 caracteres';
+                            if (value.trim().length > 20) {
+                              return 'El nombre no puede exceder 20 caracteres';
                             }
                             return null;
                           },
@@ -820,7 +823,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         ),
                         child: TextFormField(
                           controller: _lastNameController,
-                          maxLength: 50,
+                          maxLength: 20,
                           decoration: const InputDecoration(
                             labelText: 'Apellido',
                             labelStyle: TextStyle(color: Colors.grey),
@@ -835,8 +838,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
                             if (value == null || value.trim().isEmpty) {
                               return 'Por favor ingresa tu apellido';
                             }
-                            if (value.trim().length > 50) {
-                              return 'El apellido no puede exceder 50 caracteres';
+                            if (value.trim().length > 20) {
+                              return 'El apellido no puede exceder 20 caracteres';
                             }
                             return null;
                           },

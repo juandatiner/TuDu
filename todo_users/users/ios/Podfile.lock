@@ -5,13 +5,13 @@ PODS:
   - Flutter (1.0.0)
   - image_cropper (0.0.4):
     - Flutter
-    - TOCropViewController (~> 2.6.1)
+    - TOCropViewController (~> 2.8.0)
   - image_picker_ios (0.0.1):
     - Flutter
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
-  - TOCropViewController (2.6.1)
+  - TOCropViewController (2.8.0)
 
 DEPENDENCIES:
   - audioplayers_darwin (from `.symlinks/plugins/audioplayers_darwin/darwin`)
@@ -39,10 +39,10 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   audioplayers_darwin: 4f9ca89d92d3d21cec7ec580e78ca888e5fb68bd
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  image_cropper: 655b3ba703c9e15e3111e79151624d6154288774
+  image_cropper: 64567491beea6cd1bc4b11948e2babb590de5826
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
-  TOCropViewController: edfd4f25713d56905ad1e0b9f5be3fbe0f59c863
+  TOCropViewController: 797deaf39c90e6e9ddd848d88817f6b9a8a09888
 
 PODFILE CHECKSUM: 46b3965fd3f9cca097fed79935403f6367b010fd
 
