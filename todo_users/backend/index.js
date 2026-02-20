@@ -78,6 +78,18 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
             console.error('Error agregando columna phone:', err.message);
           }
         });
+        // Agregar columna genero si no existe
+        usersDb.run(`ALTER TABLE users ADD COLUMN genero TEXT`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna genero:', err.message);
+          }
+        });
+        // Agregar columna fecha_nacimiento si no existe
+        usersDb.run(`ALTER TABLE users ADD COLUMN fecha_nacimiento TEXT`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna fecha_nacimiento:', err.message);
+          }
+        });
       }
     });
 
@@ -2088,7 +2100,7 @@ app.get('/users/profile/:email', (req, res) => {
   }
 
   // Obtener datos del usuario
-  usersDb.get(`SELECT nombre, apellido, avatar_color, avatar_icon, avatar_image, phone FROM users WHERE email = ?`, [email], (err, userRow) => {
+  usersDb.get(`SELECT nombre, apellido, avatar_color, avatar_icon, avatar_image, phone, genero, fecha_nacimiento FROM users WHERE email = ?`, [email], (err, userRow) => {
     if (err) {
       console.error('Error obteniendo perfil:', err);
       return res.status(500).json({ error: 'Error obteniendo perfil' });
@@ -2110,6 +2122,8 @@ app.get('/users/profile/:email', (req, res) => {
         avatar_icon: userRow.avatar_icon || 'person',
         avatar_image: userRow.avatar_image,
         phone: userRow.phone,
+        genero: userRow.genero,
+        fecha_nacimiento: userRow.fecha_nacimiento,
         country_code: phoneRow ? phoneRow.country_code : null,
         country_name: phoneRow ? phoneRow.country_name : null,
         phone_number: phoneRow ? phoneRow.phone_number : null
@@ -2192,9 +2206,9 @@ app.get('/users/profile/phone/:email', (req, res) => {
   });
 });
 
-// Endpoint para actualizar los datos del usuario (nombre, apellido, teléfono)
+// Endpoint para actualizar los datos del usuario (nombre, apellido, teléfono, género, fecha de nacimiento)
 app.put('/users/profile/data', (req, res) => {
-  const { email, nombre, apellido, phone, country_code, country_name, phone_number } = req.body;
+  const { email, nombre, apellido, phone, country_code, country_name, phone_number, genero, fecha_nacimiento } = req.body;
 
   if (!email) {
     return res.status(400).json({ error: 'Email es requerido' });
@@ -2225,6 +2239,16 @@ app.put('/users/profile/data', (req, res) => {
   if (phone !== undefined) {
     updates.push('phone = ?');
     values.push(phone);
+  }
+
+  if (genero !== undefined && genero !== null) {
+    updates.push('genero = ?');
+    values.push(genero);
+  }
+
+  if (fecha_nacimiento !== undefined && fecha_nacimiento !== null) {
+    updates.push('fecha_nacimiento = ?');
+    values.push(fecha_nacimiento);
   }
 
   if (updates.length > 0) {

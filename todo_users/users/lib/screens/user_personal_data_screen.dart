@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:image_picker/image_picker.dart';
 import '../config.dart';
@@ -38,6 +40,21 @@ class _MyDataScreenState extends State<MyDataScreen> {
   String _selectedIcon = 'person'; // Icono por defecto
   bool _usePhoto = false; // true si usa foto, false si usa icono
   final ImagePicker _picker = ImagePicker();
+
+  // Género
+  String? _selectedGender;
+  String? _originalGender;
+  final List<Map<String, String>> _genderOptions = [
+    {'value': 'mujer', 'label': 'Mujer'},
+    {'value': 'hombre', 'label': 'Hombre'},
+    {'value': 'no_binario', 'label': 'No binario'},
+    {'value': 'ninguna', 'label': 'Ninguna de las opciones'},
+  ];
+
+  // Fecha de nacimiento
+  DateTime? _birthDate;
+  DateTime? _originalBirthDate;
+  String? _birthDateError;
 
   // Datos originales del usuario para comparar cambios
   String? _originalName;
@@ -145,6 +162,19 @@ class _MyDataScreenState extends State<MyDataScreen> {
           _originalAvatarImage = data['avatar_image'];
           _originalUsePhoto = data['avatar_image'] != null;
           _originalPhone = data['phone'] ?? '';
+          _selectedGender = data['genero'];
+          _originalGender = data['genero'];
+
+          // Cargar fecha de nacimiento
+          if (data['fecha_nacimiento'] != null &&
+              data['fecha_nacimiento'].toString().isNotEmpty) {
+            try {
+              _birthDate = DateTime.parse(data['fecha_nacimiento']);
+              _originalBirthDate = _birthDate;
+            } catch (e) {
+              print('Error parsing birth date: $e');
+            }
+          }
 
           _isLoading = false;
         });
@@ -209,6 +239,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
           'country_code': _countryCode,
           'country_name': _countryName,
           'phone_number': _phoneNumber,
+          'genero': _selectedGender,
+          'fecha_nacimiento': _birthDate?.toIso8601String(),
         }),
       );
 
@@ -660,6 +692,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
     if (_nameController.text.trim() != _originalName) return true;
     if (_lastNameController.text.trim() != _originalLastName) return true;
     if (_completePhone != _originalPhone) return true;
+    if (_selectedGender != _originalGender) return true;
+    if (_birthDate != _originalBirthDate) return true;
 
     // Comparar avatar
     if (_avatarColor != _originalAvatarColor) return true;
@@ -671,6 +705,282 @@ class _MyDataScreenState extends State<MyDataScreen> {
     if (_selectedImage != null) return true;
 
     return false;
+  }
+
+  void _showGenderPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Título
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Selecciona tu género',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Esta información es obligatoria',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // Opciones
+                ..._genderOptions.map((option) {
+                  final isSelected = _selectedGender == option['value'];
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedGender = option['value'];
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSelected
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: isSelected
+                                ? const Color(0xFF78BF32)
+                                : Colors.grey,
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            option['label']!,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                              color: isSelected
+                                  ? const Color(0xFF78BF32)
+                                  : Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showBirthDatePicker() {
+    DateTime? tempBirthDate = _birthDate;
+    String? tempError;
+
+    // Calcular la fecha máxima (hace 18 años)
+    final now = DateTime.now();
+    final maxDate = DateTime(now.year - 18, now.month, now.day);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.55,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    // Handle bar
+                    Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    // Título
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Fecha de Nacimiento',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Debes ser mayor de 18 años',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: CupertinoDatePicker(
+                        mode: CupertinoDatePickerMode.date,
+                        initialDateTime: tempBirthDate ?? maxDate,
+                        minimumDate: DateTime(1900, 1, 1),
+                        maximumDate: maxDate,
+                        onDateTimeChanged: (DateTime newDate) {
+                          tempBirthDate = newDate;
+                          // No hay error porque el máximo ya está limitado a 18 años
+                          tempError = null;
+                        },
+                      ),
+                    ),
+                    // Mensaje de error
+                    if (tempError != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline,
+                                  color: Colors.red, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  tempError!,
+                                  style: const TextStyle(
+                                      color: Colors.red, fontSize: 14),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (tempBirthDate == null) {
+                              setModalState(() {
+                                tempError =
+                                    'Por favor selecciona tu fecha de nacimiento';
+                              });
+                              return;
+                            }
+
+                            // Verificar edad
+                            final now = DateTime.now();
+                            final age = now.year -
+                                tempBirthDate!.year -
+                                (now.month > tempBirthDate!.month ||
+                                        (now.month == tempBirthDate!.month &&
+                                            now.day >= tempBirthDate!.day)
+                                    ? 0
+                                    : 1);
+
+                            if (age < 18) {
+                              setModalState(() {
+                                tempError =
+                                    'Debes ser mayor de 18 años para usar la aplicación';
+                              });
+                              return;
+                            }
+
+                            // Todo bien, guardar y cerrar
+                            setState(() {
+                              _birthDate = tempBirthDate;
+                              _birthDateError = null;
+                            });
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF78BF32),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Confirmar',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Color _parseColor(String hexColor) {
@@ -958,6 +1268,110 @@ class _MyDataScreenState extends State<MyDataScreen> {
                             }
                             return null;
                           },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Campo Género
+                      GestureDetector(
+                        onTap: _showGenderPicker,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Género',
+                              labelStyle: const TextStyle(color: Colors.grey),
+                              prefixIcon: const Icon(Icons.wc_outlined,
+                                  color: Color(0xFF78BF32)),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 16),
+                              errorText: _selectedGender == null
+                                  ? 'Por favor selecciona tu género'
+                                  : null,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _selectedGender != null
+                                      ? _genderOptions.firstWhere(
+                                          (opt) =>
+                                              opt['value'] == _selectedGender,
+                                          orElse: () => {'label': ''},
+                                        )['label']!
+                                      : 'Seleccionar',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: _selectedGender != null
+                                        ? Colors.black
+                                        : Colors.grey,
+                                  ),
+                                ),
+                                const Icon(Icons.keyboard_arrow_up,
+                                    color: Color(0xFF78BF32)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Campo Fecha de Nacimiento
+                      GestureDetector(
+                        onTap: _showBirthDatePicker,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Fecha de Nacimiento',
+                              labelStyle: const TextStyle(color: Colors.grey),
+                              prefixIcon: const Icon(Icons.cake_outlined,
+                                  color: Color(0xFF78BF32)),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 16),
+                              errorText: _birthDateError,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _birthDate != null
+                                      ? '${_birthDate!.day.toString().padLeft(2, '0')}/${_birthDate!.month.toString().padLeft(2, '0')}/${_birthDate!.year}'
+                                      : 'Seleccionar',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: _birthDate != null
+                                        ? Colors.black
+                                        : Colors.grey,
+                                  ),
+                                ),
+                                const Icon(Icons.calendar_today_outlined,
+                                    color: Color(0xFF78BF32)),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 40),
