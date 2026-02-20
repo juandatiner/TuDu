@@ -7,6 +7,7 @@ import 'user_services_screen.dart';
 import 'user_personal_data_screen.dart';
 import 'user_addresses_screen.dart';
 import 'terms_and_conditions_screen.dart';
+import 'data_protection_screen.dart';
 import 'login_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -443,6 +444,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      _buildSettingsItem(
+                        icon: Icons.security_outlined,
+                        title: 'Protección de Datos',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const DataProtectionScreen(),
+                            ),
+                          );
+                        },
+                      ),
                       _buildSettingsItem(
                         icon: Icons.description_outlined,
                         title: 'Términos y Condiciones',
