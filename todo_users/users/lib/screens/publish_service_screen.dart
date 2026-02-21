@@ -33,6 +33,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
   final FocusNode _budgetFocusNode = FocusNode();
 
   final List<String> _units = ['Horas', 'Días', 'Semanas', 'Meses', 'Años'];
+  final List<String> _unitsSingular = ['Hora', 'Día', 'Semana', 'Mes', 'Año'];
   final FixedExtentScrollController _quantityController =
       FixedExtentScrollController(initialItem: 5000);
   final FixedExtentScrollController _unitController =
@@ -265,13 +266,13 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     final days = remainingDays2 % 7;
 
     final parts = <String>[];
-    if (years > 0) parts.add('$years año${years > 1 ? 's' : ''}');
-    if (months > 0) parts.add('$months mes${months > 1 ? 'es' : ''}');
-    if (weeks > 0) parts.add('$weeks semana${weeks > 1 ? 's' : ''}');
-    if (days > 0) parts.add('$days día${days > 1 ? 's' : ''}');
+    if (years > 0) parts.add('$years ${years == 1 ? 'año' : 'años'}');
+    if (months > 0) parts.add('$months ${months == 1 ? 'mes' : 'meses'}');
+    if (weeks > 0) parts.add('$weeks ${weeks == 1 ? 'semana' : 'semanas'}');
+    if (days > 0) parts.add('$days ${days == 1 ? 'día' : 'días'}');
 
     if (parts.isEmpty && totalDays > 0) {
-      parts.add('$totalDays día${totalDays > 1 ? 's' : ''}');
+      parts.add('$totalDays ${totalDays == 1 ? 'día' : 'días'}');
     }
 
     setState(() {
@@ -355,6 +356,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                         controller: _titleController,
                         maxLines: null,
                         minLines: 1,
+                        maxLength: 30,
                         onChanged: _validateTitle,
                         decoration: InputDecoration(
                           border: InputBorder.none,
@@ -362,6 +364,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                             horizontal: 20,
                             vertical: 15,
                           ),
+                          counterText: '',
                           hintText: _titleError
                               ? 'Mínimo 3 palabras para mayor claridad'
                               : null,
@@ -472,7 +475,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                                 childCount: 10000,
                                 builder: (context, index) {
                                   final actualIndex = index % _units.length;
-                                  final unit = _units[actualIndex];
+                                  final unit = _selectedQuantity == 1
+                                      ? _unitsSingular[actualIndex]
+                                      : _units[actualIndex];
                                   final distance =
                                       (index - _unitController.selectedItem)
                                               .abs() %
@@ -662,6 +667,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                         controller: _descriptionController,
                         maxLines: null,
                         minLines: 3,
+                        maxLength: 200,
                         onChanged: _validateDescription,
                         decoration: InputDecoration(
                           border: InputBorder.none,
@@ -669,6 +675,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                             horizontal: 20,
                             vertical: 15,
                           ),
+                          counterText: '',
                           hintText: _descriptionError
                               ? 'Describe con más detalle (mínimo 20 palabras)'
                               : null,
@@ -695,12 +702,14 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                         controller: _workerInfoController,
                         maxLines: null,
                         minLines: 2,
+                        maxLength: 100,
                         decoration: const InputDecoration(
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(
                             horizontal: 20,
                             vertical: 15,
                           ),
+                          counterText: '',
                         ),
                       ),
                     ),

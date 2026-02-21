@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/service_in_search.dart';
+import '../providers/theme_provider.dart';
 
 class ServiceDetailScreen extends StatelessWidget {
   final ServiceInSearch service;
@@ -58,6 +60,27 @@ class ServiceDetailScreen extends StatelessWidget {
     return budget;
   }
 
+  String _formatTimeUnit(int quantity, String unit) {
+    // Mapa de unidades en plural a singular
+    final singularUnits = {
+      'años': 'año',
+      'meses': 'mes',
+      'semanas': 'semana',
+      'días': 'día',
+      'horas': 'hora',
+      'año': 'año',
+      'mes': 'mes',
+      'semana': 'semana',
+      'día': 'día',
+      'hora': 'hora',
+    };
+
+    final singularUnit = singularUnits[unit.toLowerCase()] ?? unit;
+    return quantity == 1
+        ? singularUnit
+        : '${singularUnit}${unit.toLowerCase() == 'mes' ? 'es' : 's'}';
+  }
+
   String _getFinishText(String status) {
     switch (status) {
       case 'EN ESPERA':
@@ -79,312 +102,310 @@ class ServiceDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final themeColor = _getThemeColor(service.status);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2F2),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Header con gradiente
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [themeColor, themeColor.withOpacity(0.8)],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    // Barra superior con botón atrás
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.arrow_back,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                          const Expanded(
-                            child: Text(
-                              'Detalles del Servicio',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(width: 48),
-                        ],
-                      ),
-                    ),
-
-                    // Título del servicio
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 30),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 10),
-                          Text(
-                            service.title,
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 15),
-                          // Badge de estado
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(25),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  spreadRadius: 1,
-                                  blurRadius: 5,
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              service.status,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: _getStatusColor(service.status),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Contenido
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    // Tarjeta de Inicio y Finalización
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.15),
-                            spreadRadius: 2,
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          // Inicio
-                          Expanded(
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: 50,
-                                  height: 50,
-                                  decoration: BoxDecoration(
-                                    color: themeColor.withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.play_arrow_rounded,
-                                    color: themeColor,
-                                    size: 28,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                const Text(
-                                  'Inicio',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _getStatusText(service.status),
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Divisor
-                          Container(
-                            height: 80,
-                            width: 1,
-                            color: Colors.grey[200],
-                          ),
-
-                          // Finalización
-                          Expanded(
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: 50,
-                                  height: 50,
-                                  decoration: BoxDecoration(
-                                    color: themeColor.withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.flag_rounded,
-                                    color: themeColor,
-                                    size: 28,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                const Text(
-                                  'Finalización',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _getFinishText(service.status),
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Tarjeta de información
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.15),
-                            spreadRadius: 2,
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Aliado a cargo
-                          _buildInfoSection(
-                            icon: Icons.person_outline,
-                            title: 'Aliado a cargo',
-                            content: 'Pendiente por asignar',
-                            themeColor: themeColor,
-                          ),
-
-                          _buildDivider(),
-
-                          // Descripción
-                          _buildInfoSection(
-                            icon: Icons.description_outlined,
-                            title: 'Descripción',
-                            content: service.description,
-                            themeColor: themeColor,
-                          ),
-
-                          _buildDivider(),
-
-                          // Tiempo estimado
-                          _buildInfoSection(
-                            icon: Icons.schedule_outlined,
-                            title: 'Tiempo estimado',
-                            content:
-                                '${service.timeQuantity} ${service.timeUnit}',
-                            themeColor: themeColor,
-                          ),
-
-                          _buildDivider(),
-
-                          // Presupuesto
-                          _buildInfoSection(
-                            icon: Icons.attach_money,
-                            title: 'Presupuesto',
-                            content: '\$${_formatBudget(service.budget)}',
-                            themeColor: themeColor,
-                          ),
-
-                          _buildDivider(),
-
-                          // Información para el trabajador
-                          _buildInfoSection(
-                            icon: Icons.work_outline,
-                            title: 'Información para el trabajador',
-                            content: service.workerInfo.isNotEmpty
-                                ? service.workerInfo
-                                : 'Sin información adicional',
-                            themeColor: themeColor,
-                          ),
-
-                          _buildDivider(),
-
-                          // Fecha de publicación
-                          _buildInfoSection(
-                            icon: Icons.calendar_today_outlined,
-                            title: 'Fecha de publicación',
-                            content: service.createdAt.substring(0, 10),
-                            themeColor: themeColor,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 30),
-                  ],
-                ),
-              ),
-            ],
+      backgroundColor: themeProvider.scaffoldBgColor,
+      appBar: AppBar(
+        backgroundColor: themeProvider.cardBgColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF78BF32)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Detalles del Servicio',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: themeProvider.textColor,
           ),
+        ),
+        centerTitle: true,
+      ),
+      body: Container(
+        color: themeProvider.scaffoldBgColor,
+        child: Column(
+          children: [
+            // Header fijo con gradiente (título y estado)
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [themeColor, themeColor.withOpacity(0.8)],
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                child: Column(
+                  children: [
+                    Text(
+                      service.title,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    // Badge de estado
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            spreadRadius: 1,
+                            blurRadius: 5,
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        service.status,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: _getStatusColor(service.status),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Contenido con scroll
+            Expanded(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      // Tarjeta de Inicio y Finalización
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: themeProvider.cardBgColor,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: themeProvider.isDarkMode
+                                  ? Colors.black.withOpacity(0.3)
+                                  : Colors.grey.withOpacity(0.15),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            // Inicio
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 50,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      color: themeColor.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.play_arrow_rounded,
+                                      color: themeColor,
+                                      size: 28,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'Inicio',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: themeProvider.secondaryTextColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _getStatusText(service.status),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: themeProvider.textColor,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Divisor
+                            Container(
+                              height: 80,
+                              width: 1,
+                              color: themeProvider.isDarkMode
+                                  ? Colors.grey[700]
+                                  : Colors.grey[200],
+                            ),
+
+                            // Finalización
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 50,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      color: themeColor.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.flag_rounded,
+                                      color: themeColor,
+                                      size: 28,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'Finalización',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: themeProvider.secondaryTextColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _getFinishText(service.status),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: themeProvider.textColor,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Tarjeta de información
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: themeProvider.cardBgColor,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: themeProvider.isDarkMode
+                                  ? Colors.black.withOpacity(0.3)
+                                  : Colors.grey.withOpacity(0.15),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Aliado a cargo
+                            _buildInfoSection(
+                              icon: Icons.person_outline,
+                              title: 'Aliado a cargo',
+                              content: 'Pendiente por asignar',
+                              themeColor: themeColor,
+                              themeProvider: themeProvider,
+                            ),
+
+                            _buildDivider(themeProvider),
+
+                            // Descripción
+                            _buildInfoSection(
+                              icon: Icons.description_outlined,
+                              title: 'Descripción',
+                              content: service.description,
+                              themeColor: themeColor,
+                              themeProvider: themeProvider,
+                            ),
+
+                            _buildDivider(themeProvider),
+
+                            // Tiempo estimado
+                            _buildInfoSection(
+                              icon: Icons.schedule_outlined,
+                              title: 'Tiempo estimado',
+                              content:
+                                  '${service.timeQuantity} ${_formatTimeUnit(service.timeQuantity, service.timeUnit)}',
+                              themeColor: themeColor,
+                              themeProvider: themeProvider,
+                            ),
+
+                            _buildDivider(themeProvider),
+
+                            // Presupuesto
+                            _buildInfoSection(
+                              icon: Icons.attach_money,
+                              title: 'Presupuesto',
+                              content: '\$${_formatBudget(service.budget)}',
+                              themeColor: themeColor,
+                              themeProvider: themeProvider,
+                            ),
+
+                            _buildDivider(themeProvider),
+
+                            // Información para el trabajador
+                            _buildInfoSection(
+                              icon: Icons.work_outline,
+                              title: 'Información para el trabajador',
+                              content: service.workerInfo.isNotEmpty
+                                  ? service.workerInfo
+                                  : 'Sin información adicional',
+                              themeColor: themeColor,
+                              themeProvider: themeProvider,
+                            ),
+
+                            _buildDivider(themeProvider),
+
+                            // Fecha de publicación
+                            _buildInfoSection(
+                              icon: Icons.calendar_today_outlined,
+                              title: 'Fecha de publicación',
+                              content: service.createdAt.substring(0, 10),
+                              themeColor: themeColor,
+                              themeProvider: themeProvider,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 30),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -395,6 +416,7 @@ class ServiceDetailScreen extends StatelessWidget {
     required String title,
     required String content,
     required Color themeColor,
+    required ThemeProvider themeProvider,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -417,18 +439,18 @@ class ServiceDetailScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey,
+                    color: themeProvider.secondaryTextColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   content,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
-                    color: Colors.black87,
+                    color: themeProvider.textColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -440,10 +462,13 @@ class ServiceDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDivider() {
+  Widget _buildDivider(ThemeProvider themeProvider) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Divider(color: Colors.grey[200], thickness: 1),
+      child: Divider(
+        color: themeProvider.isDarkMode ? Colors.grey[700] : Colors.grey[200],
+        thickness: 1,
+      ),
     );
   }
 }

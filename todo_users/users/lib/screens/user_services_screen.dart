@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/service_in_search.dart';
 import '../models/service.dart';
+import '../providers/theme_provider.dart';
 import 'all_services_screen.dart';
 import 'service_detail_screen.dart';
 import 'home_screen.dart';
@@ -222,6 +224,30 @@ class _UserServicesScreenState extends State<UserServicesScreen>
     );
   }
 
+  String _formatTimeUnit(int quantity, String unit) {
+    // Mapa de unidades en plural a singular
+    final singularUnits = {
+      'años': 'año',
+      'meses': 'mes',
+      'semanas': 'semana',
+      'días': 'día',
+      'horas': 'hora',
+      'año': 'año',
+      'mes': 'mes',
+      'semana': 'semana',
+      'día': 'día',
+      'hora': 'hora',
+    };
+
+    final singularUnit = singularUnits[unit.toLowerCase()] ?? unit;
+    if (quantity == 1) {
+      return singularUnit;
+    }
+    // Casos especiales para plurales
+    if (singularUnit == 'mes') return 'meses';
+    return '${singularUnit}s';
+  }
+
   void _showServiceDetails(ServiceInSearch service) {
     Navigator.push(
       context,
@@ -323,35 +349,39 @@ class _UserServicesScreenState extends State<UserServicesScreen>
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
+      backgroundColor: themeProvider.scaffoldBgColor,
+      appBar: AppBar(
+        backgroundColor: themeProvider.cardBgColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF78BF32)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        centerTitle: true,
+        title: Text(
+          'Mis Servicios',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: themeProvider.textColor,
+          ),
+        ),
+      ),
       body: Container(
-        color: const Color(0xFFF4F2F2),
+        color: themeProvider.scaffoldBgColor,
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // BARRA SUPERIOR FIJA (título + botones de filtros)
+              // BARRA SUPERIOR FIJA (botones de filtros)
               Container(
-                color: const Color(0xFFF4F2F2),
-                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0),
+                color: themeProvider.scaffoldBgColor,
+                padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 12.0),
                 child: Column(
                   children: [
-                    // Título
-                    const SizedBox(
-                      height: 40,
-                      child: Center(
-                        child: Text(
-                          'Mis Servicios',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
                     // Fila con filtros/barra de búsqueda y botones
                     Row(
                       children: [
@@ -441,12 +471,14 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                 Container(
                                     key: const ValueKey('search_bar'),
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: themeProvider.cardBgColor,
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFF78BF32)
-                                              .withOpacity(0.2),
+                                          color: themeProvider.isDarkMode
+                                              ? Colors.black.withOpacity(0.3)
+                                              : const Color(0xFF78BF32)
+                                                  .withOpacity(0.2),
                                           spreadRadius: 2,
                                           blurRadius: 8,
                                           offset: const Offset(0, 4),
@@ -465,32 +497,63 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                           ),
                                         ),
                                         Expanded(
-                                          child: TextField(
-                                            controller: _searchController,
-                                            autofocus: true,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _searchQuery = value;
-                                                _applyFilters();
-                                              });
+                                          child: LayoutBuilder(
+                                            builder: (context, constraints) {
+                                              // Ajustar tamaño de fuente basado en el ancho disponible
+                                              // El texto siempre será "¿Qué servicio buscas?"
+                                              double fontSize;
+
+                                              if (constraints.maxWidth < 100) {
+                                                fontSize = 9.0;
+                                              } else if (constraints.maxWidth <
+                                                  130) {
+                                                fontSize = 10.0;
+                                              } else if (constraints.maxWidth <
+                                                  160) {
+                                                fontSize = 11.0;
+                                              } else if (constraints.maxWidth <
+                                                  200) {
+                                                fontSize = 12.0;
+                                              } else if (constraints.maxWidth <
+                                                  240) {
+                                                fontSize = 13.0;
+                                              } else {
+                                                fontSize = 14.0;
+                                              }
+
+                                              return TextField(
+                                                controller: _searchController,
+                                                autofocus: true,
+                                                onChanged: (value) {
+                                                  setState(() {
+                                                    _searchQuery = value;
+                                                    _applyFilters();
+                                                  });
+                                                },
+                                                decoration: InputDecoration(
+                                                  hintText:
+                                                      '¿Qué servicio buscas?',
+                                                  hintStyle: TextStyle(
+                                                    color: themeProvider
+                                                        .secondaryTextColor,
+                                                    fontSize: fontSize,
+                                                  ),
+                                                  border: InputBorder.none,
+                                                  contentPadding:
+                                                      const EdgeInsets
+                                                          .symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 14,
+                                                  ),
+                                                  isDense: true,
+                                                ),
+                                                style: TextStyle(
+                                                  fontSize: fontSize,
+                                                  color:
+                                                      themeProvider.textColor,
+                                                ),
+                                              );
                                             },
-                                            decoration: InputDecoration(
-                                              hintText: '¿Qué servicio buscas?',
-                                              hintStyle: TextStyle(
-                                                color: Colors.grey[400],
-                                                fontSize: 14,
-                                              ),
-                                              border: InputBorder.none,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 14,
-                                              ),
-                                            ),
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.black87,
-                                            ),
                                           ),
                                         ),
                                         // Contador
@@ -541,7 +604,8 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                                       const EdgeInsets.all(8),
                                                   child: Icon(
                                                     Icons.refresh,
-                                                    color: Colors.grey[600],
+                                                    color: themeProvider
+                                                        .secondaryTextColor,
                                                     size: 18,
                                                   ),
                                                 ),
@@ -557,12 +621,14 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 16, vertical: 14),
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: themeProvider.cardBgColor,
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFF78BF32)
-                                              .withOpacity(0.15),
+                                          color: themeProvider.isDarkMode
+                                              ? Colors.black.withOpacity(0.3)
+                                              : const Color(0xFF78BF32)
+                                                  .withOpacity(0.15),
                                           spreadRadius: 2,
                                           blurRadius: 8,
                                           offset: const Offset(0, 4),
@@ -575,7 +641,8 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                       children: [
                                         Icon(
                                           Icons.list_alt,
-                                          color: Colors.grey[600],
+                                          color:
+                                              themeProvider.secondaryTextColor,
                                           size: 20,
                                         ),
                                         const SizedBox(width: 8),
@@ -584,7 +651,7 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
-                                            color: Colors.grey[700],
+                                            color: themeProvider.textColor,
                                           ),
                                         ),
                                       ],
@@ -666,15 +733,22 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                               margin: const EdgeInsets.only(top: 12),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Colors.white, Colors.grey[50]!],
+                                  colors: themeProvider.isDarkMode
+                                      ? [
+                                          themeProvider.cardBgColor,
+                                          const Color(0xFF252527)
+                                        ]
+                                      : [Colors.white, Colors.grey[50]!],
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
                                 ),
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF78BF32)
-                                        .withOpacity(0.15),
+                                    color: themeProvider.isDarkMode
+                                        ? Colors.black.withOpacity(0.3)
+                                        : const Color(0xFF78BF32)
+                                            .withOpacity(0.15),
                                     spreadRadius: 2,
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
@@ -703,12 +777,12 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        const Text(
+                                        Text(
                                           'Estado:',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w700,
-                                            color: Colors.black87,
+                                            color: themeProvider.textColor,
                                           ),
                                         ),
                                       ],
@@ -769,12 +843,12 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        const Text(
+                                        Text(
                                           'Ordenar por:',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w700,
-                                            color: Colors.black87,
+                                            color: themeProvider.textColor,
                                           ),
                                         ),
                                       ],
@@ -834,26 +908,27 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.search_off,
                                   size: 80,
-                                  color: Colors.grey,
+                                  color: themeProvider.secondaryTextColor,
                                 ),
                                 const SizedBox(height: 20),
-                                const Text(
+                                Text(
                                   'No tienes servicios asignados',
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.black,
+                                    color: themeProvider.textColor,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 10),
-                                const Text(
+                                Text(
                                   'Busca o publica que necesitas',
                                   style: TextStyle(
-                                      fontSize: 14, color: Colors.grey),
+                                      fontSize: 14,
+                                      color: themeProvider.secondaryTextColor),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 40),
@@ -900,13 +975,15 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                     Container(
                                       padding: const EdgeInsets.all(20),
                                       decoration: BoxDecoration(
-                                        color: Colors.grey[100],
+                                        color: themeProvider.isDarkMode
+                                            ? const Color(0xFF3A3A3C)
+                                            : Colors.grey[100],
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(
+                                      child: Icon(
                                         Icons.filter_list_off,
                                         size: 50,
-                                        color: Colors.grey,
+                                        color: themeProvider.secondaryTextColor,
                                       ),
                                     ),
                                     const SizedBox(height: 16),
@@ -914,10 +991,10 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                       _searchQuery.isNotEmpty
                                           ? 'No se encontraron resultados para "$_searchQuery"'
                                           : 'No hay servicios con estos filtros',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w500,
-                                        color: Colors.grey,
+                                        color: themeProvider.secondaryTextColor,
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
@@ -955,12 +1032,11 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                     child: Container(
                                       margin: const EdgeInsets.only(bottom: 16),
                                       decoration: BoxDecoration(
-                                        color: Colors.white,
+                                        color: themeProvider.cardBgColor,
                                         borderRadius: BorderRadius.circular(12),
                                         boxShadow: [
                                           BoxShadow(
-                                            color:
-                                                Colors.grey.withOpacity(0.15),
+                                            color: themeProvider.shadowColor,
                                             spreadRadius: 1,
                                             blurRadius: 5,
                                             offset: const Offset(0, 3),
@@ -976,20 +1052,29 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                               height: 60,
                                               decoration: BoxDecoration(
                                                 gradient: LinearGradient(
-                                                  colors: [
-                                                    Colors.grey[200]!,
-                                                    Colors.grey[100]!,
-                                                  ],
+                                                  colors:
+                                                      themeProvider.isDarkMode
+                                                          ? [
+                                                              const Color(
+                                                                  0xFF3A3A3C),
+                                                              const Color(
+                                                                  0xFF2C2C2E)
+                                                            ]
+                                                          : [
+                                                              Colors.grey[200]!,
+                                                              Colors.grey[100]!
+                                                            ],
                                                   begin: Alignment.topLeft,
                                                   end: Alignment.bottomRight,
                                                 ),
                                                 borderRadius:
                                                     BorderRadius.circular(12),
                                               ),
-                                              child: const Center(
+                                              child: Center(
                                                 child: Icon(
                                                   Icons.work_outline,
-                                                  color: Colors.grey,
+                                                  color: themeProvider
+                                                      .secondaryTextColor,
                                                   size: 28,
                                                 ),
                                               ),
@@ -1008,12 +1093,12 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                                       Expanded(
                                                         child: Text(
                                                           service.title,
-                                                          style:
-                                                              const TextStyle(
+                                                          style: TextStyle(
                                                             fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.bold,
-                                                            color: Colors.black,
+                                                            color: themeProvider
+                                                                .textColor,
                                                           ),
                                                           maxLines: 1,
                                                           overflow: TextOverflow
@@ -1028,9 +1113,10 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                                   const SizedBox(height: 5),
                                                   Text(
                                                     service.description,
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       fontSize: 14,
-                                                      color: Colors.grey,
+                                                      color: themeProvider
+                                                          .secondaryTextColor,
                                                     ),
                                                     maxLines: 2,
                                                     overflow:
@@ -1044,41 +1130,41 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                                     children: [
                                                       Row(
                                                         children: [
-                                                          const Icon(
+                                                          Icon(
                                                             Icons.access_time,
                                                             size: 14,
-                                                            color: Colors.grey,
+                                                            color: themeProvider
+                                                                .secondaryTextColor,
                                                           ),
                                                           const SizedBox(
                                                               width: 4),
                                                           Text(
-                                                            '${service.timeQuantity} ${service.timeUnit}',
-                                                            style:
-                                                                const TextStyle(
+                                                            '${service.timeQuantity} ${_formatTimeUnit(service.timeQuantity, service.timeUnit)}',
+                                                            style: TextStyle(
                                                               fontSize: 12,
-                                                              color:
-                                                                  Colors.grey,
+                                                              color: themeProvider
+                                                                  .secondaryTextColor,
                                                             ),
                                                           ),
                                                         ],
                                                       ),
                                                       Row(
                                                         children: [
-                                                          const Icon(
+                                                          Icon(
                                                             Icons
                                                                 .calendar_today,
                                                             size: 14,
-                                                            color: Colors.grey,
+                                                            color: themeProvider
+                                                                .secondaryTextColor,
                                                           ),
                                                           const SizedBox(
                                                               width: 4),
                                                           Text(
                                                             '${service.createdAt.substring(0, 10)}',
-                                                            style:
-                                                                const TextStyle(
+                                                            style: TextStyle(
                                                               fontSize: 12,
-                                                              color:
-                                                                  Colors.grey,
+                                                              color: themeProvider
+                                                                  .secondaryTextColor,
                                                             ),
                                                           ),
                                                         ],
@@ -1099,7 +1185,7 @@ class _UserServicesScreenState extends State<UserServicesScreen>
               // Espacio gris inferior antes de la barra de navegación
               Container(
                 height: 16,
-                color: const Color(0xFFF4F2F2),
+                color: themeProvider.scaffoldBgColor,
               ),
             ],
           ),
@@ -1114,10 +1200,11 @@ class _UserServicesScreenState extends State<UserServicesScreen>
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor:
+            themeProvider.isDarkMode ? Colors.grey[600] : Colors.grey,
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
+        backgroundColor: themeProvider.cardBgColor,
         elevation: 10,
       ),
     );
@@ -1131,9 +1218,11 @@ class _UserServicesScreenState extends State<UserServicesScreen>
     required VoidCallback onTap,
     Color? iconColor,
   }) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     // Si hay un color de icono personalizado, usarlo; si no, el color normal
-    final effectiveIconColor =
-        iconColor ?? (isSelected ? Colors.white : Colors.grey[600]);
+    final effectiveIconColor = iconColor ??
+        (isSelected ? Colors.white : themeProvider.secondaryTextColor);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -1158,7 +1247,11 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                       end: Alignment.bottomRight,
                     )
                   : null,
-              color: isSelected ? null : Colors.grey[200],
+              color: isSelected
+                  ? null
+                  : (themeProvider.isDarkMode
+                      ? const Color(0xFF3A3A3C)
+                      : Colors.grey[200]),
               borderRadius: BorderRadius.circular(20),
               boxShadow: isSelected
                   ? [
@@ -1183,7 +1276,7 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                   label,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: isSelected ? Colors.white : Colors.black87,
+                    color: isSelected ? Colors.white : themeProvider.textColor,
                     fontSize: 12,
                   ),
                 ),
