@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../config.dart';
+import '../providers/theme_provider.dart';
 
 class PublishServiceScreen extends StatefulWidget {
   final String userEmail;
@@ -297,12 +299,14 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     // Agregar listener para redondear cuando el campo pierde el foco
     _budgetFocusNode.removeListener(_roundBudgetOnUnfocus);
     _budgetFocusNode.addListener(_roundBudgetOnUnfocus);
     return Scaffold(
       body: Container(
-        color: const Color(0xFFF4F2F2),
+        color: themeProvider.scaffoldBgColor,
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -322,12 +326,12 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                     Expanded(
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
-                        child: const Text(
+                        child: Text(
                           'Publica lo que necesitas',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                            color: themeProvider.textColor,
                           ),
                         ),
                       ),
@@ -339,14 +343,15 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       '¿Cómo describirías tu necesidad en una frase?',
-                      style: TextStyle(fontSize: 16, color: Colors.black),
+                      style: TextStyle(
+                          fontSize: 16, color: themeProvider.textColor),
                     ),
                     const SizedBox(height: 6),
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: themeProvider.cardBgColor,
                         borderRadius: BorderRadius.circular(25.0),
                         border: _titleError
                             ? Border.all(color: Colors.red, width: 1.5)
@@ -358,6 +363,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                         minLines: 1,
                         maxLength: 30,
                         onChanged: _validateTitle,
+                        style: TextStyle(color: themeProvider.textColor),
                         decoration: InputDecoration(
                           border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(
@@ -377,9 +383,10 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       '¿Cuánto tiempo crees que tomará completar este servicio?',
-                      style: TextStyle(fontSize: 16, color: Colors.black),
+                      style: TextStyle(
+                          fontSize: 16, color: themeProvider.textColor),
                     ),
                     const SizedBox(height: 6),
                     Row(
@@ -389,11 +396,11 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                           child: Container(
                             height: 100,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: themeProvider.cardBgColor,
                               borderRadius: BorderRadius.circular(25.0),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.grey.withOpacity(0.2),
+                                  color: themeProvider.shadowColor,
                                   spreadRadius: 2,
                                   blurRadius: 5,
                                   offset: const Offset(0, 3),
@@ -422,8 +429,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                                   final isSelected = distance == 0;
                                   final fontSize = isSelected ? 28 : 20;
                                   final color = isSelected
-                                      ? Colors.black
-                                      : Colors.grey.withOpacity(0.6);
+                                      ? themeProvider.textColor
+                                      : themeProvider.secondaryTextColor
+                                          .withOpacity(0.6);
                                   final fontWeight = isSelected
                                       ? FontWeight.bold
                                       : FontWeight.normal;
@@ -449,11 +457,11 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                           child: Container(
                             height: 100,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: themeProvider.cardBgColor,
                               borderRadius: BorderRadius.circular(25.0),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.grey.withOpacity(0.2),
+                                  color: themeProvider.shadowColor,
                                   spreadRadius: 2,
                                   blurRadius: 5,
                                   offset: const Offset(0, 3),
@@ -485,8 +493,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                                   final isSelected = distance == 0;
                                   final fontSize = isSelected ? 20 : 16;
                                   final color = isSelected
-                                      ? Colors.black
-                                      : Colors.grey.withOpacity(0.6);
+                                      ? themeProvider.textColor
+                                      : themeProvider.secondaryTextColor
+                                          .withOpacity(0.6);
                                   final fontWeight = isSelected
                                       ? FontWeight.bold
                                       : FontWeight.normal;
@@ -514,7 +523,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                       decoration: BoxDecoration(
                         color: _showMaxYearWarning
                             ? Colors.red[50]
-                            : Colors.grey[200],
+                            : themeProvider.isDarkMode
+                                ? themeProvider.cardBgColor
+                                : Colors.grey[200],
                         borderRadius: BorderRadius.circular(10.0),
                         border: _showMaxYearWarning
                             ? Border.all(color: Colors.red.withOpacity(0.5))
@@ -528,8 +539,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,
-                            color:
-                                _showMaxYearWarning ? Colors.red : Colors.black,
+                            color: _showMaxYearWarning
+                                ? Colors.red
+                                : themeProvider.textColor,
                             fontWeight: _showMaxYearWarning
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -538,14 +550,17 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       '¿Cuánto estás dispuesto a pagar por este servicio?',
-                      style: TextStyle(fontSize: 16, color: Colors.black),
+                      style: TextStyle(
+                          fontSize: 16, color: themeProvider.textColor),
                     ),
                     const SizedBox(height: 6),
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.grey[200],
+                        color: themeProvider.isDarkMode
+                            ? themeProvider.cardBgColor
+                            : Colors.grey[200],
                         borderRadius: BorderRadius.circular(25.0),
                         border: (_budgetError || _budgetMaxError)
                             ? Border.all(color: Colors.red, width: 1.5)
@@ -558,6 +573,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],
+                        style: TextStyle(color: themeProvider.textColor),
                         onChanged: (value) {
                           // Validar que sea mínimo 5.000 y máximo 100.000.000
                           _validateBudget(value);
@@ -637,27 +653,28 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                             fontSize: 16,
                             color: (_budgetError || _budgetMaxError)
                                 ? Colors.red[400]
-                                : Colors.grey,
+                                : themeProvider.secondaryTextColor,
                           ),
                           suffixText: 'COP',
                           suffixStyle: TextStyle(
                             fontSize: 16,
                             color: (_budgetError || _budgetMaxError)
                                 ? Colors.red[400]
-                                : Colors.grey,
+                                : themeProvider.secondaryTextColor,
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'Describe mejor lo que necesitas',
-                      style: TextStyle(fontSize: 16, color: Colors.black),
+                      style: TextStyle(
+                          fontSize: 16, color: themeProvider.textColor),
                     ),
                     const SizedBox(height: 6),
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: themeProvider.cardBgColor,
                         borderRadius: BorderRadius.circular(25.0),
                         border: _descriptionError
                             ? Border.all(color: Colors.red, width: 1.5)
@@ -669,6 +686,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                         minLines: 3,
                         maxLength: 200,
                         onChanged: _validateDescription,
+                        style: TextStyle(color: themeProvider.textColor),
                         decoration: InputDecoration(
                           border: InputBorder.none,
                           contentPadding: const EdgeInsets.symmetric(
@@ -688,14 +706,15 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       '¿Hay algo que el trabajador deba saber antes de postularse?',
-                      style: TextStyle(fontSize: 16, color: Colors.black),
+                      style: TextStyle(
+                          fontSize: 16, color: themeProvider.textColor),
                     ),
                     const SizedBox(height: 6),
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: themeProvider.cardBgColor,
                         borderRadius: BorderRadius.circular(25.0),
                       ),
                       child: TextField(
@@ -703,13 +722,18 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                         maxLines: null,
                         minLines: 2,
                         maxLength: 100,
-                        decoration: const InputDecoration(
+                        style: TextStyle(color: themeProvider.textColor),
+                        decoration: InputDecoration(
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
+                          contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,
                             vertical: 15,
                           ),
                           counterText: '',
+                          hintText: 'Información adicional para el trabajador',
+                          hintStyle: TextStyle(
+                            color: themeProvider.secondaryTextColor,
+                          ),
                         ),
                       ),
                     ),

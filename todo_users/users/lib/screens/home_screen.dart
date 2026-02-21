@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/service.dart';
+import '../providers/theme_provider.dart';
 import 'all_services_screen.dart';
 import 'allies_by_service_screen.dart';
 import 'publish_service_screen.dart';
@@ -151,8 +153,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2F2),
+      backgroundColor: themeProvider.scaffoldBgColor,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -173,11 +177,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: themeProvider.cardBgColor,
                       borderRadius: BorderRadius.circular(25.0),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.2),
+                          color: themeProvider.shadowColor,
                           spreadRadius: 2,
                           blurRadius: 5,
                           offset: const Offset(0, 3),
@@ -185,15 +189,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: const TextField(
+                    child: TextField(
                       enabled: false,
                       decoration: InputDecoration(
                         hintText: '¿Qué servicio necesitas hoy?',
-                        hintStyle: TextStyle(color: Colors.grey),
-                        prefixIcon: Icon(Icons.search, color: Colors.grey),
-                        suffixIcon: Icon(Icons.mic, color: Colors.grey),
+                        hintStyle:
+                            TextStyle(color: themeProvider.secondaryTextColor),
+                        prefixIcon: Icon(Icons.search,
+                            color: themeProvider.secondaryTextColor),
+                        suffixIcon: Icon(Icons.mic,
+                            color: themeProvider.secondaryTextColor),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 12,
                         ),
@@ -207,15 +214,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
-                      children: const [
-                        Text('💡', style: TextStyle(fontSize: 24)),
-                        SizedBox(width: 8),
+                      children: [
+                        const Text('💡', style: TextStyle(fontSize: 24)),
+                        const SizedBox(width: 8),
                         Text(
                           'Sugerencias',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                            color: themeProvider.textColor,
                           ),
                         ),
                       ],
@@ -233,8 +240,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE7E7E7),
-                        foregroundColor: Colors.black,
+                        backgroundColor: themeProvider.isDarkMode
+                            ? themeProvider.cardBgColor
+                            : const Color(0xFFE7E7E7),
+                        foregroundColor: themeProvider.textColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
                         ),
@@ -269,11 +278,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 5),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.2),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -311,9 +320,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                     children: [
                                       Text(
                                         service?.name ?? 'Servicio de hogar',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
+                                          color: themeProvider.textColor,
                                         ),
                                       ),
                                     ],
@@ -340,7 +350,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         shape: BoxShape.circle,
                         color: _suggestionsCurrentPage == index
                             ? Colors.blue
-                            : Colors.grey,
+                            : themeProvider.secondaryTextColor,
                       ),
                     );
                   }),
@@ -348,15 +358,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 30),
                 // Sección Nuevos Servicios
                 Row(
-                  children: const [
-                    Text('🎉', style: TextStyle(fontSize: 24)),
-                    SizedBox(width: 8),
+                  children: [
+                    const Text('🎉', style: TextStyle(fontSize: 24)),
+                    const SizedBox(width: 8),
                     Text(
                       'Nuevos Servicios',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: themeProvider.textColor,
                       ),
                     ),
                   ],
@@ -387,11 +397,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 5),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.2),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -429,9 +439,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                     children: [
                                       Text(
                                         service?.name ?? 'Servicio de hogar',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
+                                          color: themeProvider.textColor,
                                         ),
                                       ),
                                     ],
@@ -458,7 +469,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         shape: BoxShape.circle,
                         color: _newServicesCurrentPage == index
                             ? Colors.green
-                            : Colors.grey,
+                            : themeProvider.secondaryTextColor,
                       ),
                     );
                   }),
@@ -468,11 +479,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(12.0),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE7E7E7), // Color #E7E7E7
+                    color: themeProvider.isDarkMode
+                        ? themeProvider.cardBgColor
+                        : const Color(0xFFE7E7E7),
                     borderRadius: BorderRadius.circular(20.0),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.3),
+                        color: themeProvider.shadowColor,
                         spreadRadius: 2,
                         blurRadius: 5,
                         offset: const Offset(0, 3),
@@ -482,22 +495,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         '¿No encuentras lo que buscas?',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: themeProvider.textColor,
                         ),
                       ),
                       const SizedBox(height: 10),
-                      const Text(
+                      Text(
                         'Publica tu solicitud y deja que los expertos vengan a ti. No pierdas tiempo buscando, ¡ellos te encontrarán!',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.black87,
+                          color: themeProvider.secondaryTextColor,
                           height: 1.4,
                         ),
                       ),
@@ -543,20 +556,27 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
-          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Mensajes'),
-          BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Servicios'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        elevation: 10,
+      bottomNavigationBar: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return BottomNavigationBar(
+            items: const <BottomNavigationBarItem>[
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.message), label: 'Mensajes'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.work), label: 'Servicios'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.person), label: 'Perfil'),
+            ],
+            currentIndex: _selectedIndex,
+            selectedItemColor: Colors.blue,
+            unselectedItemColor: themeProvider.secondaryTextColor,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: themeProvider.cardBgColor,
+            elevation: 10,
+          );
+        },
       ),
     );
   }
