@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../config.dart';
+import '../providers/theme_provider.dart';
 
 class UserAddressesScreen extends StatefulWidget {
   final String userEmail;
@@ -423,6 +425,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     if (!mounted) return;
 
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -430,7 +434,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          backgroundColor: const Color(0xFFF4F2F2),
+          backgroundColor: themeProvider.scaffoldBgColor,
           child: Container(
             width: MediaQuery.of(context).size.width * 0.95,
             padding: const EdgeInsets.all(20),
@@ -439,12 +443,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Title
-                  const Text(
+                  Text(
                     'Agregar Dirección',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: themeProvider.textColor,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -452,11 +456,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                   // Address Name Field
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: themeProvider.cardBgColor,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: themeProvider.shadowColor,
                           spreadRadius: 1,
                           blurRadius: 3,
                           offset: const Offset(0, 2),
@@ -471,14 +475,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     ),
                     child: TextField(
                       controller: _addressNameController,
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: themeProvider.textColor),
+                      decoration: InputDecoration(
                         labelText: 'Nombre',
-                        labelStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                        labelStyle: TextStyle(
+                            color: themeProvider.secondaryTextColor,
+                            fontSize: 13),
                         hintText: 'Casa, Empresa...',
-                        prefixIcon: Icon(Icons.label_outline,
+                        prefixIcon: const Icon(Icons.label_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 10,
                         ),
@@ -514,11 +521,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -535,10 +542,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedDepartmentId,
-                            hint: const FittedBox(
+                            hint: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text('Departamento',
-                                  style: TextStyle(fontSize: 13)),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: themeProvider.secondaryTextColor)),
                             ),
                             isExpanded: true,
                             underline: Container(),
@@ -549,7 +558,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerLeft,
                                   child: Text(department['name'],
-                                      style: const TextStyle(fontSize: 13)),
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: themeProvider.textColor)),
                                 ),
                               );
                             }).toList(),
@@ -580,11 +591,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -601,10 +612,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedCityId,
-                            hint: const FittedBox(
+                            hint: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text('Ciudad',
-                                  style: TextStyle(fontSize: 13)),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: themeProvider.secondaryTextColor)),
                             ),
                             isExpanded: true,
                             underline: Container(),
@@ -615,7 +628,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerLeft,
                                   child: Text(city['name'],
-                                      style: const TextStyle(fontSize: 13)),
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: themeProvider.textColor)),
                                 ),
                               );
                             }).toList(),
@@ -649,11 +664,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         flex: 2,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -670,10 +685,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 8, vertical: 12),
                           child: DropdownButton<String>(
                             value: _selectedTypeVia,
-                            hint: const FittedBox(
+                            hint: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text('Tipo de vía',
-                                  style: TextStyle(fontSize: 14)),
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      color: themeProvider.secondaryTextColor)),
                             ),
                             isExpanded: true,
                             underline: Container(),
@@ -684,7 +701,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerLeft,
                                   child: Text(type,
-                                      style: const TextStyle(fontSize: 13)),
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: themeProvider.textColor)),
                                 ),
                               );
                             }).toList(),
@@ -701,11 +720,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -720,10 +739,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           ),
                           child: TextField(
                             controller: _numberPrincipalController,
+                            style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
                               labelText: '# Principal',
-                              labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 13),
+                              labelStyle: TextStyle(
+                                  color: themeProvider.secondaryTextColor,
+                                  fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -732,7 +753,6 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
-                            style: const TextStyle(fontSize: 14),
                             maxLength: 8,
                             onChanged: (value) {
                               if (_numberPrincipalError != null) {
@@ -766,11 +786,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -785,10 +805,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           ),
                           child: TextField(
                             controller: _numberSecondaryController,
+                            style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
                               labelText: '# Secundario',
-                              labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 13),
+                              labelStyle: TextStyle(
+                                  color: themeProvider.secondaryTextColor,
+                                  fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -797,7 +819,6 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
-                            style: const TextStyle(fontSize: 14),
                             maxLength: 8,
                             onChanged: (value) {
                               if (_numberSecondaryError != null) {
@@ -815,11 +836,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -834,10 +855,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           ),
                           child: TextField(
                             controller: _numberFinalController,
+                            style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
                               labelText: '# Final',
-                              labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 13),
+                              labelStyle: TextStyle(
+                                  color: themeProvider.secondaryTextColor,
+                                  fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -846,7 +869,6 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
-                            style: const TextStyle(fontSize: 14),
                             maxLength: 8,
                             onChanged: (value) {
                               if (_numberFinalError != null) {
@@ -878,11 +900,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                   // Additional Info Field
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: themeProvider.cardBgColor,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: themeProvider.shadowColor,
                           spreadRadius: 1,
                           blurRadius: 3,
                           offset: const Offset(0, 2),
@@ -897,14 +919,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     ),
                     child: TextField(
                       controller: _additionalInfoController,
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: themeProvider.textColor),
+                      decoration: InputDecoration(
                         labelText: 'Información Adicional',
-                        labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                        labelStyle: TextStyle(
+                            color: themeProvider.secondaryTextColor,
+                            fontSize: 14),
                         hintText: 'ej: Edificio X, Apto 101',
-                        prefixIcon: Icon(Icons.info_outline,
+                        prefixIcon: const Icon(Icons.info_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 12,
                         ),
@@ -939,11 +964,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                   // Icon Selection
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: themeProvider.cardBgColor,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: themeProvider.shadowColor,
                           spreadRadius: 1,
                           blurRadius: 3,
                           offset: const Offset(0, 2),
@@ -960,12 +985,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Icono',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Colors.grey,
+                            color: themeProvider.secondaryTextColor,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -998,7 +1023,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   border: Border.all(
                                     color: _selectedIcon == iconData['icon']
                                         ? const Color(0xFF78BF32)
-                                        : Colors.grey.withOpacity(0.3),
+                                        : themeProvider.borderColor,
                                   ),
                                 ),
                                 child: Icon(
@@ -1050,9 +1075,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             Navigator.pop(context);
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
-                            side: const BorderSide(color: Colors.grey),
+                            backgroundColor: themeProvider.cardBgColor,
+                            foregroundColor: themeProvider.textColor,
+                            side: BorderSide(color: themeProvider.borderColor),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -1163,6 +1188,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     if (!mounted) return;
 
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -1170,7 +1197,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          backgroundColor: const Color(0xFFF4F2F2),
+          backgroundColor: themeProvider.scaffoldBgColor,
           child: Container(
             width: MediaQuery.of(context).size.width * 0.95,
             padding: const EdgeInsets.all(20),
@@ -1179,12 +1206,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Title
-                  const Text(
+                  Text(
                     'Editar Dirección',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: themeProvider.textColor,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1192,11 +1219,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                   // Address Name Field
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: themeProvider.cardBgColor,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: themeProvider.shadowColor,
                           spreadRadius: 1,
                           blurRadius: 3,
                           offset: const Offset(0, 2),
@@ -1211,14 +1238,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     ),
                     child: TextField(
                       controller: _addressNameController,
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: themeProvider.textColor),
+                      decoration: InputDecoration(
                         labelText: 'Nombre',
-                        labelStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                        labelStyle: TextStyle(
+                            color: themeProvider.secondaryTextColor,
+                            fontSize: 13),
                         hintText: 'Casa, Empresa...',
-                        prefixIcon: Icon(Icons.label_outline,
+                        prefixIcon: const Icon(Icons.label_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 10,
                         ),
@@ -1254,11 +1284,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -1275,10 +1305,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedDepartmentId,
-                            hint: const FittedBox(
+                            hint: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text('Departamento',
-                                  style: TextStyle(fontSize: 13)),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: themeProvider.secondaryTextColor)),
                             ),
                             isExpanded: true,
                             underline: Container(),
@@ -1289,7 +1321,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerLeft,
                                   child: Text(department['name'],
-                                      style: const TextStyle(fontSize: 13)),
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: themeProvider.textColor)),
                                 ),
                               );
                             }).toList(),
@@ -1320,11 +1354,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -1341,10 +1375,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedCityId,
-                            hint: const FittedBox(
+                            hint: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text('Ciudad',
-                                  style: TextStyle(fontSize: 13)),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: themeProvider.secondaryTextColor)),
                             ),
                             isExpanded: true,
                             underline: Container(),
@@ -1355,7 +1391,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerLeft,
                                   child: Text(city['name'],
-                                      style: const TextStyle(fontSize: 13)),
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: themeProvider.textColor)),
                                 ),
                               );
                             }).toList(),
@@ -1389,11 +1427,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         flex: 2,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -1410,10 +1448,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 8, vertical: 12),
                           child: DropdownButton<String>(
                             value: _selectedTypeVia,
-                            hint: const FittedBox(
+                            hint: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text('Tipo vía',
-                                  style: TextStyle(fontSize: 13)),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: themeProvider.secondaryTextColor)),
                             ),
                             isExpanded: true,
                             underline: Container(),
@@ -1441,11 +1481,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -1460,10 +1500,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           ),
                           child: TextField(
                             controller: _numberPrincipalController,
+                            style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
                               labelText: '# Principal',
-                              labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 13),
+                              labelStyle: TextStyle(
+                                  color: themeProvider.secondaryTextColor,
+                                  fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -1472,7 +1514,6 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
-                            style: const TextStyle(fontSize: 14),
                             maxLength: 8,
                             onChanged: (value) {
                               if (_numberPrincipalError != null) {
@@ -1506,11 +1547,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -1525,10 +1566,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           ),
                           child: TextField(
                             controller: _numberSecondaryController,
+                            style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
                               labelText: '# Secundario',
-                              labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 13),
+                              labelStyle: TextStyle(
+                                  color: themeProvider.secondaryTextColor,
+                                  fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -1537,7 +1580,6 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
-                            style: const TextStyle(fontSize: 14),
                             maxLength: 8,
                             onChanged: (value) {
                               if (_numberSecondaryError != null) {
@@ -1555,11 +1597,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -1574,10 +1616,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           ),
                           child: TextField(
                             controller: _numberFinalController,
+                            style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
                               labelText: '# Final',
-                              labelStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 13),
+                              labelStyle: TextStyle(
+                                  color: themeProvider.secondaryTextColor,
+                                  fontSize: 13),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -1586,7 +1630,6 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               counterText: '', // Oculta el contador
                             ),
                             keyboardType: TextInputType.text,
-                            style: const TextStyle(fontSize: 14),
                             maxLength: 8,
                             onChanged: (value) {
                               if (_numberFinalError != null) {
@@ -1618,11 +1661,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                   // Additional Info Field
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: themeProvider.cardBgColor,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: themeProvider.shadowColor,
                           spreadRadius: 1,
                           blurRadius: 3,
                           offset: const Offset(0, 2),
@@ -1637,14 +1680,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     ),
                     child: TextField(
                       controller: _additionalInfoController,
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: themeProvider.textColor),
+                      decoration: InputDecoration(
                         labelText: 'Información Adicional',
-                        labelStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                        labelStyle: TextStyle(
+                            color: themeProvider.secondaryTextColor,
+                            fontSize: 14),
                         hintText: 'ej: Edificio X, Apto 101',
-                        prefixIcon: Icon(Icons.info_outline,
+                        prefixIcon: const Icon(Icons.info_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 12,
                         ),
@@ -1679,11 +1725,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                   // Icon Selection
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: themeProvider.cardBgColor,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: themeProvider.shadowColor,
                           spreadRadius: 1,
                           blurRadius: 3,
                           offset: const Offset(0, 2),
@@ -1700,12 +1746,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Icono',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Colors.grey,
+                            color: themeProvider.secondaryTextColor,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -1738,7 +1784,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   border: Border.all(
                                     color: _selectedIcon == iconData['icon']
                                         ? const Color(0xFF78BF32)
-                                        : Colors.grey.withOpacity(0.3),
+                                        : themeProvider.borderColor,
                                   ),
                                 ),
                                 child: Icon(
@@ -1778,9 +1824,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             Navigator.pop(context);
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
-                            side: const BorderSide(color: Colors.grey),
+                            backgroundColor: themeProvider.cardBgColor,
+                            foregroundColor: themeProvider.textColor,
+                            side: BorderSide(color: themeProvider.borderColor),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -1804,9 +1850,14 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _hasChanges()
                                 ? const Color(0xFF78BF32)
-                                : Colors.grey[300],
-                            foregroundColor:
-                                _hasChanges() ? Colors.white : Colors.grey[600],
+                                : (themeProvider.isDarkMode
+                                    ? Colors.grey[700]
+                                    : Colors.grey[300]),
+                            foregroundColor: _hasChanges()
+                                ? Colors.white
+                                : (themeProvider.isDarkMode
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600]),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -1834,12 +1885,14 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     ],
                   ),
                   if (!_hasChanges())
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8.0),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
                       child: Text(
                         'Aún no has hecho cambios',
                         style: TextStyle(
-                          color: Colors.red,
+                          color: themeProvider.isDarkMode
+                              ? Colors.red[300]
+                              : Colors.red,
                           fontSize: 12,
                         ),
                       ),
@@ -1872,13 +1925,15 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
         ? _getIconFromString(address['address_icon'])
         : Icons.location_on;
 
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        backgroundColor: const Color(0xFFF4F2F2),
+        backgroundColor: themeProvider.scaffoldBgColor,
         child: Container(
           width: MediaQuery.of(context).size.width * 0.95,
           padding: const EdgeInsets.all(20),
@@ -1907,10 +1962,10 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     Expanded(
                       child: Text(
                         address['address_name'],
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: themeProvider.textColor,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -1923,11 +1978,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: themeProvider.cardBgColor,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: themeProvider.shadowColor,
                         spreadRadius: 1,
                         blurRadius: 3,
                         offset: const Offset(0, 2),
@@ -1942,10 +1997,10 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         '${address['type_via']} ${address['number_principal']}'
                         '${address['number_secondary'] != null ? ' #${address['number_secondary']}' : ''}'
                         '${address['number_final'] != null ? ' - ${address['number_final']}' : ''}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: Colors.black,
+                          color: themeProvider.textColor,
                         ),
                       ),
                       // Additional Info
@@ -1955,9 +2010,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
                             address['additional_info'],
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
-                              color: Color(0xFF757575),
+                              color: themeProvider.secondaryTextColor,
                             ),
                           ),
                         ),
@@ -1974,9 +2029,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           Expanded(
                             child: Text(
                               '${address['city_name']}, ${address['department_name']}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
-                                color: Color(0xFF757575),
+                                color: themeProvider.secondaryTextColor,
                               ),
                             ),
                           ),
@@ -2016,6 +2071,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
   void _showDeleteConfirmDialog(int id) {
     final addressToDelete = _addresses.firstWhere((addr) => addr['id'] == id);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
     showDialog(
       context: context,
@@ -2023,7 +2079,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        backgroundColor: const Color(0xFFF4F2F2),
+        backgroundColor: themeProvider.scaffoldBgColor,
         child: Container(
           width: MediaQuery.of(context).size.width * 0.95,
           padding: const EdgeInsets.all(20),
@@ -2032,12 +2088,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Title
-                const Text(
+                Text(
                   'Eliminar Dirección',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    color: themeProvider.textColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -2048,7 +2104,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                   text: TextSpan(
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.grey[600],
+                      color: themeProvider.secondaryTextColor,
                     ),
                     children: [
                       const TextSpan(
@@ -2056,10 +2112,10 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               '¿Estás seguro de que quieres eliminar la dirección '),
                       TextSpan(
                         text: addressToDelete['address_name'],
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: themeProvider.textColor,
                         ),
                       ),
                       const TextSpan(text: '?'),
@@ -2074,9 +2130,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       child: ElevatedButton(
                         onPressed: () => Navigator.pop(context),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          side: const BorderSide(color: Colors.grey),
+                          backgroundColor: themeProvider.cardBgColor,
+                          foregroundColor: themeProvider.textColor,
+                          side: BorderSide(color: themeProvider.borderColor),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -2234,19 +2290,21 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2F2),
+      backgroundColor: themeProvider.scaffoldBgColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: themeProvider.cardBgColor,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF78BF32)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Mis Direcciones',
           style: TextStyle(
-            color: Colors.black,
+            color: themeProvider.textColor,
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
@@ -2261,27 +2319,27 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.location_on,
                           size: 80,
-                          color: Colors.grey,
+                          color: themeProvider.secondaryTextColor,
                         ),
                         const SizedBox(height: 24),
-                        const Text(
+                        Text(
                           'No tienes direcciones guardadas',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                            color: themeProvider.textColor,
                           ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 12),
-                        const Text(
+                        Text(
                           'Agrega tu primera dirección',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.grey,
+                            color: themeProvider.secondaryTextColor,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -2346,11 +2404,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   margin: const EdgeInsets.only(bottom: 12),
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: themeProvider.cardBgColor,
                                     borderRadius: BorderRadius.circular(20),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.grey.withOpacity(0.1),
+                                        color: themeProvider.shadowColor,
                                         spreadRadius: 1,
                                         blurRadius: 3,
                                         offset: const Offset(0, 2),
@@ -2366,7 +2424,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                         width: 60,
                                         height: 60,
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFF4F2F2),
+                                          color: themeProvider.isDarkMode
+                                              ? const Color(0xFF3A3A3C)
+                                              : const Color(0xFFF4F2F2),
                                           borderRadius:
                                               BorderRadius.circular(12),
                                         ),
@@ -2388,10 +2448,10 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                           children: [
                                             Text(
                                               address['address_name'],
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 18,
                                                 fontWeight: FontWeight.bold,
-                                                color: Colors.black,
+                                                color: themeProvider.textColor,
                                               ),
                                             ),
                                             const SizedBox(height: 8),
@@ -2400,7 +2460,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                               _formatAddress(address),
                                               style: TextStyle(
                                                 fontSize: 16,
-                                                color: Colors.grey[600],
+                                                color: themeProvider
+                                                    .secondaryTextColor,
                                               ),
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
@@ -2411,7 +2472,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                               '${address['city_name']}, ${address['department_name']}',
                                               style: TextStyle(
                                                 fontSize: 14,
-                                                color: Colors.grey[500],
+                                                color: themeProvider
+                                                    .secondaryTextColor,
                                               ),
                                             ),
                                           ],
@@ -2423,9 +2485,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                           IconButton(
                                             onPressed: () =>
                                                 _showEditAddressDialog(address),
-                                            icon: const Icon(
+                                            icon: Icon(
                                               Icons.edit,
-                                              color: Colors.black,
+                                              color: themeProvider.textColor,
                                               size: 20,
                                             ),
                                             padding: EdgeInsets.zero,
