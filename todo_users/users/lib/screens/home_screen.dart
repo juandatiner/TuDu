@@ -184,6 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
+                    clipBehavior: Clip.antiAlias,
                     child: const TextField(
                       enabled: false,
                       decoration: InputDecoration(

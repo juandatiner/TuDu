@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../config.dart';
+import '../providers/theme_provider.dart';
 import 'home_screen.dart';
 import 'user_services_screen.dart';
 import 'user_personal_data_screen.dart';
@@ -9,6 +11,7 @@ import 'user_addresses_screen.dart';
 import 'terms_and_conditions_screen.dart';
 import 'data_protection_screen.dart';
 import 'login_screen.dart';
+import 'appearance_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -108,13 +111,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showLogoutDialog() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        backgroundColor: const Color(0xFFF4F2F2),
+        backgroundColor: themeProvider.cardBgColor,
         child: Container(
           width: MediaQuery.of(context).size.width * 0.95,
           padding: const EdgeInsets.all(20),
@@ -123,12 +128,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Title
-                const Text(
+                Text(
                   'Cerrar Sesión',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    color: themeProvider.textColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -138,7 +143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   '¿Estás seguro de que quieres cerrar sesión?',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.grey[600],
+                    color: themeProvider.secondaryTextColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -156,7 +161,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             Navigator.of(context).pop();
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
+                            backgroundColor: themeProvider.isDarkMode
+                                ? themeProvider.cardBgColor
+                                : Colors.white,
                             foregroundColor: const Color(0xFF78BF32),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
@@ -275,8 +282,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2F2),
+      backgroundColor: themeProvider.scaffoldBgColor,
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -296,10 +305,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               padding: const EdgeInsets.only(left: 16.0),
                               child: Text(
                                 _userName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.black,
+                                  color: themeProvider.textColor,
                                 ),
                               ),
                             ),
@@ -314,12 +323,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 color: _parseColor(_avatarColor),
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.white,
+                                  color: themeProvider.isDarkMode
+                                      ? themeProvider.cardBgColor
+                                      : Colors.white,
                                   width: 3,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.grey.withOpacity(0.3),
+                                    color: themeProvider.shadowColor,
                                     spreadRadius: 2,
                                     blurRadius: 5,
                                     offset: const Offset(0, 3),
@@ -362,6 +373,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           _buildActionButton(
+                            context: context,
                             icon: Icons.support_agent,
                             label: 'Soporte',
                             onTap: () {
@@ -369,6 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             },
                           ),
                           _buildActionButton(
+                            context: context,
                             icon: Icons.badge_outlined,
                             label: 'Mis Datos',
                             onTap: () async {
@@ -386,6 +399,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             },
                           ),
                           _buildActionButton(
+                            context: context,
                             icon: Icons.credit_card,
                             label: 'Mis Tarjetas',
                             onTap: () {
@@ -396,16 +410,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 40),
                       // Sección Ajustes
-                      const Text(
+                      Text(
                         'Ajustes',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: themeProvider.textColor,
                         ),
                       ),
                       const SizedBox(height: 16),
                       _buildSettingsItem(
+                        context: context,
                         icon: Icons.location_on_outlined,
                         title: 'Mis direcciones',
                         onTap: () {
@@ -420,13 +435,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       _buildSettingsItem(
+                        context: context,
                         icon: Icons.light_mode,
                         title: 'Apariencia',
                         onTap: () {
-                          // Sin funcionalidad por ahora
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AppearanceScreen(),
+                            ),
+                          );
                         },
                       ),
                       _buildSettingsItem(
+                        context: context,
                         icon: Icons.language,
                         title: 'Idioma',
                         onTap: () {
@@ -435,16 +457,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 30),
                       // Sección Otros
-                      const Text(
+                      Text(
                         'Otros',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: themeProvider.textColor,
                         ),
                       ),
                       const SizedBox(height: 16),
                       _buildSettingsItem(
+                        context: context,
                         icon: Icons.security_outlined,
                         title: 'Protección de Datos',
                         onTap: () {
@@ -458,6 +481,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                       _buildSettingsItem(
+                        context: context,
                         icon: Icons.description_outlined,
                         title: 'Términos y Condiciones',
                         onTap: () {
@@ -471,6 +495,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                       _buildSettingsItem(
+                        context: context,
                         icon: Icons.logout,
                         title: 'Cerrar Sesión',
                         isDestructive: true,
@@ -484,40 +509,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
-          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Mensajes'),
-          BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Servicios'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        elevation: 10,
+      bottomNavigationBar: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return BottomNavigationBar(
+            items: const <BottomNavigationBarItem>[
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.message), label: 'Mensajes'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.work), label: 'Servicios'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.person), label: 'Perfil'),
+            ],
+            currentIndex: _selectedIndex,
+            selectedItemColor: Colors.blue,
+            unselectedItemColor: Colors.grey,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: themeProvider.cardBgColor,
+            elevation: 10,
+          );
+        },
       ),
     );
   }
 
   Widget _buildActionButton({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required VoidCallback onTap,
   }) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 100,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: themeProvider.cardBgColor,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
+              color: themeProvider.shadowColor,
               spreadRadius: 1,
               blurRadius: 3,
               offset: const Offset(0, 2),
@@ -534,10 +569,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 8),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: Colors.black,
+                color: themeProvider.textColor,
               ),
               textAlign: TextAlign.center,
             ),
@@ -548,22 +583,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildSettingsItem({
+    required BuildContext context,
     required IconData icon,
     required String title,
     bool isDestructive = false,
     required VoidCallback onTap,
   }) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: themeProvider.cardBgColor,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: themeProvider.shadowColor,
               spreadRadius: 1,
               blurRadius: 2,
               offset: const Offset(0, 1),
@@ -584,14 +622,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: isDestructive ? Colors.red : Colors.black,
+                  color: isDestructive ? Colors.red : themeProvider.textColor,
                 ),
               ),
             ),
             Icon(
               Icons.chevron_right,
               size: 20,
-              color: Colors.grey[400],
+              color: themeProvider.secondaryTextColor,
             ),
           ],
         ),

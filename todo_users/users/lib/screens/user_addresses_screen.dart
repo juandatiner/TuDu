@@ -535,15 +535,22 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedDepartmentId,
-                            hint: const Text('Departamento',
-                                style: TextStyle(fontSize: 13)),
+                            hint: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Departamento',
+                                  style: TextStyle(fontSize: 13)),
+                            ),
                             isExpanded: true,
                             underline: Container(),
                             items: _departments.map((department) {
                               return DropdownMenuItem<int>(
                                 value: department['id'],
-                                child: Text(department['name'],
-                                    style: const TextStyle(fontSize: 13)),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(department['name'],
+                                      style: const TextStyle(fontSize: 13)),
+                                ),
                               );
                             }).toList(),
                             onChanged: (value) async {
@@ -594,15 +601,22 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedCityId,
-                            hint: const Text('Ciudad',
-                                style: TextStyle(fontSize: 13)),
+                            hint: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Ciudad',
+                                  style: TextStyle(fontSize: 13)),
+                            ),
                             isExpanded: true,
                             underline: Container(),
                             items: _cities.map((city) {
                               return DropdownMenuItem<int>(
                                 value: city['id'],
-                                child: Text(city['name'],
-                                    style: const TextStyle(fontSize: 13)),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(city['name'],
+                                      style: const TextStyle(fontSize: 13)),
+                                ),
                               );
                             }).toList(),
                             onChanged: (value) {
@@ -656,15 +670,22 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 8, vertical: 12),
                           child: DropdownButton<String>(
                             value: _selectedTypeVia,
-                            hint: const Text('Tipo de vía',
-                                style: TextStyle(fontSize: 14)),
+                            hint: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Tipo de vía',
+                                  style: TextStyle(fontSize: 14)),
+                            ),
                             isExpanded: true,
                             underline: Container(),
                             items: _typeViaOptions.map((type) {
                               return DropdownMenuItem<String>(
                                 value: type,
-                                child: Text(type,
-                                    style: const TextStyle(fontSize: 13)),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(type,
+                                      style: const TextStyle(fontSize: 13)),
+                                ),
                               );
                             }).toList(),
                             onChanged: (value) {
@@ -1254,15 +1275,22 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedDepartmentId,
-                            hint: const Text('Departamento',
-                                style: TextStyle(fontSize: 13)),
+                            hint: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Departamento',
+                                  style: TextStyle(fontSize: 13)),
+                            ),
                             isExpanded: true,
                             underline: Container(),
                             items: _departments.map((department) {
                               return DropdownMenuItem<int>(
                                 value: department['id'],
-                                child: Text(department['name'],
-                                    style: const TextStyle(fontSize: 13)),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(department['name'],
+                                      style: const TextStyle(fontSize: 13)),
+                                ),
                               );
                             }).toList(),
                             onChanged: (value) async {
@@ -1313,15 +1341,22 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 12, vertical: 12),
                           child: DropdownButton<int>(
                             value: _selectedCityId,
-                            hint: const Text('Ciudad',
-                                style: TextStyle(fontSize: 13)),
+                            hint: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Ciudad',
+                                  style: TextStyle(fontSize: 13)),
+                            ),
                             isExpanded: true,
                             underline: Container(),
                             items: _cities.map((city) {
                               return DropdownMenuItem<int>(
                                 value: city['id'],
-                                child: Text(city['name'],
-                                    style: const TextStyle(fontSize: 13)),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(city['name'],
+                                      style: const TextStyle(fontSize: 13)),
+                                ),
                               );
                             }).toList(),
                             onChanged: (value) {
@@ -1375,15 +1410,22 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               horizontal: 8, vertical: 12),
                           child: DropdownButton<String>(
                             value: _selectedTypeVia,
-                            hint: const Text('Tipo vía',
-                                style: TextStyle(fontSize: 13)),
+                            hint: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Tipo vía',
+                                  style: TextStyle(fontSize: 13)),
+                            ),
                             isExpanded: true,
                             underline: Container(),
                             items: _typeViaOptions.map((type) {
                               return DropdownMenuItem<String>(
                                 value: type,
-                                child: Text(type,
-                                    style: const TextStyle(fontSize: 13)),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(type,
+                                      style: const TextStyle(fontSize: 13)),
+                                ),
                               );
                             }).toList(),
                             onChanged: (value) {

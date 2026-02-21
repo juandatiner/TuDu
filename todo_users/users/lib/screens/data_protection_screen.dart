@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 class DataProtectionScreen extends StatelessWidget {
   const DataProtectionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2F2),
+      backgroundColor: themeProvider.scaffoldBgColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: themeProvider.cardBgColor,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF78BF32)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Protección de Datos',
           style: TextStyle(
-            color: Colors.black,
+            color: themeProvider.textColor,
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
@@ -37,11 +41,11 @@ class DataProtectionScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: themeProvider.cardBgColor,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: themeProvider.shadowColor,
                         spreadRadius: 1,
                         blurRadius: 2,
                         offset: const Offset(0, 1),
@@ -56,134 +60,134 @@ class DataProtectionScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: themeProvider.textColor,
                         ),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
                         '1. Recopilación de información',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF78BF32),
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'Recopilamos información que usted nos proporciona directamente, como su nombre, correo electrónico, número de teléfono y otra información necesaria para brindarle nuestros servicios.',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.black87,
+                          color: themeProvider.textColor,
                         ),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
                         '2. Uso de la información',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF78BF32),
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'Utilizamos su información para proporcionar, mantener y mejorar nuestros servicios, procesar transacciones, enviar comunicaciones relacionadas con el servicio y proteger contra fraudes.',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.black87,
+                          color: themeProvider.textColor,
                         ),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
                         '3. Compartir información',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF78BF32),
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'No vendemos ni alquilamos su información personal a terceros. Solo compartimos su información con proveedores de servicios que nos ayudan a operar nuestra aplicación y cumplir con la ley.',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.black87,
+                          color: themeProvider.textColor,
                         ),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
                         '4. Seguridad de datos',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF78BF32),
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'Implementamos medidas de seguridad técnicas y organizativas para proteger su información personal contra acceso no autorizado, alteración, divulgación o destrucción.',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.black87,
+                          color: themeProvider.textColor,
                         ),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
                         '5. Sus derechos',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF78BF32),
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'Usted tiene derecho a acceder, corregir, eliminar y portar su información personal. También tiene derecho a oponerse al procesamiento de sus datos en ciertas circunstancias.',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.black87,
+                          color: themeProvider.textColor,
                         ),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
                         '6. Cookies y tecnologías similares',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF78BF32),
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'Utilizamos cookies y tecnologías similares para mejorar su experiencia, analizar el uso de nuestra aplicación y personalizar el contenido que se le muestra.',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.black87,
+                          color: themeProvider.textColor,
                         ),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
                         '7. Contacto',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF78BF32),
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'Si tiene preguntas sobre esta política de protección de datos, puede contactarnos a través de la sección de soporte de la aplicación.',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.black87,
+                          color: themeProvider.textColor,
                         ),
                       ),
-                      SizedBox(height: 24),
+                      const SizedBox(height: 24),
                       Text(
                         'Fecha de última actualización: Febrero 2026',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade500,
+                          color: themeProvider.secondaryTextColor,
                           fontStyle: FontStyle.italic,
                         ),
                       ),

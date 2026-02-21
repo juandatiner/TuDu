@@ -318,12 +318,17 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                         Navigator.pop(context);
                       },
                     ),
-                    const Text(
-                      'Publica lo que necesitas',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: const Text(
+                          'Publica lo que necesitas',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 48),

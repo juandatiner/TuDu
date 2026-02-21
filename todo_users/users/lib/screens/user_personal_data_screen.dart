@@ -7,7 +7,9 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../config.dart';
+import '../providers/theme_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class MyDataScreen extends StatefulWidget {
@@ -298,8 +300,11 @@ class _MyDataScreenState extends State<MyDataScreen> {
   }
 
   void _showAvatarOptions() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
     showModalBottomSheet(
       context: context,
+      backgroundColor: themeProvider.cardBgColor,
       builder: (BuildContext context) {
         return Container(
           padding: const EdgeInsets.all(20),
@@ -309,7 +314,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
               if (!_usePhoto)
                 ListTile(
                   leading: const Icon(Icons.person, color: Color(0xFF78BF32)),
-                  title: const Text('Cambiar Avatar'),
+                  title: Text('Cambiar Avatar',
+                      style: TextStyle(color: themeProvider.textColor)),
                   onTap: () {
                     Navigator.pop(context);
                     _showAvatarOptionsDialog();
@@ -318,7 +324,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
               if (!_usePhoto)
                 ListTile(
                   leading: const Icon(Icons.photo, color: Color(0xFF78BF32)),
-                  title: const Text('Subir Foto'),
+                  title: Text('Subir Foto',
+                      style: TextStyle(color: themeProvider.textColor)),
                   onTap: () {
                     Navigator.pop(context);
                     _pickAndUploadImage();
@@ -327,7 +334,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
               if (_usePhoto)
                 ListTile(
                   leading: const Icon(Icons.person, color: Color(0xFF78BF32)),
-                  title: const Text('Colocar Avatar'),
+                  title: Text('Colocar Avatar',
+                      style: TextStyle(color: themeProvider.textColor)),
                   onTap: () async {
                     Navigator.pop(context);
                     final randomIcon = [
@@ -355,7 +363,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
               if (_usePhoto)
                 ListTile(
                   leading: const Icon(Icons.photo, color: Color(0xFF78BF32)),
-                  title: const Text('Cambiar Foto'),
+                  title: Text('Cambiar Foto',
+                      style: TextStyle(color: themeProvider.textColor)),
                   onTap: () {
                     Navigator.pop(context);
                     _pickAndUploadImage();
@@ -364,7 +373,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
               if (_usePhoto)
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text('Eliminar Foto'),
+                  title: Text('Eliminar Foto',
+                      style: TextStyle(color: themeProvider.textColor)),
                   onTap: () async {
                     Navigator.pop(context);
                     final randomIcon = [
@@ -397,6 +407,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
   }
 
   void _showAvatarOptionsDialog() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     // Variables temporales para la selección
     String tempSelectedIcon = _selectedIcon;
     String tempAvatarColor = _avatarColor;
@@ -407,7 +418,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Personalizar Avatar'),
+              backgroundColor: themeProvider.cardBgColor,
+              title: Text('Personalizar Avatar',
+                  style: TextStyle(color: themeProvider.textColor)),
               content: SizedBox(
                 width: double.maxFinite,
                 child: SingleChildScrollView(
@@ -422,12 +435,14 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           color: _parseColor(tempAvatarColor),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: Colors.white,
+                            color: themeProvider.isDarkMode
+                                ? themeProvider.cardBgColor
+                                : Colors.white,
                             width: 3,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.withOpacity(0.3),
+                              color: themeProvider.shadowColor,
                               spreadRadius: 2,
                               blurRadius: 5,
                               offset: const Offset(0, 2),
@@ -441,9 +456,11 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      const Text(
+                      Text(
                         'Selecciona un icono:',
-                        style: TextStyle(fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: themeProvider.textColor),
                       ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -473,12 +490,16 @@ class _MyDataScreenState extends State<MyDataScreen> {
                               decoration: BoxDecoration(
                                 color: tempSelectedIcon == iconName
                                     ? _parseColor(tempAvatarColor)
-                                    : Colors.grey[200],
+                                    : (themeProvider.isDarkMode
+                                        ? const Color(0xFF3A3A3C)
+                                        : Colors.grey[200]),
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: tempSelectedIcon == iconName
                                       ? _parseColor(tempAvatarColor)
-                                      : Colors.grey,
+                                      : (themeProvider.isDarkMode
+                                          ? Colors.grey[600]!
+                                          : Colors.grey),
                                   width: 2,
                                 ),
                               ),
@@ -487,16 +508,20 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                 size: 22,
                                 color: tempSelectedIcon == iconName
                                     ? Colors.white
-                                    : Colors.black54,
+                                    : (themeProvider.isDarkMode
+                                        ? Colors.grey[400]
+                                        : Colors.black54),
                               ),
                             ),
                           );
                         }).toList(),
                       ),
                       const SizedBox(height: 24),
-                      const Text(
+                      Text(
                         'Selecciona un color:',
-                        style: TextStyle(fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: themeProvider.textColor),
                       ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -554,9 +579,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text(
+                  child: Text(
                     'Cancelar',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: themeProvider.secondaryTextColor),
                   ),
                 ),
                 ElevatedButton(
@@ -708,6 +733,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
   }
 
   void _showGenderPicker() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -716,9 +743,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: themeProvider.cardBgColor,
+              borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(24),
                 topRight: Radius.circular(24),
               ),
@@ -732,7 +759,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: themeProvider.isDarkMode
+                        ? Colors.grey[600]
+                        : Colors.grey[300],
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -741,12 +770,12 @@ class _MyDataScreenState extends State<MyDataScreen> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      const Text(
+                      Text(
                         'Selecciona tu género',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: themeProvider.textColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -754,13 +783,13 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         'Esta información es obligatoria',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: themeProvider.secondaryTextColor,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Divider(height: 1),
+                Divider(height: 1, color: themeProvider.borderColor),
                 // Opciones
                 ..._genderOptions.map((option) {
                   final isSelected = _selectedGender == option['value'];
@@ -785,7 +814,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                 : Icons.radio_button_off,
                             color: isSelected
                                 ? const Color(0xFF78BF32)
-                                : Colors.grey,
+                                : themeProvider.secondaryTextColor,
                           ),
                           const SizedBox(width: 16),
                           Text(
@@ -797,7 +826,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                   : FontWeight.normal,
                               color: isSelected
                                   ? const Color(0xFF78BF32)
-                                  : Colors.black,
+                                  : themeProvider.textColor,
                             ),
                           ),
                         ],
@@ -815,6 +844,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
   }
 
   void _showBirthDatePicker() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     DateTime? tempBirthDate = _birthDate;
     String? tempError;
 
@@ -833,9 +863,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
               filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
               child: Container(
                 height: MediaQuery.of(context).size.height * 0.55,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration(
+                  color: themeProvider.cardBgColor,
+                  borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(24),
                     topRight: Radius.circular(24),
                   ),
@@ -848,7 +878,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey[300],
+                        color: themeProvider.isDarkMode
+                            ? Colors.grey[600]
+                            : Colors.grey[300],
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -857,12 +889,12 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         children: [
-                          const Text(
+                          Text(
                             'Fecha de Nacimiento',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                              color: themeProvider.textColor,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -870,13 +902,13 @@ class _MyDataScreenState extends State<MyDataScreen> {
                             'Debes ser mayor de 18 años',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey[600],
+                              color: themeProvider.secondaryTextColor,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const Divider(height: 1),
+                    Divider(height: 1, color: themeProvider.borderColor),
                     Expanded(
                       child: CupertinoDatePicker(
                         mode: CupertinoDatePickerMode.date,
@@ -990,19 +1022,21 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2F2),
+      backgroundColor: themeProvider.scaffoldBgColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: themeProvider.cardBgColor,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF78BF32)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Mis Datos',
           style: TextStyle(
-            color: Colors.black,
+            color: themeProvider.textColor,
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
@@ -1031,12 +1065,14 @@ class _MyDataScreenState extends State<MyDataScreen> {
                               color: _parseColor(_avatarColor),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: Colors.white,
+                                color: themeProvider.isDarkMode
+                                    ? themeProvider.cardBgColor
+                                    : Colors.white,
                                 width: 4,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.grey.withOpacity(0.3),
+                                  color: themeProvider.shadowColor,
                                   spreadRadius: 3,
                                   blurRadius: 8,
                                   offset: const Offset(0, 4),
@@ -1076,12 +1112,14 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                 color: const Color(0xFF78BF32),
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.white,
+                                  color: themeProvider.isDarkMode
+                                      ? themeProvider.cardBgColor
+                                      : Colors.white,
                                   width: 2,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.grey.withOpacity(0.3),
+                                    color: themeProvider.shadowColor,
                                     spreadRadius: 1,
                                     blurRadius: 3,
                                     offset: const Offset(0, 2),
@@ -1101,11 +1139,11 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       // Campo Nombre
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: themeProvider.cardBgColor,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
+                              color: themeProvider.shadowColor,
                               spreadRadius: 1,
                               blurRadius: 3,
                               offset: const Offset(0, 2),
@@ -1115,13 +1153,15 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         child: TextFormField(
                           controller: _nameController,
                           maxLength: 20,
-                          decoration: const InputDecoration(
+                          style: TextStyle(color: themeProvider.textColor),
+                          decoration: InputDecoration(
                             labelText: 'Nombre',
-                            labelStyle: TextStyle(color: Colors.grey),
-                            prefixIcon: Icon(Icons.person_outline,
+                            labelStyle: TextStyle(
+                                color: themeProvider.secondaryTextColor),
+                            prefixIcon: const Icon(Icons.person_outline,
                                 color: Color(0xFF78BF32)),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
+                            contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 16),
                             counterText: '', // Oculta el contador
                           ),
@@ -1140,11 +1180,11 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       // Campo Apellido
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: themeProvider.cardBgColor,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
+                              color: themeProvider.shadowColor,
                               spreadRadius: 1,
                               blurRadius: 3,
                               offset: const Offset(0, 2),
@@ -1154,13 +1194,15 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         child: TextFormField(
                           controller: _lastNameController,
                           maxLength: 20,
-                          decoration: const InputDecoration(
+                          style: TextStyle(color: themeProvider.textColor),
+                          decoration: InputDecoration(
                             labelText: 'Apellido',
-                            labelStyle: TextStyle(color: Colors.grey),
-                            prefixIcon: Icon(Icons.person_outline,
+                            labelStyle: TextStyle(
+                                color: themeProvider.secondaryTextColor),
+                            prefixIcon: const Icon(Icons.person_outline,
                                 color: Color(0xFF78BF32)),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
+                            contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 16),
                             counterText: '', // Oculta el contador
                           ),
@@ -1179,11 +1221,13 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       // Campo Email (solo lectura)
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.grey[100],
+                          color: themeProvider.isDarkMode
+                              ? const Color(0xFF2C2C2E)
+                              : Colors.grey[100],
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
+                              color: themeProvider.shadowColor,
                               spreadRadius: 1,
                               blurRadius: 3,
                               offset: const Offset(0, 2),
@@ -1193,13 +1237,16 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         child: TextFormField(
                           controller: _emailController,
                           enabled: false,
-                          decoration: const InputDecoration(
+                          style: TextStyle(
+                              color: themeProvider.secondaryTextColor),
+                          decoration: InputDecoration(
                             labelText: 'Correo electrónico',
-                            labelStyle: TextStyle(color: Colors.grey),
-                            prefixIcon:
-                                Icon(Icons.email_outlined, color: Colors.grey),
+                            labelStyle: TextStyle(
+                                color: themeProvider.secondaryTextColor),
+                            prefixIcon: Icon(Icons.email_outlined,
+                                color: themeProvider.secondaryTextColor),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
+                            contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 16),
                             disabledBorder: InputBorder.none,
                           ),
@@ -1209,11 +1256,11 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       // Campo Teléfono con selector de país
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: themeProvider.cardBgColor,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
+                              color: themeProvider.shadowColor,
                               spreadRadius: 1,
                               blurRadius: 3,
                               offset: const Offset(0, 2),
@@ -1223,17 +1270,19 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         child: IntlPhoneField(
                           key: _phoneFieldKey,
                           controller: _phoneController,
-                          decoration: const InputDecoration(
+                          style: TextStyle(
+                              fontSize: 16, color: themeProvider.textColor),
+                          decoration: InputDecoration(
                             labelText: 'Teléfono',
-                            labelStyle: TextStyle(color: Colors.grey),
+                            labelStyle: TextStyle(
+                                color: themeProvider.secondaryTextColor),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
+                            contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 16),
                             counterText: '', // Oculta el contador
-                            prefixIcon: Icon(Icons.phone_outlined,
+                            prefixIcon: const Icon(Icons.phone_outlined,
                                 color: Color(0xFF78BF32)),
                           ),
-                          style: const TextStyle(fontSize: 16),
                           keyboardType: TextInputType.phone,
                           dropdownIcon: const Icon(Icons.arrow_drop_down,
                               color: Color(0xFF78BF32)),
@@ -1276,11 +1325,11 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         onTap: _showGenderPicker,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -1290,7 +1339,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           child: InputDecorator(
                             decoration: InputDecoration(
                               labelText: 'Género',
-                              labelStyle: const TextStyle(color: Colors.grey),
+                              labelStyle: TextStyle(
+                                  color: themeProvider.secondaryTextColor),
                               prefixIcon: const Icon(Icons.wc_outlined,
                                   color: Color(0xFF78BF32)),
                               border: InputBorder.none,
@@ -1314,8 +1364,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: _selectedGender != null
-                                        ? Colors.black
-                                        : Colors.grey,
+                                        ? themeProvider.textColor
+                                        : themeProvider.secondaryTextColor,
                                   ),
                                 ),
                                 const Icon(Icons.keyboard_arrow_up,
@@ -1331,11 +1381,11 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         onTap: _showBirthDatePicker,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: themeProvider.cardBgColor,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: themeProvider.shadowColor,
                                 spreadRadius: 1,
                                 blurRadius: 3,
                                 offset: const Offset(0, 2),
@@ -1345,7 +1395,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           child: InputDecorator(
                             decoration: InputDecoration(
                               labelText: 'Fecha de Nacimiento',
-                              labelStyle: const TextStyle(color: Colors.grey),
+                              labelStyle: TextStyle(
+                                  color: themeProvider.secondaryTextColor),
                               prefixIcon: const Icon(Icons.cake_outlined,
                                   color: Color(0xFF78BF32)),
                               border: InputBorder.none,
@@ -1363,8 +1414,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: _birthDate != null
-                                        ? Colors.black
-                                        : Colors.grey,
+                                        ? themeProvider.textColor
+                                        : themeProvider.secondaryTextColor,
                                   ),
                                 ),
                                 const Icon(Icons.calendar_today_outlined,
@@ -1410,12 +1461,14 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         ),
                       ),
                       if (!_hasChanges())
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8.0),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
                             'Aún no has hecho cambios',
                             style: TextStyle(
-                              color: Colors.red,
+                              color: themeProvider.isDarkMode
+                                  ? Colors.red[300]
+                                  : Colors.red,
                               fontSize: 12,
                             ),
                           ),
