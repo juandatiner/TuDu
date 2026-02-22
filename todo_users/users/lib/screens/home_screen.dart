@@ -46,6 +46,15 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     });
     _fetchServices();
+    _initializeTheme();
+  }
+
+  /// Inicializa el tema del usuario desde el backend
+  void _initializeTheme() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      themeProvider.initializeWithUser(widget.userEmail);
+    });
   }
 
   @override

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/service.dart';
+import '../providers/theme_provider.dart';
 import 'allies_by_service_screen.dart';
 import 'publish_service_screen.dart';
 
@@ -76,10 +78,12 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2F2),
+      backgroundColor: themeProvider.scaffoldBgColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF4F2F2),
+        backgroundColor: themeProvider.scaffoldBgColor,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF78BF32)),
@@ -89,11 +93,13 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
         ),
         title: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: themeProvider.cardBgColor,
             borderRadius: BorderRadius.circular(25.0),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.2),
+                color: themeProvider.isDarkMode
+                    ? Colors.black.withOpacity(0.3)
+                    : const Color(0xFF78BF32).withOpacity(0.15),
                 spreadRadius: 2,
                 blurRadius: 5,
                 offset: const Offset(0, 3),
@@ -102,22 +108,25 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
           ),
           child: TextField(
             controller: _searchController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Servicios de...',
-              hintStyle: TextStyle(color: Colors.grey),
-              prefixIcon: Icon(Icons.search, color: Colors.grey),
-              suffixIcon: Icon(Icons.mic, color: Colors.grey),
+              hintStyle: TextStyle(color: themeProvider.secondaryTextColor),
+              prefixIcon:
+                  Icon(Icons.search, color: themeProvider.secondaryTextColor),
+              suffixIcon:
+                  Icon(Icons.mic, color: themeProvider.secondaryTextColor),
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
+              contentPadding: const EdgeInsets.symmetric(
                 horizontal: 20,
                 vertical: 12,
               ),
             ),
+            style: TextStyle(color: themeProvider.textColor),
           ),
         ),
       ),
       body: _filteredServices.isEmpty
-          ? _buildNoResultsContent()
+          ? _buildNoResultsContent(themeProvider)
           : SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -149,11 +158,13 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                           },
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: themeProvider.cardBgColor,
                               borderRadius: BorderRadius.circular(10),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.grey.withOpacity(0.2),
+                                  color: themeProvider.isDarkMode
+                                      ? Colors.black.withOpacity(0.3)
+                                      : Colors.grey.withOpacity(0.2),
                                   spreadRadius: 1,
                                   blurRadius: 3,
                                   offset: const Offset(0, 2),
@@ -165,17 +176,22 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                                 Expanded(
                                   flex: 3,
                                   child: Container(
-                                    decoration: const BoxDecoration(
-                                      color: Colors.blue, // Placeholder
-                                      borderRadius: BorderRadius.only(
+                                    decoration: BoxDecoration(
+                                      color: themeProvider.isDarkMode
+                                          ? const Color(0xFF3A3A3C)
+                                          : Colors.blue, // Placeholder
+                                      borderRadius: const BorderRadius.only(
                                         topLeft: Radius.circular(10),
                                         topRight: Radius.circular(10),
                                       ),
                                     ),
-                                    child: const Center(
+                                    child: Center(
                                       child: Text(
                                         'Imagen',
-                                        style: TextStyle(color: Colors.white),
+                                        style: TextStyle(
+                                          color:
+                                              themeProvider.secondaryTextColor,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -185,9 +201,10 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                                   child: Center(
                                     child: Text(
                                       service.name,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
+                                        color: themeProvider.textColor,
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
@@ -207,27 +224,28 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
         onPressed: () {
           showModalBottomSheet(
             context: context,
+            backgroundColor: themeProvider.cardBgColor,
             builder: (BuildContext context) {
               return Container(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       '¿No encuentras lo que buscas?',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: themeProvider.textColor,
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const Text(
+                    Text(
                       'Publica tu solicitud y deja que los expertos vengan a ti. No pierdas tiempo buscando, ¡ellos te encontrarán!',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.black87,
+                        color: themeProvider.secondaryTextColor,
                         height: 1.4,
                       ),
                     ),
@@ -272,13 +290,16 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
             },
           );
         },
-        child: const Icon(Icons.question_mark, color: Colors.green, size: 36),
-        backgroundColor: const Color(0xFFE7E7E7),
+        child:
+            const Icon(Icons.question_mark, color: Color(0xFF78BF32), size: 36),
+        backgroundColor: themeProvider.isDarkMode
+            ? const Color(0xFF3A3A3C)
+            : const Color(0xFFE7E7E7),
       ),
     );
   }
 
-  Widget _buildNoResultsContent() {
+  Widget _buildNoResultsContent(ThemeProvider themeProvider) {
     final searchQuery = _searchController.text;
 
     return Center(
@@ -288,17 +309,17 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
           Icon(
             Icons.search_off,
             size: 80,
-            color: Colors.grey[400],
+            color: themeProvider.secondaryTextColor,
           ),
           const SizedBox(height: 16),
           Text(
             searchQuery.isNotEmpty
                 ? "No encontramos resultados para '$searchQuery'"
                 : 'No se encontraron resultados',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.black87,
+              color: themeProvider.textColor,
             ),
             textAlign: TextAlign.center,
           ),
@@ -307,7 +328,7 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
             'Intenta buscando de otra manera',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[600],
+              color: themeProvider.secondaryTextColor,
             ),
             textAlign: TextAlign.center,
           ),

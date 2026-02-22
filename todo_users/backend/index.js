@@ -90,6 +90,12 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
             console.error('Error agregando columna fecha_nacimiento:', err.message);
           }
         });
+        // Agregar columna dark_mode si no existe
+        usersDb.run(`ALTER TABLE users ADD COLUMN dark_mode INTEGER DEFAULT 0`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna dark_mode:', err.message);
+          }
+        });
       }
     });
 
@@ -2100,7 +2106,7 @@ app.get('/users/profile/:email', (req, res) => {
   }
 
   // Obtener datos del usuario
-  usersDb.get(`SELECT nombre, apellido, avatar_color, avatar_icon, avatar_image, phone, genero, fecha_nacimiento FROM users WHERE email = ?`, [email], (err, userRow) => {
+  usersDb.get(`SELECT nombre, apellido, avatar_color, avatar_icon, avatar_image, phone, genero, fecha_nacimiento, dark_mode FROM users WHERE email = ?`, [email], (err, userRow) => {
     if (err) {
       console.error('Error obteniendo perfil:', err);
       return res.status(500).json({ error: 'Error obteniendo perfil' });
@@ -2124,6 +2130,7 @@ app.get('/users/profile/:email', (req, res) => {
         phone: userRow.phone,
         genero: userRow.genero,
         fecha_nacimiento: userRow.fecha_nacimiento,
+        dark_mode: userRow.dark_mode === 1,
         country_code: phoneRow ? phoneRow.country_code : null,
         country_name: phoneRow ? phoneRow.country_name : null,
         phone_number: phoneRow ? phoneRow.phone_number : null
@@ -2335,6 +2342,52 @@ app.get('/countries/by-iso/:isoCode', (req, res) => {
       res.json(row);
     }
   );
+});
+
+// Endpoint para obtener el modo oscuro del usuario
+app.get('/users/theme/:email', (req, res) => {
+  const { email } = req.params;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email es requerido' });
+  }
+
+  usersDb.get(`SELECT dark_mode FROM users WHERE email = ?`, [email], (err, row) => {
+    if (err) {
+      console.error('Error obteniendo modo oscuro:', err);
+      return res.status(500).json({ error: 'Error obteniendo modo oscuro' });
+    }
+    if (!row) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json({ dark_mode: row.dark_mode === 1 });
+  });
+});
+
+// Endpoint para actualizar el modo oscuro del usuario
+app.put('/users/theme', (req, res) => {
+  const { email, dark_mode } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email es requerido' });
+  }
+
+  if (dark_mode === undefined) {
+    return res.status(400).json({ error: 'dark_mode es requerido' });
+  }
+
+  const darkModeValue = dark_mode ? 1 : 0;
+
+  usersDb.run(`UPDATE users SET dark_mode = ? WHERE email = ?`, [darkModeValue, email], function(err) {
+    if (err) {
+      console.error('Error actualizando modo oscuro:', err);
+      return res.status(500).json({ error: 'Error actualizando modo oscuro' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json({ message: 'Modo oscuro actualizado exitosamente', dark_mode: dark_mode });
+  });
 });
 
 app.listen(PORT, '0.0.0.0', () => {

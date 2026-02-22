@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
+import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/service.dart';
+import '../providers/theme_provider.dart';
 import 'allies_by_service_screen.dart';
 import 'all_services_screen.dart';
 import 'publish_service_screen.dart';
@@ -247,10 +249,12 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2F2),
+      backgroundColor: themeProvider.scaffoldBgColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF4F2F2),
+        backgroundColor: themeProvider.scaffoldBgColor,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF78BF32)),
@@ -260,11 +264,13 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         title: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: themeProvider.cardBgColor,
             borderRadius: BorderRadius.circular(25.0),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.2),
+                color: themeProvider.isDarkMode
+                    ? Colors.black.withOpacity(0.3)
+                    : const Color(0xFF78BF32).withOpacity(0.15),
                 spreadRadius: 2,
                 blurRadius: 5,
                 offset: const Offset(0, 3),
@@ -281,47 +287,51 @@ class _SearchScreenState extends State<SearchScreen> {
                 _navigateToSearchResults(value);
               }
             },
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Servicios de...',
-              hintStyle: TextStyle(color: Colors.grey),
-              prefixIcon: Icon(Icons.search, color: Colors.grey),
-              suffixIcon: Icon(Icons.mic, color: Colors.grey),
+              hintStyle: TextStyle(color: themeProvider.secondaryTextColor),
+              prefixIcon:
+                  Icon(Icons.search, color: themeProvider.secondaryTextColor),
+              suffixIcon:
+                  Icon(Icons.mic, color: themeProvider.secondaryTextColor),
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
+              contentPadding: const EdgeInsets.symmetric(
                 horizontal: 20,
                 vertical: 12,
               ),
             ),
+            style: TextStyle(color: themeProvider.textColor),
           ),
         ),
       ),
-      body: _buildBody(),
+      body: _buildBody(themeProvider),
       floatingActionButton: _searchController.text.isNotEmpty
           ? FloatingActionButton(
               onPressed: () {
                 showModalBottomSheet(
                   context: context,
+                  backgroundColor: themeProvider.cardBgColor,
                   builder: (BuildContext context) {
                     return Container(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
+                          Text(
                             '¿No encuentras lo que buscas?',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                              color: themeProvider.textColor,
                             ),
                           ),
                           const SizedBox(height: 10),
-                          const Text(
+                          Text(
                             'Publica tu solicitud y deja que los expertos vengan a ti. No pierdas tiempo buscando, ¡ellos te encontrarán!',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.black87,
+                              color: themeProvider.secondaryTextColor,
                               height: 1.4,
                             ),
                           ),
@@ -365,48 +375,55 @@ class _SearchScreenState extends State<SearchScreen> {
                 );
               },
               child: const Icon(Icons.question_mark,
-                  color: Colors.green, size: 36),
-              backgroundColor: const Color(0xFFE7E7E7),
+                  color: Color(0xFF78BF32), size: 36),
+              backgroundColor: themeProvider.isDarkMode
+                  ? const Color(0xFF3A3A3C)
+                  : const Color(0xFFE7E7E7),
             )
           : null,
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(ThemeProvider themeProvider) {
     // Si está escribiendo y hay texto
     if (_searchController.text.isNotEmpty) {
       // Si hay sugerencias que coinciden
       if (_filteredServices.isNotEmpty) {
-        return _buildSuggestionsList();
+        return _buildSuggestionsList(themeProvider);
       } else {
         // Si nada coincide, mostrar botón con imagen difuminada
-        return _buildNoResultsView();
+        return _buildNoResultsView(themeProvider);
       }
     }
 
     // Vista normal cuando no hay búsqueda activa
-    return _buildNormalView();
+    return _buildNormalView(themeProvider);
   }
 
-  Widget _buildSuggestionsList() {
+  Widget _buildSuggestionsList(ThemeProvider themeProvider) {
     return Column(
       children: [
         // Espacio mínimo para que la sombra de la barra de búsqueda no se corte
         const SizedBox(height: 6),
         Expanded(
           child: Container(
-            color: Colors.white,
+            color: themeProvider.cardBgColor,
             child: ListView.separated(
               itemCount: _filteredServices.length,
-              separatorBuilder: (context, index) =>
-                  Divider(height: 1, color: Colors.grey[300]),
+              separatorBuilder: (context, index) => Divider(
+                  height: 1,
+                  color: themeProvider.isDarkMode
+                      ? Colors.grey[700]
+                      : Colors.grey[300]),
               itemBuilder: (context, index) {
                 final service = _filteredServices[index];
                 return ListTile(
-                  leading: const Icon(Icons.search, color: Colors.grey),
+                  leading: Icon(Icons.search,
+                      color: themeProvider.secondaryTextColor),
                   title: Text(
                     service.name,
-                    style: const TextStyle(fontSize: 16, color: Colors.black87),
+                    style:
+                        TextStyle(fontSize: 16, color: themeProvider.textColor),
                   ),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -422,7 +439,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildNoResultsView() {
+  Widget _buildNoResultsView(ThemeProvider themeProvider) {
     return Column(
       children: [
         const SizedBox(height: 20),
@@ -432,11 +449,13 @@ class _SearchScreenState extends State<SearchScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 16),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: themeProvider.cardBgColor,
             borderRadius: BorderRadius.circular(15),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.15),
+                color: themeProvider.isDarkMode
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.grey.withOpacity(0.15),
                 spreadRadius: 1,
                 blurRadius: 5,
                 offset: const Offset(0, 2),
@@ -448,15 +467,15 @@ class _SearchScreenState extends State<SearchScreen> {
               Icon(
                 Icons.search_off,
                 size: 50,
-                color: Colors.grey[400],
+                color: themeProvider.secondaryTextColor,
               ),
               const SizedBox(height: 12),
               Text(
                 "No encontramos resultados para '${_searchController.text}'",
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: themeProvider.textColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -465,7 +484,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 'Intenta buscando de otra manera',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: themeProvider.secondaryTextColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -476,7 +495,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildNormalView() {
+  Widget _buildNormalView(ThemeProvider themeProvider) {
     return Column(
       children: [
         // Espacio mínimo para que la sombra de la barra de búsqueda no se corte
@@ -506,16 +525,20 @@ class _SearchScreenState extends State<SearchScreen> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: themeProvider.cardBgColor,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.grey),
+                          border: Border.all(
+                            color: themeProvider.isDarkMode
+                                ? Colors.grey[600]!
+                                : Colors.grey,
+                          ),
                         ),
                         child: Center(
                           child: Text(
                             service.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Colors.black,
+                              color: themeProvider.textColor,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -529,7 +552,9 @@ class _SearchScreenState extends State<SearchScreen> {
               // Línea separadora
               Container(
                 height: 1,
-                color: Colors.grey[300],
+                color: themeProvider.isDarkMode
+                    ? Colors.grey[700]
+                    : Colors.grey[300],
                 margin: const EdgeInsets.symmetric(vertical: 6),
               ),
               // Últimos servicios contratados
@@ -550,12 +575,12 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Text(
+                    Text(
                       'Últimos servicios',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: themeProvider.textColor,
                       ),
                     ),
                   ],
@@ -596,9 +621,13 @@ class _SearchScreenState extends State<SearchScreen> {
                         width: circleSize,
                         height: circleSize,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: themeProvider.cardBgColor,
                           borderRadius: BorderRadius.circular(circleSize / 2),
-                          border: Border.all(color: Colors.grey),
+                          border: Border.all(
+                            color: themeProvider.isDarkMode
+                                ? Colors.grey[600]!
+                                : Colors.grey,
+                          ),
                         ),
                         child: const Center(),
                       );
@@ -610,7 +639,9 @@ class _SearchScreenState extends State<SearchScreen> {
               // Línea separadora antes del historial
               Container(
                 height: 1,
-                color: Colors.grey[300],
+                color: themeProvider.isDarkMode
+                    ? Colors.grey[700]
+                    : Colors.grey[300],
               ),
             ],
           ),
@@ -641,12 +672,12 @@ class _SearchScreenState extends State<SearchScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
+                      Text(
                         'Búsquedas Recientes',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: themeProvider.textColor,
                         ),
                       ),
                     ],
@@ -662,14 +693,14 @@ class _SearchScreenState extends State<SearchScreen> {
                               Icon(
                                 Icons.search_off_rounded,
                                 size: 60,
-                                color: Colors.grey[300],
+                                color: themeProvider.secondaryTextColor,
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 'No hay búsquedas recientes',
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: Colors.grey[400],
+                                  color: themeProvider.secondaryTextColor,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -678,7 +709,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 'Tus búsquedas aparecerán aquí',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.grey[400],
+                                  color: themeProvider.secondaryTextColor,
                                 ),
                               ),
                             ],
@@ -693,11 +724,13 @@ class _SearchScreenState extends State<SearchScreen> {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 4),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: themeProvider.cardBgColor,
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.grey.withOpacity(0.1),
+                                    color: themeProvider.isDarkMode
+                                        ? Colors.black.withOpacity(0.3)
+                                        : Colors.grey.withOpacity(0.1),
                                     spreadRadius: 1,
                                     blurRadius: 4,
                                     offset: const Offset(0, 2),
@@ -740,16 +773,18 @@ class _SearchScreenState extends State<SearchScreen> {
                                           child: Text(
                                             item['search_query'] ??
                                                 'Sin título',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 15,
-                                              color: Colors.black87,
+                                              color: themeProvider.textColor,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
                                         ),
                                         Container(
                                           decoration: BoxDecoration(
-                                            color: Colors.grey[100],
+                                            color: themeProvider.isDarkMode
+                                                ? Colors.grey[700]
+                                                : Colors.grey[100],
                                             shape: BoxShape.circle,
                                           ),
                                           child: Material(
@@ -761,12 +796,14 @@ class _SearchScreenState extends State<SearchScreen> {
                                                 _deleteSearchHistory(
                                                     item['id']);
                                               },
-                                              child: const Padding(
-                                                padding: EdgeInsets.all(6),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(6),
                                                 child: Icon(
                                                   Icons.close,
                                                   size: 16,
-                                                  color: Colors.grey,
+                                                  color: themeProvider
+                                                      .secondaryTextColor,
                                                 ),
                                               ),
                                             ),

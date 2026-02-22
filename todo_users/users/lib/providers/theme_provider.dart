@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../config.dart';
 
 class ThemeProvider with ChangeNotifier {
   static const String _themeKey = 'is_dark_mode';
   bool _isDarkMode = false;
-  bool _isInitialized = false;
+  bool _isInitialized = true; // Siempre inicializado en modo claro
+  String? _userEmail;
 
   bool get isDarkMode => _isDarkMode;
   bool get isInitialized => _isInitialized;
@@ -26,41 +30,118 @@ class ThemeProvider with ChangeNotifier {
   static const Color primaryColor = Color(0xFF78BF32);
 
   ThemeProvider() {
-    _loadTheme();
+    // Siempre iniciar en modo claro (para pantallas pre-Home)
+    _isDarkMode = false;
+    _isInitialized = true;
   }
 
-  Future<void> _loadTheme() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      _isDarkMode = prefs.getBool(_themeKey) ?? false;
-    } catch (e) {
-      // Si hay error, usar valor por defecto (modo claro)
+  /// Inicializa el tema con el email del usuario para sincronizar con el backend
+  /// Solo se debe llamar después del login (en HomeScreen)
+  Future<void> initializeWithUser(String email) async {
+    _userEmail = email;
+    await _loadThemeFromBackend();
+  }
+
+  /// Limpia el email del usuario (para logout)
+  /// Resetea a modo claro para las pantallas pre-Home
+  void clearUser() {
+    _userEmail = null;
+    _isDarkMode = false;
+    notifyListeners();
+  }
+
+  /// Carga el tema desde el backend si hay un usuario logueado
+  Future<void> _loadThemeFromBackend() async {
+    if (_userEmail == null || _userEmail!.isEmpty) {
       _isDarkMode = false;
+      notifyListeners();
+      return;
     }
-    _isInitialized = true;
+
+    try {
+      final response = await http.get(
+        Uri.parse(
+            '${Config.baseUrl}/users/theme/${Uri.encodeComponent(_userEmail!)}'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _isDarkMode = data['dark_mode'] ?? false;
+
+        // También guardar localmente como caché
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool(_themeKey, _isDarkMode);
+        } catch (e) {
+          // Ignorar errores de persistencia local
+        }
+      }
+    } catch (e) {
+      // Si hay error, intentar cargar desde caché local
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        _isDarkMode = prefs.getBool(_themeKey) ?? false;
+      } catch (e2) {
+        _isDarkMode = false;
+      }
+    }
+
     notifyListeners();
   }
 
   Future<void> toggleTheme() async {
     _isDarkMode = !_isDarkMode;
+
+    // Guardar localmente
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_themeKey, _isDarkMode);
     } catch (e) {
-      // Ignorar errores de persistencia
+      // Ignorar errores de persistencia local
     }
+
+    // Guardar en el backend si hay usuario
+    await _saveThemeToBackend();
+
     notifyListeners();
   }
 
   Future<void> setDarkMode(bool value) async {
+    if (_isDarkMode == value) return;
+
     _isDarkMode = value;
+
+    // Guardar localmente
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_themeKey, _isDarkMode);
     } catch (e) {
-      // Ignorar errores de persistencia
+      // Ignorar errores de persistencia local
     }
+
+    // Guardar en el backend si hay usuario
+    await _saveThemeToBackend();
+
     notifyListeners();
+  }
+
+  /// Guarda el tema en el backend
+  Future<void> _saveThemeToBackend() async {
+    if (_userEmail == null || _userEmail!.isEmpty) return;
+
+    try {
+      await http.put(
+        Uri.parse('${Config.baseUrl}/users/theme'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': _userEmail,
+          'dark_mode': _isDarkMode,
+        }),
+      );
+    } catch (e) {
+      // Ignorar errores de red - el tema se guardó localmente
+      print('Error guardando tema en backend: $e');
+    }
   }
 
   ThemeData get lightTheme {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/service.dart';
+import '../providers/theme_provider.dart';
 
 class AlliesByServiceScreen extends StatelessWidget {
   final Service service;
@@ -8,17 +10,20 @@ class AlliesByServiceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
+      backgroundColor: themeProvider.scaffoldBgColor,
       appBar: AppBar(
         title: Text(
           service.name,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Colors.black,
+            color: themeProvider.textColor,
           ),
         ),
-        backgroundColor: const Color(0xFFF4F2F2),
+        backgroundColor: themeProvider.scaffoldBgColor,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF78BF32)),
@@ -28,7 +33,7 @@ class AlliesByServiceScreen extends StatelessWidget {
         ),
       ),
       body: Container(
-        color: const Color(0xFFF4F2F2),
+        color: themeProvider.scaffoldBgColor,
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -37,11 +42,11 @@ class AlliesByServiceScreen extends StatelessWidget {
               children: [
                 const SizedBox(height: 10),
                 // Descripción del servicio
-                const Text(
+                Text(
                   'Descripción del servicio: Aquí se muestra la información detallada del servicio seleccionado, incluyendo características, precios y detalles importantes.',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.black87,
+                    color: themeProvider.textColor,
                     height: 1.4,
                   ),
                 ),

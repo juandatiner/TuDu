@@ -223,6 +223,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _logout() {
+    // Limpiar el usuario del ThemeProvider
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    themeProvider.clearUser();
+
     // Navegar a la pantalla de login
     Navigator.pushReplacement(
       context,
