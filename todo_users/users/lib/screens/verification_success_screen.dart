@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'dart:async';
 import '../config.dart';
+import '../services/session_service.dart';
 import 'registration_screen.dart';
 import 'home_screen.dart';
 
@@ -25,6 +27,14 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
   @override
   void initState() {
     super.initState();
+    _registerSessionAndNavigate();
+  }
+
+  Future<void> _registerSessionAndNavigate() async {
+    // Registrar la sesión del dispositivo
+    final sessionService = Provider.of<SessionService>(context, listen: false);
+    await sessionService.registerSession(widget.email);
+
     Timer(const Duration(seconds: 2), () {
       if (widget.isAfterRegistration) {
         Navigator.pushReplacement(

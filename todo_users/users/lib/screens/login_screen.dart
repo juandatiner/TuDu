@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../config.dart';
+import '../services/session_service.dart';
 import 'otp_screen.dart';
 import 'home_screen.dart';
 
@@ -16,9 +18,21 @@ class LoginScreen extends StatefulWidget {
 // Estado del LoginScreen
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'cosmodavid2009@gmail.com');
+  final _emailController =
+      TextEditingController(text: 'cosmodavid2009@gmail.com');
   bool _isLoading = false;
   String _email = 'cosmodavid2009@gmail.com';
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeSession();
+  }
+
+  Future<void> _initializeSession() async {
+    final sessionService = Provider.of<SessionService>(context, listen: false);
+    await sessionService.initialize();
+  }
 
   @override
   void dispose() {
@@ -44,39 +58,75 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       try {
-        final response = await http.post(
-          Uri.parse('${Config.baseUrl}/send-otp'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': _emailController.text}),
-        ).timeout(const Duration(seconds: 10));
+        final sessionService =
+            Provider.of<SessionService>(context, listen: false);
 
-        if (response.statusCode == 200) {
-          // Navegar a la pantalla OTP
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OtpScreen(email: _emailController.text),
-            ),
-          );
+        // Verificar si el dispositivo necesita verificación
+        final sessionCheck =
+            await sessionService.checkSession(_emailController.text);
+
+        if (sessionCheck['success'] == true &&
+            sessionCheck['requires_verification'] == false) {
+          // La sesión está activa, no necesita verificación
+          // Guardar el email y navegar directamente al home
+          await sessionService.setUserEmail(_emailController.text);
+
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    HomeScreen(userEmail: _emailController.text),
+              ),
+            );
+          }
         } else {
+          // Necesita verificación, enviar OTP y navegar a la pantalla OTP
+          final response = await http
+              .post(
+                Uri.parse('${Config.baseUrl}/send-otp'),
+                headers: {'Content-Type': 'application/json'},
+                body: jsonEncode({'email': _emailController.text}),
+              )
+              .timeout(const Duration(seconds: 10));
+
+          if (response.statusCode == 200) {
+            if (mounted) {
+              // Navegar a la pantalla OTP
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OtpScreen(email: _emailController.text),
+                ),
+              );
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Error enviando el código de verificación'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        }
+      } catch (e) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Error enviando el código de verificación'),
+              content:
+                  Text('Error de conexión. Verifica tu conexión a internet.'),
               backgroundColor: Colors.red,
             ),
           );
         }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error de conexión. Verifica tu conexión a internet.'),
-            backgroundColor: Colors.red,
-          ),
-        );
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     } else {
       // Mostrar mensaje si la validación falla
@@ -161,16 +211,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       autofocus: true,
                       decoration: InputDecoration(
                         labelText: 'Ingresa tu correo electrónico',
-                        labelStyle: TextStyle(color: Colors.black.withOpacity(0.7)),
+                        labelStyle:
+                            TextStyle(color: Colors.black.withOpacity(0.7)),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                          borderSide:
+                              BorderSide(color: Colors.black.withOpacity(0.3)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                          borderSide:
+                              BorderSide(color: Colors.black.withOpacity(0.3)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -198,7 +251,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         return null;
                       },
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9@._-]')),
+                        FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9@._-]')),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -221,7 +275,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
                           : const Text(
@@ -284,7 +339,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
 
                     ElevatedButton.icon(
                       onPressed: _loginWithFacebook,

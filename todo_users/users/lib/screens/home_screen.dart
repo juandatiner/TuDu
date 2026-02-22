@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/service.dart';
 import '../providers/theme_provider.dart';
+import '../services/session_service.dart';
 import 'all_services_screen.dart';
 import 'allies_by_service_screen.dart';
 import 'publish_service_screen.dart';
 import 'user_services_screen.dart';
 import 'search_screen.dart';
 import 'profile_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userEmail;
@@ -31,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Service> _services = [];
   List<Service> _suggestedServices = [];
   List<Service> _newServices = [];
+  Timer? _sessionCheckTimer;
+  bool _isCheckingSession = false;
 
   @override
   void initState() {
@@ -47,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _fetchServices();
     _initializeTheme();
+    _startSessionCheck();
   }
 
   /// Inicializa el tema del usuario desde el backend
@@ -57,11 +63,177 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  /// Inicia la verificación periódica de sesión
+  void _startSessionCheck() {
+    // Verificar la sesión cada 30 segundos
+    _sessionCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _checkSessionStatus();
+    });
+  }
+
+  /// Verifica si la sesión sigue activa
+  Future<void> _checkSessionStatus() async {
+    if (_isCheckingSession) return;
+    _isCheckingSession = true;
+
+    try {
+      final sessionService =
+          Provider.of<SessionService>(context, listen: false);
+      final isActive = await sessionService.verifySessionStatus();
+
+      if (!isActive && mounted) {
+        // La sesión fue cerrada desde otro dispositivo
+        _showSessionExpiredDialog();
+      }
+    } catch (e) {
+      debugPrint('Error verificando sesión: $e');
+    } finally {
+      _isCheckingSession = false;
+    }
+  }
+
+  /// Muestra diálogo de sesión expirada con el estilo de la app
+  void _showSessionExpiredDialog() {
+    _sessionCheckTimer?.cancel();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F2F2),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Logo To Do
+              Column(
+                children: [
+                  Text(
+                    'To',
+                    style: TextStyle(
+                      fontFamily: 'TitanOne',
+                      fontSize: 50,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF78BF32),
+                      height: 0.8,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Do',
+                    style: TextStyle(
+                      fontFamily: 'TitanOne',
+                      fontSize: 50,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF78BF32),
+                      height: 0.8,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
+
+              // Icono
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF78BF32).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.devices,
+                  size: 48,
+                  color: Color(0xFF78BF32),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Título
+              const Text(
+                'Sesión cerrada',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+
+              // Mensaje
+              Text(
+                'Tu sesión ha sido cerrada porque iniciaste sesión en otro dispositivo.\n\nPara usar la aplicación en este dispositivo, debes verificar tu identidad nuevamente.',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.black.withOpacity(0.7),
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
+
+              // Botón
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _navigateToLogin();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF78BF32),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 4,
+                  ),
+                  child: const Text(
+                    'Aceptar',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Navega a la pantalla de login
+  void _navigateToLogin() {
+    // Limpiar el ThemeProvider
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    themeProvider.clearUser();
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   void dispose() {
     _suggestionsController.dispose();
     _newServicesController.dispose();
     _searchController.dispose();
+    _sessionCheckTimer?.cancel();
     super.dispose();
   }
 

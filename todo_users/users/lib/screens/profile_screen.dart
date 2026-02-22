@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../providers/theme_provider.dart';
+import '../services/session_service.dart';
 import 'home_screen.dart';
 import 'user_services_screen.dart';
 import 'user_personal_data_screen.dart';
@@ -222,7 +223,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _logout() {
+  void _logout() async {
+    // Cerrar sesión en el servidor y limpiar datos locales
+    final sessionService = Provider.of<SessionService>(context, listen: false);
+    await sessionService.logout();
+
     // Limpiar el usuario del ThemeProvider
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     themeProvider.clearUser();

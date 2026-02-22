@@ -1208,6 +1208,26 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
         // Esto se puede omitir para este ejemplo
       }
     });
+
+  // Crear tabla de sesiones de dispositivo si no existe
+  usersDb.run(`CREATE TABLE IF NOT EXISTS device_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_email TEXT NOT NULL,
+      device_id TEXT NOT NULL,
+      device_info TEXT,
+      is_active INTEGER DEFAULT 1,
+      requires_verification INTEGER DEFAULT 0,
+      last_activity DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_email) REFERENCES users(email),
+      UNIQUE(user_email, device_id)
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla device_sessions:', err.message);
+      } else {
+        console.log('Tabla device_sessions lista');
+      }
+    });
   }
 });
 
@@ -2388,6 +2408,246 @@ app.put('/users/theme', (req, res) => {
     }
     res.json({ message: 'Modo oscuro actualizado exitosamente', dark_mode: dark_mode });
   });
+});
+
+// ============================================
+// ENDPOINTS DE GESTIÓN DE SESIONES DE DISPOSITIVO
+// ============================================
+
+// Endpoint para verificar o registrar sesión de dispositivo
+// Retorna si el dispositivo necesita verificación o puede acceder directamente
+app.post('/device-session/check', (req, res) => {
+  const { email, device_id, device_info } = req.body;
+
+  if (!email || !device_id) {
+    return res.status(400).json({ error: 'Email y device_id son requeridos' });
+  }
+
+  // Verificar si el usuario existe
+  usersDb.get(`SELECT id FROM users WHERE email = ?`, [email], (err, user) => {
+    if (err) {
+      console.error('Error verificando usuario:', err);
+      return res.status(500).json({ error: 'Error verificando usuario' });
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Buscar sesión existente para este dispositivo
+    usersDb.get(
+      `SELECT * FROM device_sessions WHERE user_email = ? AND device_id = ?`,
+      [email, device_id],
+      (err, session) => {
+        if (err) {
+          console.error('Error verificando sesión:', err);
+          return res.status(500).json({ error: 'Error verificando sesión' });
+        }
+
+        if (session) {
+          // El dispositivo ya está registrado
+          if (session.is_active === 1) {
+            // La sesión está activa, actualizar última actividad
+            usersDb.run(
+              `UPDATE device_sessions SET last_activity = CURRENT_TIMESTAMP WHERE user_email = ? AND device_id = ?`,
+              [email, device_id],
+              (err) => {
+                if (err) {
+                  console.error('Error actualizando última actividad:', err);
+                }
+              }
+            );
+            // No requiere verificación
+            return res.json({ 
+              requires_verification: false, 
+              message: 'Sesión activa',
+              session_active: true
+            });
+          } else {
+            // La sesión fue desactivada (por otro dispositivo), requiere verificación
+            return res.json({ 
+              requires_verification: true, 
+              message: 'Sesión desactivada. Se requiere verificación.',
+              session_active: false
+            });
+          }
+        } else {
+          // Dispositivo nuevo, verificar si hay otros dispositivos activos
+          usersDb.get(
+            `SELECT COUNT(*) as count FROM device_sessions WHERE user_email = ? AND is_active = 1`,
+            [email],
+            (err, row) => {
+              if (err) {
+                console.error('Error contando sesiones activas:', err);
+                return res.status(500).json({ error: 'Error verificando sesiones' });
+              }
+
+              if (row.count > 0) {
+                // Hay otros dispositivos activos, este es un dispositivo nuevo
+                // Requiere verificación y desactivará los otros dispositivos
+                return res.json({ 
+                  requires_verification: true, 
+                  message: 'Nuevo dispositivo detectado. Se requiere verificación.',
+                  session_active: false,
+                  has_other_sessions: true
+                });
+              } else {
+                // No hay otros dispositivos activos, es el primer dispositivo
+                // Requiere verificación (primer login)
+                return res.json({ 
+                  requires_verification: true, 
+                  message: 'Primer inicio de sesión. Se requiere verificación.',
+                  session_active: false,
+                  has_other_sessions: false
+                });
+              }
+            }
+          );
+        }
+      }
+    );
+  });
+});
+
+// Endpoint para registrar una nueva sesión de dispositivo después de verificación exitosa
+// Este endpoint desactiva todas las demás sesiones del usuario
+app.post('/device-session/register', (req, res) => {
+  const { email, device_id, device_info } = req.body;
+
+  if (!email || !device_id) {
+    return res.status(400).json({ error: 'Email y device_id son requeridos' });
+  }
+
+  // Desactivar todas las sesiones anteriores del usuario
+  usersDb.run(
+    `UPDATE device_sessions SET is_active = 0 WHERE user_email = ?`,
+    [email],
+    (err) => {
+      if (err) {
+        console.error('Error desactivando sesiones anteriores:', err);
+        return res.status(500).json({ error: 'Error desactivando sesiones anteriores' });
+      }
+
+      // Insertar o actualizar la sesión del dispositivo actual
+      usersDb.run(
+        `INSERT INTO device_sessions (user_email, device_id, device_info, is_active, requires_verification)
+         VALUES (?, ?, ?, 1, 0)
+         ON CONFLICT(user_email, device_id) 
+         DO UPDATE SET is_active = 1, requires_verification = 0, last_activity = CURRENT_TIMESTAMP, device_info = ?`,
+        [email, device_id, device_info || null, device_info || null],
+        function(err) {
+          if (err) {
+            console.error('Error registrando sesión:', err);
+            return res.status(500).json({ error: 'Error registrando sesión' });
+          }
+          res.json({ 
+            message: 'Sesión registrada exitosamente',
+            session_id: this.lastID
+          });
+        }
+      );
+    }
+  );
+});
+
+// Endpoint para verificar si una sesión sigue activa (para polling desde el cliente)
+app.get('/device-session/status', (req, res) => {
+  const { email, device_id } = req.query;
+
+  if (!email || !device_id) {
+    return res.status(400).json({ error: 'Email y device_id son requeridos' });
+  }
+
+  usersDb.get(
+    `SELECT is_active, requires_verification FROM device_sessions WHERE user_email = ? AND device_id = ?`,
+    [email, device_id],
+    (err, session) => {
+      if (err) {
+        console.error('Error verificando estado de sesión:', err);
+        return res.status(500).json({ error: 'Error verificando estado de sesión' });
+      }
+
+      if (!session) {
+        return res.json({ 
+          session_exists: false, 
+          is_active: false,
+          requires_verification: true 
+        });
+      }
+
+      res.json({ 
+        session_exists: true,
+        is_active: session.is_active === 1,
+        requires_verification: session.requires_verification === 1
+      });
+    }
+  );
+});
+
+// Endpoint para cerrar sesión (logout)
+app.post('/device-session/logout', (req, res) => {
+  const { email, device_id } = req.body;
+
+  if (!email || !device_id) {
+    return res.status(400).json({ error: 'Email y device_id son requeridos' });
+  }
+
+  usersDb.run(
+    `UPDATE device_sessions SET is_active = 0 WHERE user_email = ? AND device_id = ?`,
+    [email, device_id],
+    function(err) {
+      if (err) {
+        console.error('Error cerrando sesión:', err);
+        return res.status(500).json({ error: 'Error cerrando sesión' });
+      }
+      res.json({ message: 'Sesión cerrada exitosamente' });
+    }
+  );
+});
+
+// Endpoint para obtener todas las sesiones activas de un usuario
+app.get('/device-session/list', (req, res) => {
+  const { email } = req.query;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email es requerido' });
+  }
+
+  usersDb.all(
+    `SELECT device_id, device_info, is_active, last_activity, created_at FROM device_sessions WHERE user_email = ? ORDER BY last_activity DESC`,
+    [email],
+    (err, sessions) => {
+      if (err) {
+        console.error('Error obteniendo sesiones:', err);
+        return res.status(500).json({ error: 'Error obteniendo sesiones' });
+      }
+      res.json({ sessions });
+    }
+  );
+});
+
+// Endpoint para cerrar todas las sesiones excepto la actual
+app.post('/device-session/close-others', (req, res) => {
+  const { email, device_id } = req.body;
+
+  if (!email || !device_id) {
+    return res.status(400).json({ error: 'Email y device_id son requeridos' });
+  }
+
+  usersDb.run(
+    `UPDATE device_sessions SET is_active = 0 WHERE user_email = ? AND device_id != ?`,
+    [email, device_id],
+    function(err) {
+      if (err) {
+        console.error('Error cerrando otras sesiones:', err);
+        return res.status(500).json({ error: 'Error cerrando otras sesiones' });
+      }
+      res.json({ 
+        message: 'Otras sesiones cerradas exitosamente',
+        closed_count: this.changes 
+      });
+    }
+  );
 });
 
 app.listen(PORT, '0.0.0.0', () => {
