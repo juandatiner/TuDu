@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/language_provider.dart';
 import '../l10n/app_localizations.dart';
 
-class AppearanceScreen extends StatefulWidget {
-  const AppearanceScreen({super.key});
+class LanguageScreen extends StatefulWidget {
+  const LanguageScreen({super.key});
 
   @override
-  State<AppearanceScreen> createState() => _AppearanceScreenState();
+  State<LanguageScreen> createState() => _LanguageScreenState();
 }
 
-class _AppearanceScreenState extends State<AppearanceScreen> {
+class _LanguageScreenState extends State<LanguageScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final languageProvider = Provider.of<LanguageProvider>(context);
     final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
@@ -27,7 +28,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          loc.translate('appearance'),
+          loc.translate('language'),
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -43,15 +44,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Personaliza la apariencia de la aplicación según tus preferencias.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: themeProvider.secondaryTextColor,
-                ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                loc.translate('select_theme'),
+                loc.translate('select_language'),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -59,29 +52,27 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildThemeOption(
+              _buildLanguageOption(
                 themeProvider,
-                Icons.light_mode,
-                loc.translate('light_theme'),
-                isDark
-                    ? 'Light background with dark text'
-                    : 'Fondo claro con textos oscuros',
-                !isDark,
-                () => themeProvider.setDarkMode(false),
+                languageProvider,
+                Icons.language,
+                'Español (Colombia)',
+                'Español - Colombia',
+                languageProvider.isSpanish,
+                () => _changeLanguage('es'),
               ),
               const SizedBox(height: 12),
-              _buildThemeOption(
+              _buildLanguageOption(
                 themeProvider,
-                Icons.dark_mode,
-                loc.translate('dark_theme'),
-                isDark
-                    ? 'Dark gray background with light text'
-                    : 'Fondo gris oscuro con textos claros',
-                isDark,
-                () => themeProvider.setDarkMode(true),
+                languageProvider,
+                Icons.language,
+                'English (US)',
+                'English - United States',
+                languageProvider.isEnglish,
+                () => _changeLanguage('en'),
               ),
               const SizedBox(height: 40),
-              _buildInfoCard(themeProvider),
+              _buildInfoCard(themeProvider, loc),
             ],
           ),
         ),
@@ -89,8 +80,31 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
     );
   }
 
-  Widget _buildThemeOption(
+  void _changeLanguage(String languageCode) async {
+    final languageProvider =
+        Provider.of<LanguageProvider>(context, listen: false);
+    await languageProvider.setLanguage(languageCode);
+
+    // Mostrar mensaje de confirmación
+    if (mounted) {
+      final loc = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc.translate('language_changed')),
+          backgroundColor: ThemeProvider.primaryColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Widget _buildLanguageOption(
     ThemeProvider themeProvider,
+    LanguageProvider languageProvider,
     IconData icon,
     String title,
     String subtitle,
@@ -188,7 +202,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
     );
   }
 
-  Widget _buildInfoCard(ThemeProvider themeProvider) {
+  Widget _buildInfoCard(ThemeProvider themeProvider, AppLocalizations loc) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -213,7 +227,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'El tema seleccionado se guardará automáticamente y se aplicará cada vez que abras la aplicación.',
+              loc.translate('language_info_message'),
               style: TextStyle(
                 fontSize: 14,
                 color: themeProvider.secondaryTextColor,

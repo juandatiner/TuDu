@@ -4,7 +4,9 @@ import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../providers/theme_provider.dart';
+import '../providers/language_provider.dart';
 import '../services/session_service.dart';
+import '../l10n/app_localizations.dart';
 import 'home_screen.dart';
 import 'user_services_screen.dart';
 import 'user_personal_data_screen.dart';
@@ -13,6 +15,7 @@ import 'terms_and_conditions_screen.dart';
 import 'data_protection_screen.dart';
 import 'login_screen.dart';
 import 'appearance_screen.dart';
+import 'language_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -113,6 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showLogoutDialog() {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final loc = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
@@ -130,7 +134,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 // Title
                 Text(
-                  'Cerrar Sesión',
+                  loc.translate('logout'),
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -141,7 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 24),
                 // Content
                 Text(
-                  '¿Estás seguro de que quieres cerrar sesión?',
+                  loc.translate('logout_confirmation'),
                   style: TextStyle(
                     fontSize: 16,
                     color: themeProvider.secondaryTextColor,
@@ -175,9 +179,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             elevation: 0,
                           ),
-                          child: const Text(
-                            'Cancelar',
-                            style: TextStyle(
+                          child: Text(
+                            loc.translate('cancel'),
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -203,9 +207,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             elevation: 0,
                           ),
-                          child: const Text(
-                            'Cerrar Sesión',
-                            style: TextStyle(
+                          child: Text(
+                            loc.translate('logout'),
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -292,6 +296,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
@@ -384,7 +389,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _buildActionButton(
                             context: context,
                             icon: Icons.support_agent,
-                            label: 'Soporte',
+                            label: loc.translate('support'),
                             onTap: () {
                               // Sin funcionalidad por ahora
                             },
@@ -392,7 +397,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _buildActionButton(
                             context: context,
                             icon: Icons.badge_outlined,
-                            label: 'Mis Datos',
+                            label: loc.translate('my_data'),
                             onTap: () async {
                               final result = await Navigator.push(
                                 context,
@@ -410,7 +415,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _buildActionButton(
                             context: context,
                             icon: Icons.credit_card,
-                            label: 'Mis Tarjetas',
+                            label: loc.translate('my_cards'),
                             onTap: () {
                               // Sin funcionalidad por ahora
                             },
@@ -420,7 +425,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 40),
                       // Sección Ajustes
                       Text(
-                        'Ajustes',
+                        loc.translate('settings'),
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -431,7 +436,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildSettingsItem(
                         context: context,
                         icon: Icons.location_on_outlined,
-                        title: 'Mis direcciones',
+                        title: loc.translate('my_addresses'),
                         onTap: () {
                           Navigator.push(
                             context,
@@ -446,7 +451,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildSettingsItem(
                         context: context,
                         icon: Icons.light_mode,
-                        title: 'Apariencia',
+                        title: loc.translate('appearance'),
                         onTap: () {
                           Navigator.push(
                             context,
@@ -459,15 +464,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildSettingsItem(
                         context: context,
                         icon: Icons.language,
-                        title: 'Idioma',
+                        title: loc.translate('language'),
                         onTap: () {
-                          // Sin funcionalidad por ahora
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LanguageScreen(),
+                            ),
+                          );
                         },
                       ),
                       const SizedBox(height: 30),
                       // Sección Otros
                       Text(
-                        'Otros',
+                        loc.translate('other'),
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -478,7 +488,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildSettingsItem(
                         context: context,
                         icon: Icons.security_outlined,
-                        title: 'Protección de Datos',
+                        title: loc.translate('data_protection'),
                         onTap: () {
                           Navigator.push(
                             context,
@@ -492,7 +502,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildSettingsItem(
                         context: context,
                         icon: Icons.description_outlined,
-                        title: 'Términos y Condiciones',
+                        title: loc.translate('terms_and_conditions'),
                         onTap: () {
                           Navigator.push(
                             context,
@@ -506,7 +516,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildSettingsItem(
                         context: context,
                         icon: Icons.logout,
-                        title: 'Cerrar Sesión',
+                        title: loc.translate('logout'),
                         isDestructive: true,
                         onTap: () {
                           _showLogoutDialog();
@@ -521,14 +531,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
       bottomNavigationBar: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
           return BottomNavigationBar(
-            items: const <BottomNavigationBarItem>[
-              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
+            items: <BottomNavigationBarItem>[
               BottomNavigationBarItem(
-                  icon: Icon(Icons.message), label: 'Mensajes'),
+                icon: const Icon(Icons.home),
+                label: loc.translate('home'),
+              ),
               BottomNavigationBarItem(
-                  icon: Icon(Icons.work), label: 'Servicios'),
+                icon: const Icon(Icons.message),
+                label: loc.translate('messages'),
+              ),
               BottomNavigationBarItem(
-                  icon: Icon(Icons.person), label: 'Perfil'),
+                icon: const Icon(Icons.work),
+                label: loc.translate('services'),
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.person),
+                label: loc.translate('profile'),
+              ),
             ],
             currentIndex: _selectedIndex,
             selectedItemColor: Colors.blue,
