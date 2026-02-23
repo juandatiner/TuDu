@@ -167,6 +167,7 @@ class AppLocalizations {
       'number_secondary_label': 'Número secundario',
       'number_final_label': 'Número final',
       'additional_info_label': 'Información Adicional',
+      'additional_info_hint': 'ej: Edificio X, Apto 101',
       'icon_label': 'Icono',
       'cancel_btn': 'Cancelar',
       'add_btn': 'Agregar',
@@ -175,6 +176,8 @@ class AppLocalizations {
       'delete_address_title': 'Eliminar Dirección',
       'delete_address_confirm': '¿Estás seguro de eliminar esta dirección?',
       'delete_btn': 'Eliminar',
+      'select_department_first': 'Selecciona primero un departamento',
+      'no_cities_available': 'No hay ciudades disponibles',
 
       // Onboarding
       'welcome': 'Bienvenido',
@@ -416,6 +419,7 @@ class AppLocalizations {
       'number_secondary_label': 'Secondary number',
       'number_final_label': 'Final number',
       'additional_info_label': 'Additional Information',
+      'additional_info_hint': 'e.g.: Building X, Apt 101',
       'icon_label': 'Icon',
       'cancel_btn': 'Cancel',
       'add_btn': 'Add',
@@ -424,6 +428,8 @@ class AppLocalizations {
       'delete_address_title': 'Delete Address',
       'delete_address_confirm': 'Are you sure you want to delete this address?',
       'delete_btn': 'Delete',
+      'select_department_first': 'Select a department first',
+      'no_cities_available': 'No cities available',
 
       // Onboarding
       'welcome': 'Welcome',

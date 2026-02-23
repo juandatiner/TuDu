@@ -546,12 +546,6 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
     if (_selectedDepartmentId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(loc.translate('select_department_first')),
-          backgroundColor: Colors.orange,
-        ),
-      );
       return;
     }
 
@@ -961,10 +955,14 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => _showCityPicker(setDialogState, loc),
+                          onTap: _selectedDepartmentId != null
+                              ? () => _showCityPicker(setDialogState, loc)
+                              : null,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: themeProvider.cardBgColor,
+                              color: _selectedDepartmentId != null
+                                  ? themeProvider.cardBgColor
+                                  : themeProvider.cardBgColor.withOpacity(0.5),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
@@ -1017,8 +1015,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                       ),
                                     ),
                                   ),
-                                  const Icon(Icons.keyboard_arrow_up,
-                                      color: Color(0xFF78BF32), size: 20),
+                                  Icon(Icons.keyboard_arrow_up,
+                                      color: _selectedDepartmentId != null
+                                          ? const Color(0xFF78BF32)
+                                          : themeProvider.secondaryTextColor
+                                              .withOpacity(0.5),
+                                      size: 20),
                                 ],
                               ),
                             ),
@@ -1332,7 +1334,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         labelStyle: TextStyle(
                             color: themeProvider.secondaryTextColor,
                             fontSize: 14),
-                        hintText: 'ej: Edificio X, Apto 101',
+                        hintText: loc.translate('additional_info_hint'),
                         prefixIcon: const Icon(Icons.info_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
@@ -1760,10 +1762,14 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => _showCityPicker(setDialogState, loc),
+                          onTap: _selectedDepartmentId != null
+                              ? () => _showCityPicker(setDialogState, loc)
+                              : null,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: themeProvider.cardBgColor,
+                              color: _selectedDepartmentId != null
+                                  ? themeProvider.cardBgColor
+                                  : themeProvider.cardBgColor.withOpacity(0.5),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
@@ -1816,8 +1822,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                       ),
                                     ),
                                   ),
-                                  const Icon(Icons.keyboard_arrow_up,
-                                      color: Color(0xFF78BF32), size: 20),
+                                  Icon(Icons.keyboard_arrow_up,
+                                      color: _selectedDepartmentId != null
+                                          ? const Color(0xFF78BF32)
+                                          : themeProvider.secondaryTextColor
+                                              .withOpacity(0.5),
+                                      size: 20),
                                 ],
                               ),
                             ),
@@ -2131,7 +2141,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         labelStyle: TextStyle(
                             color: themeProvider.secondaryTextColor,
                             fontSize: 14),
-                        hintText: 'ej: Edificio X, Apto 101',
+                        hintText: loc.translate('additional_info_hint'),
                         prefixIcon: const Icon(Icons.info_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
@@ -2440,7 +2450,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     children: [
                       // Full Address
                       Text(
-                        '${address['type_via']} ${address['number_principal']}'
+                        '${_getTranslatedViaName(address['type_via'], loc)} ${address['number_principal']}'
                         '${address['number_secondary'] != null ? ' #${address['number_secondary']}' : ''}'
                         '${address['number_final'] != null ? ' - ${address['number_final']}' : ''}',
                         style: TextStyle(
@@ -2708,9 +2718,10 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     return 'Ubicación';
   }
 
-  String _formatAddress(Map<String, dynamic> address) {
+  String _formatAddress(Map<String, dynamic> address, AppLocalizations loc) {
     final buffer = StringBuffer();
-    buffer.write('${address['type_via']} ${address['number_principal']}');
+    final translatedVia = _getTranslatedViaName(address['type_via'], loc);
+    buffer.write('$translatedVia ${address['number_principal']}');
 
     if (address['number_secondary'] != null) {
       buffer.write(' #${address['number_secondary']}');
@@ -2850,6 +2861,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 child: Container(
                                   margin: const EdgeInsets.only(bottom: 12),
                                   padding: const EdgeInsets.all(16),
+                                  height: 110,
                                   decoration: BoxDecoration(
                                     color: themeProvider.cardBgColor,
                                     borderRadius: BorderRadius.circular(20),
@@ -2864,7 +2876,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                   ),
                                   child: Row(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                        CrossAxisAlignment.center,
                                     children: [
                                       // Address Icon
                                       Container(
@@ -2892,6 +2904,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                         child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             Text(
                                               address['address_name'],
@@ -2900,17 +2914,19 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                                 fontWeight: FontWeight.bold,
                                                 color: themeProvider.textColor,
                                               ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                            const SizedBox(height: 8),
+                                            const SizedBox(height: 4),
                                             // Formatted Address
                                             Text(
-                                              _formatAddress(address),
+                                              _formatAddress(address, loc),
                                               style: TextStyle(
-                                                fontSize: 16,
+                                                fontSize: 14,
                                                 color: themeProvider
                                                     .secondaryTextColor,
                                               ),
-                                              maxLines: 2,
+                                              maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             const SizedBox(height: 4),
@@ -2918,16 +2934,19 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                             Text(
                                               '${address['city_name']}, ${address['department_name']}',
                                               style: TextStyle(
-                                                fontSize: 14,
+                                                fontSize: 12,
                                                 color: themeProvider
                                                     .secondaryTextColor,
                                               ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ],
                                         ),
                                       ),
                                       // Action Buttons
                                       Row(
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
                                           IconButton(
                                             onPressed: () =>
