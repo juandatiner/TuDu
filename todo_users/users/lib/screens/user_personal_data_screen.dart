@@ -10,6 +10,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../providers/theme_provider.dart';
+import '../providers/language_provider.dart';
+import '../l10n/app_localizations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class MyDataScreen extends StatefulWidget {
@@ -46,12 +48,15 @@ class _MyDataScreenState extends State<MyDataScreen> {
   // Género
   String? _selectedGender;
   String? _originalGender;
-  final List<Map<String, String>> _genderOptions = [
-    {'value': 'mujer', 'label': 'Mujer'},
-    {'value': 'hombre', 'label': 'Hombre'},
-    {'value': 'no_binario', 'label': 'No binario'},
-    {'value': 'ninguna', 'label': 'Ninguna de las opciones'},
-  ];
+
+  List<Map<String, String>> _getGenderOptions(AppLocalizations loc) {
+    return [
+      {'value': 'mujer', 'label': loc.t('woman')},
+      {'value': 'hombre', 'label': loc.t('man')},
+      {'value': 'no_binario', 'label': loc.t('non_binary')},
+      {'value': 'ninguna', 'label': loc.t('none_of_above')},
+    ];
+  }
 
   // Fecha de nacimiento
   DateTime? _birthDate;
@@ -224,6 +229,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
   Future<void> _saveUserData() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final loc = AppLocalizations.of(context)!;
+
     setState(() {
       _isSaving = true;
     });
@@ -270,9 +277,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Datos actualizados exitosamente'),
-            backgroundColor: Color(0xFF78BF32),
+          SnackBar(
+            content: Text(loc.t('data_updated_success')),
+            backgroundColor: const Color(0xFF78BF32),
           ),
         );
         Navigator.pop(
@@ -281,7 +288,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
         final error = json.decode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(error['error'] ?? 'Error al guardar los datos'),
+            content: Text(error['error'] ?? loc.t('error_saving_data')),
             backgroundColor: Colors.red,
           ),
         );
@@ -291,8 +298,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
         _isSaving = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error de conexión'),
+        SnackBar(
+          content: Text(loc.t('error_connection')),
           backgroundColor: Colors.red,
         ),
       );
@@ -301,6 +308,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   void _showAvatarOptions() {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final loc = AppLocalizations.of(context)!;
 
     showModalBottomSheet(
       context: context,
@@ -314,7 +322,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
               if (!_usePhoto)
                 ListTile(
                   leading: const Icon(Icons.person, color: Color(0xFF78BF32)),
-                  title: Text('Cambiar Avatar',
+                  title: Text(loc.t('change_avatar'),
                       style: TextStyle(color: themeProvider.textColor)),
                   onTap: () {
                     Navigator.pop(context);
@@ -324,7 +332,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
               if (!_usePhoto)
                 ListTile(
                   leading: const Icon(Icons.photo, color: Color(0xFF78BF32)),
-                  title: Text('Subir Foto',
+                  title: Text(loc.t('upload_photo'),
                       style: TextStyle(color: themeProvider.textColor)),
                   onTap: () {
                     Navigator.pop(context);
@@ -334,7 +342,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
               if (_usePhoto)
                 ListTile(
                   leading: const Icon(Icons.person, color: Color(0xFF78BF32)),
-                  title: Text('Colocar Avatar',
+                  title: Text(loc.t('set_avatar'),
                       style: TextStyle(color: themeProvider.textColor)),
                   onTap: () async {
                     Navigator.pop(context);
@@ -363,7 +371,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
               if (_usePhoto)
                 ListTile(
                   leading: const Icon(Icons.photo, color: Color(0xFF78BF32)),
-                  title: Text('Cambiar Foto',
+                  title: Text(loc.t('change_photo'),
                       style: TextStyle(color: themeProvider.textColor)),
                   onTap: () {
                     Navigator.pop(context);
@@ -373,7 +381,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
               if (_usePhoto)
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
-                  title: Text('Eliminar Foto',
+                  title: Text(loc.t('delete_photo'),
                       style: TextStyle(color: themeProvider.textColor)),
                   onTap: () async {
                     Navigator.pop(context);
@@ -408,6 +416,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   void _showAvatarOptionsDialog() {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final loc = AppLocalizations.of(context)!;
     // Variables temporales para la selección
     String tempSelectedIcon = _selectedIcon;
     String tempAvatarColor = _avatarColor;
@@ -419,7 +428,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
           builder: (context, setDialogState) {
             return AlertDialog(
               backgroundColor: themeProvider.cardBgColor,
-              title: Text('Personalizar Avatar',
+              title: Text(loc.t('customize_avatar'),
                   style: TextStyle(color: themeProvider.textColor)),
               content: SizedBox(
                 width: double.maxFinite,
@@ -457,7 +466,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'Selecciona un icono:',
+                        loc.t('select_icon'),
                         style: TextStyle(
                             fontWeight: FontWeight.w500,
                             color: themeProvider.textColor),
@@ -518,7 +527,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'Selecciona un color:',
+                        loc.t('select_color'),
                         style: TextStyle(
                             fontWeight: FontWeight.w500,
                             color: themeProvider.textColor),
@@ -580,7 +589,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: Text(
-                    'Cancelar',
+                    loc.t('cancel'),
                     style: TextStyle(color: themeProvider.secondaryTextColor),
                   ),
                 ),
@@ -599,7 +608,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text('Confirmar'),
+                  child: Text(loc.t('confirm')),
                 ),
               ],
             );
@@ -676,11 +685,12 @@ class _MyDataScreenState extends State<MyDataScreen> {
       const maxSizeMB = 5;
       // Limitar dimensiones (ej: 4000x4000 píxeles)
       const maxDimension = 4000;
+      final loc = AppLocalizations.of(context)!;
 
       if (sizeInMB > maxSizeMB) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('La imagen es demasiado pesada. Máximo 5 MB.'),
+          SnackBar(
+            content: Text(loc.t('image_too_heavy')),
             backgroundColor: Colors.red,
           ),
         );
@@ -691,9 +701,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
       final imageFile = await decodeImageFromList(await file.readAsBytes());
       if (imageFile.width > maxDimension || imageFile.height > maxDimension) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'La imagen es demasiado grande. Máximo 4000x4000 píxeles.'),
+          SnackBar(
+            content: Text(loc.t('image_too_large')),
             backgroundColor: Colors.red,
           ),
         );
@@ -734,6 +743,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   void _showGenderPicker() {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final loc = AppLocalizations.of(context)!;
+    final genderOptions = _getGenderOptions(loc);
 
     showModalBottomSheet(
       context: context,
@@ -771,7 +782,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                   child: Column(
                     children: [
                       Text(
-                        'Selecciona tu género',
+                        loc.t('select_your_gender'),
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -780,7 +791,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Esta información es obligatoria',
+                        loc.t('this_info_required'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.secondaryTextColor,
@@ -791,7 +802,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                 ),
                 Divider(height: 1, color: themeProvider.borderColor),
                 // Opciones
-                ..._genderOptions.map((option) {
+                ...genderOptions.map((option) {
                   final isSelected = _selectedGender == option['value'];
                   return InkWell(
                     onTap: () {
@@ -845,6 +856,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   void _showBirthDatePicker() {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final loc = AppLocalizations.of(context)!;
     DateTime? tempBirthDate = _birthDate;
     String? tempError;
 
@@ -890,7 +902,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       child: Column(
                         children: [
                           Text(
-                            'Fecha de Nacimiento',
+                            loc.t('birth_date'),
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -899,7 +911,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Debes ser mayor de 18 años',
+                            loc.t('must_be_18'),
                             style: TextStyle(
                               fontSize: 14,
                               color: themeProvider.secondaryTextColor,
@@ -957,8 +969,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           onPressed: () {
                             if (tempBirthDate == null) {
                               setModalState(() {
-                                tempError =
-                                    'Por favor selecciona tu fecha de nacimiento';
+                                tempError = loc.t('please_select_birth_date');
                               });
                               return;
                             }
@@ -975,8 +986,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
                             if (age < 18) {
                               setModalState(() {
-                                tempError =
-                                    'Debes ser mayor de 18 años para usar la aplicación';
+                                tempError = loc.t('must_be_18_to_use');
                               });
                               return;
                             }
@@ -995,9 +1005,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text(
-                            'Confirmar',
-                            style: TextStyle(
+                          child: Text(
+                            loc.t('confirm'),
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1023,6 +1033,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
@@ -1034,7 +1045,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Mis Datos',
+          loc.t('my_data'),
           style: TextStyle(
             color: themeProvider.textColor,
             fontSize: 24,
@@ -1155,7 +1166,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           maxLength: 20,
                           style: TextStyle(color: themeProvider.textColor),
                           decoration: InputDecoration(
-                            labelText: 'Nombre',
+                            labelText: loc.t('name'),
                             labelStyle: TextStyle(
                                 color: themeProvider.secondaryTextColor),
                             prefixIcon: const Icon(Icons.person_outline,
@@ -1167,10 +1178,10 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return 'Por favor ingresa tu nombre';
+                              return loc.t('please_enter_name');
                             }
                             if (value.trim().length > 20) {
-                              return 'El nombre no puede exceder 20 caracteres';
+                              return loc.t('name_max_length');
                             }
                             return null;
                           },
@@ -1196,7 +1207,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           maxLength: 20,
                           style: TextStyle(color: themeProvider.textColor),
                           decoration: InputDecoration(
-                            labelText: 'Apellido',
+                            labelText: loc.t('last_name'),
                             labelStyle: TextStyle(
                                 color: themeProvider.secondaryTextColor),
                             prefixIcon: const Icon(Icons.person_outline,
@@ -1208,10 +1219,10 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return 'Por favor ingresa tu apellido';
+                              return loc.t('please_enter_last_name');
                             }
                             if (value.trim().length > 20) {
-                              return 'El apellido no puede exceder 20 caracteres';
+                              return loc.t('last_name_max_length');
                             }
                             return null;
                           },
@@ -1240,7 +1251,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           style: TextStyle(
                               color: themeProvider.secondaryTextColor),
                           decoration: InputDecoration(
-                            labelText: 'Correo electrónico',
+                            labelText: loc.t('email'),
                             labelStyle: TextStyle(
                                 color: themeProvider.secondaryTextColor),
                             prefixIcon: Icon(Icons.email_outlined,
@@ -1273,7 +1284,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           style: TextStyle(
                               fontSize: 16, color: themeProvider.textColor),
                           decoration: InputDecoration(
-                            labelText: 'Teléfono',
+                            labelText: loc.t('phone'),
                             labelStyle: TextStyle(
                                 color: themeProvider.secondaryTextColor),
                             border: InputBorder.none,
@@ -1290,6 +1301,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           showCountryFlag: true,
                           showDropdownIcon: true,
                           initialCountryCode: _initialCountryCode,
+                          languageCode: loc.locale.languageCode,
                           onChanged: (phone) {
                             setState(() {
                               _completePhone = phone.completeNumber;
@@ -1312,7 +1324,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                             if (phone != null && phone.number.isNotEmpty) {
                               // Validación básica del número
                               if (phone.number.length < 6) {
-                                return 'El número de teléfono es muy corto';
+                                return loc.t('phone_too_short');
                               }
                             }
                             return null;
@@ -1338,7 +1350,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           ),
                           child: InputDecorator(
                             decoration: InputDecoration(
-                              labelText: 'Género',
+                              labelText: loc.t('gender'),
                               labelStyle: TextStyle(
                                   color: themeProvider.secondaryTextColor),
                               prefixIcon: const Icon(Icons.wc_outlined,
@@ -1347,7 +1359,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 16),
                               errorText: _selectedGender == null
-                                  ? 'Por favor selecciona tu género'
+                                  ? loc.t('please_select_gender')
                                   : null,
                             ),
                             child: Row(
@@ -1355,12 +1367,12 @@ class _MyDataScreenState extends State<MyDataScreen> {
                               children: [
                                 Text(
                                   _selectedGender != null
-                                      ? _genderOptions.firstWhere(
+                                      ? _getGenderOptions(loc).firstWhere(
                                           (opt) =>
                                               opt['value'] == _selectedGender,
                                           orElse: () => {'label': ''},
                                         )['label']!
-                                      : 'Seleccionar',
+                                      : loc.t('select'),
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: _selectedGender != null
@@ -1394,7 +1406,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           ),
                           child: InputDecorator(
                             decoration: InputDecoration(
-                              labelText: 'Fecha de Nacimiento',
+                              labelText: loc.t('birth_date'),
                               labelStyle: TextStyle(
                                   color: themeProvider.secondaryTextColor),
                               prefixIcon: const Icon(Icons.cake_outlined,
@@ -1410,7 +1422,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                 Text(
                                   _birthDate != null
                                       ? '${_birthDate!.day.toString().padLeft(2, '0')}/${_birthDate!.month.toString().padLeft(2, '0')}/${_birthDate!.year}'
-                                      : 'Seleccionar',
+                                      : loc.t('select'),
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: _birthDate != null
@@ -1451,9 +1463,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text(
-                                  'Guardar Cambios',
-                                  style: TextStyle(
+                              : Text(
+                                  loc.t('save_changes'),
+                                  style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -1464,7 +1476,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         Padding(
                           padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
-                            'Aún no has hecho cambios',
+                            loc.t('no_changes'),
                             style: TextStyle(
                               color: themeProvider.isDarkMode
                                   ? Colors.red[300]
