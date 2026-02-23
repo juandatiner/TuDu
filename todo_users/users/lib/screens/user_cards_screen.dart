@@ -78,8 +78,8 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     }
   }
 
-  // Obtener la tarjeta predeterminada
-  CreditCard? get _defaultCard {
+  // Obtener la tarjeta favorita
+  CreditCard? get _favoriteCard {
     try {
       return _creditCards.firstWhere((card) => card.isDefault);
     } catch (e) {
@@ -87,7 +87,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     }
   }
 
-  // Obtener las otras tarjetas (excluyendo la predeterminada), ordenadas de nueva a antigua
+  // Obtener las otras tarjetas (excluyendo la favorita), ordenadas de nueva a antigua
   List<CreditCard> get _otherCards {
     final otherCards = _creditCards.where((card) => !card.isDefault).toList();
     // Ordenar por fecha de creación descendente (más nueva primero)
@@ -291,10 +291,10 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     return CardType.visa; // Default to Visa
   }
 
-  Future<void> _setDefaultCard(String id) async {
-    // Encontrar la tarjeta que se va a hacer predeterminada
-    final cardToMakeDefault = _creditCards.firstWhere((card) => card.id == id);
-    final currentDefaultCard = _defaultCard;
+  Future<void> _setFavoriteCard(String id) async {
+    // Encontrar la tarjeta que se va a hacer favorita
+    final cardToMakeFavorite = _creditCards.firstWhere((card) => card.id == id);
+    final currentFavoriteCard = _favoriteCard;
 
     // Iniciar animación - la tarjeta sube
     setState(() {
@@ -302,11 +302,11 @@ class _MyCardsScreenState extends State<MyCardsScreen>
       _isMovingUp = true;
     });
 
-    // Esperar un momento para la animación visual
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Esperar un momento para la animación visual inicial
+    await Future.delayed(const Duration(milliseconds: 600));
 
     try {
-      // Enviar solicitud a la API para establecer la tarjeta predeterminada
+      // Enviar solicitud a la API para establecer la tarjeta favorita
       final response = await http.put(
         Uri.parse('${Config.baseUrl}/users/cards/$id/default'),
         headers: {'Content-Type': 'application/json'},
@@ -317,15 +317,15 @@ class _MyCardsScreenState extends State<MyCardsScreen>
         // Recargar las tarjetas desde la base de datos
         await _loadCreditCards();
 
-        // Mantener la animación de la tarjeta que bajó (la que era predeterminada)
-        if (currentDefaultCard != null && currentDefaultCard.id != id) {
+        // Mantener la animación de la tarjeta que bajó (la que era favorita)
+        if (currentFavoriteCard != null && currentFavoriteCard.id != id) {
           setState(() {
-            _animatingCardId = currentDefaultCard.id;
+            _animatingCardId = currentFavoriteCard.id;
             _isMovingUp = false;
           });
 
-          // Quitar la animación después de un momento
-          await Future.delayed(const Duration(milliseconds: 600));
+          // Quitar la animación después de que termine
+          await Future.delayed(const Duration(milliseconds: 700));
         }
 
         setState(() {
@@ -335,10 +335,10 @@ class _MyCardsScreenState extends State<MyCardsScreen>
         setState(() {
           _animatingCardId = null;
         });
-        throw Exception('Error al establecer la tarjeta predeterminada');
+        throw Exception('Error al establecer la tarjeta favorita');
       }
     } catch (e) {
-      print('Error setting default card: $e');
+      print('Error setting favorite card: $e');
       setState(() {
         _animatingCardId = null;
       });
@@ -395,10 +395,10 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Sección de Tarjeta Predeterminada
-                          if (_defaultCard != null) ...[
+                          // Sección de Tarjeta Favorita
+                          if (_favoriteCard != null) ...[
                             Text(
-                              loc.t('default_card_title'),
+                              loc.t('favorite_card_title'),
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -407,12 +407,12 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                             ),
                             const SizedBox(height: 12),
                             _buildCreditCard(
-                              _defaultCard!,
+                              _favoriteCard!,
                               themeProvider,
                               loc,
-                              isDefaultSection: true,
+                              isFavoriteSection: true,
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 4),
                           ],
 
                           // Sección de Otras Tarjetas
@@ -431,7 +431,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                                       card,
                                       themeProvider,
                                       loc,
-                                      isDefaultSection: false,
+                                      isFavoriteSection: false,
                                     ))
                                 .toList(),
                           ],
@@ -541,111 +541,121 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     CreditCard card,
     ThemeProvider themeProvider,
     AppLocalizations loc, {
-    bool isDefaultSection = false,
+    bool isFavoriteSection = false,
   }) {
     // Determinar si esta tarjeta está siendo animada
     final isAnimating = _animatingCardId == card.id;
     final isMovingUp = _isMovingUp;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOutCubic,
-      transform: Matrix4.translationValues(
-        0,
-        isAnimating ? (isMovingUp ? -20.0 : 20.0) : 0,
-        0,
-      ),
-      margin: const EdgeInsets.only(bottom: 24),
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 300),
-        opacity: isAnimating ? 0.7 : 1.0,
-        child: Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Tarjeta
-              SizedBox(
-                width: 317, // Ancho proporcional a altura 200 (ratio 1.586:1)
-                child: _CreditCardWidget(card: card),
-              ),
-              const SizedBox(width: 12),
-              // Iconos a la derecha
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Icono de estrella (predeterminada)
-                  GestureDetector(
-                    onTap:
-                        card.isDefault ? null : () => _setDefaultCard(card.id),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: card.isDefault
-                            ? const Color(0xFF78BF32)
-                            : themeProvider.cardBgColor,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(
+      alignment: Alignment.topCenter,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOutCubic,
+        transform: Matrix4.identity()
+          ..translate(
+            0.0,
+            isAnimating ? (isMovingUp ? -30.0 : 30.0) : 0.0,
+          )
+          ..scale(isAnimating ? 0.95 : 1.0),
+        margin: EdgeInsets.only(
+          bottom: isAnimating ? 40.0 : 24.0,
+          top: isAnimating ? 40.0 : 0.0,
+        ),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 400),
+          opacity: isAnimating ? 0.6 : 1.0,
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Tarjeta
+                SizedBox(
+                  width: 317, // Ancho proporcional a altura 200 (ratio 1.586:1)
+                  child: _CreditCardWidget(card: card),
+                ),
+                const SizedBox(width: 12),
+                // Iconos a la derecha
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Icono de estrella (favorita)
+                    GestureDetector(
+                      onTap: card.isDefault
+                          ? null
+                          : () => _setFavoriteCard(card.id),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
                           color: card.isDefault
                               ? const Color(0xFF78BF32)
-                              : themeProvider.borderColor,
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                              : themeProvider.cardBgColor,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: card.isDefault
+                                ? const Color(0xFF78BF32)
+                                : themeProvider.borderColor,
+                            width: 2,
                           ),
-                        ],
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: AnimatedRotation(
+                          duration: const Duration(milliseconds: 400),
+                          turns: card.isDefault ? 0.1 : 0,
+                          child: Icon(
+                            card.isDefault ? Icons.star : Icons.star_border,
+                            color: card.isDefault
+                                ? Colors.white
+                                : const Color(0xFF78BF32),
+                            size: 24,
+                          ),
+                        ),
                       ),
-                      child: AnimatedRotation(
-                        duration: const Duration(milliseconds: 400),
-                        turns: card.isDefault ? 0.1 : 0,
-                        child: Icon(
-                          card.isDefault ? Icons.star : Icons.star_border,
-                          color: card.isDefault
-                              ? Colors.white
-                              : const Color(0xFF78BF32),
+                    ),
+                    const SizedBox(height: 12),
+                    // Icono de eliminar
+                    GestureDetector(
+                      onTap: () => _deleteCreditCard(card.id),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: themeProvider.cardBgColor,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: themeProvider.borderColor,
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
                           size: 24,
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Icono de eliminar
-                  GestureDetector(
-                    onTap: () => _deleteCreditCard(card.id),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: themeProvider.cardBgColor,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(
-                          color: themeProvider.borderColor,
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.red,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1406,6 +1416,11 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                     fillColor: themeProvider.isDarkMode
                         ? Colors.grey[800]!
                         : Colors.white,
+                    errorStyle: TextStyle(
+                      fontSize: 12,
+                      color: Colors.red,
+                    ),
+                    errorMaxLines: 2,
                   ),
                   validator: _validateCardNumber,
                 ),
@@ -1440,6 +1455,11 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                     fillColor: themeProvider.isDarkMode
                         ? Colors.grey[800]!
                         : Colors.white,
+                    errorStyle: TextStyle(
+                      fontSize: 12,
+                      color: Colors.red,
+                    ),
+                    errorMaxLines: 2,
                   ),
                   validator: _validateCardHolder,
                 ),
@@ -1476,6 +1496,11 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                           fillColor: themeProvider.isDarkMode
                               ? Colors.grey[800]!
                               : Colors.white,
+                          errorStyle: TextStyle(
+                            fontSize: 10,
+                            color: Colors.red,
+                          ),
+                          errorMaxLines: 2,
                         ),
                         validator: _validateExpiryDate,
                       ),
@@ -1510,6 +1535,11 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                           fillColor: themeProvider.isDarkMode
                               ? Colors.grey[800]!
                               : Colors.white,
+                          errorStyle: TextStyle(
+                            fontSize: 10,
+                            color: Colors.red,
+                          ),
+                          errorMaxLines: 2,
                         ),
                         validator: _validateCvv,
                       ),
@@ -1584,6 +1614,11 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                           fillColor: themeProvider.isDarkMode
                               ? Colors.grey[800]!
                               : Colors.white,
+                          errorStyle: TextStyle(
+                            fontSize: 10,
+                            color: Colors.red,
+                          ),
+                          errorMaxLines: 2,
                         ),
                         validator: _validateDocument,
                       ),
@@ -1618,7 +1653,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                             });
                           },
                     title: Text(
-                      loc.t('default_card'),
+                      loc.t('favorite_card'),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -1627,8 +1662,8 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                     ),
                     subtitle: Text(
                       widget.isFirstCard
-                          ? loc.t('first_card_default_description')
-                          : loc.t('default_card_description'),
+                          ? loc.t('first_card_favorite_description')
+                          : loc.t('favorite_card_description'),
                       style: TextStyle(
                         fontSize: 12,
                         color: themeProvider.secondaryTextColor,
