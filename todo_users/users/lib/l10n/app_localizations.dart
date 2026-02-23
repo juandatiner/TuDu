@@ -400,6 +400,11 @@ class AppLocalizations {
       'worker_info': 'Información para el trabajador',
       'no_additional_info': 'Sin información adicional',
       'publication_date': 'Fecha de publicación',
+      'stop_searching_ally': 'Dejar de buscar Aliado',
+      'stop_searching_confirmation':
+          '¿Estás seguro de que deseas dejar de buscar un Aliado para este servicio?',
+      'service_deleted_success': 'Servicio eliminado exitosamente',
+      'error_deleting_service': 'Error al eliminar el servicio',
 
       // Pantalla de Inicio (Home)
       'what_service_need_today': '¿Qué servicio necesitas hoy?',
@@ -849,6 +854,11 @@ class AppLocalizations {
       'worker_info': 'Information for worker',
       'no_additional_info': 'No additional information',
       'publication_date': 'Publication date',
+      'stop_searching_ally': 'Stop searching for Ally',
+      'stop_searching_confirmation':
+          'Are you sure you want to stop searching for an Ally for this service?',
+      'service_deleted_success': 'Service deleted successfully',
+      'error_deleting_service': 'Error deleting service',
 
       // Home Screen
       'what_service_need_today': 'What service do you need today?',

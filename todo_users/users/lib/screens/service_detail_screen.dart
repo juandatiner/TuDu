@@ -1,13 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../models/service_in_search.dart';
 import '../providers/theme_provider.dart';
+import '../config.dart';
 import '../l10n/app_localizations.dart';
 
-class ServiceDetailScreen extends StatelessWidget {
+class ServiceDetailScreen extends StatefulWidget {
   final ServiceInSearch service;
+  final String userEmail;
 
-  const ServiceDetailScreen({super.key, required this.service});
+  const ServiceDetailScreen(
+      {super.key, required this.service, required this.userEmail});
+
+  @override
+  State<ServiceDetailScreen> createState() => _ServiceDetailScreenState();
+}
+
+class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
+  bool _isDeleting = false;
 
   Color _getStatusColor(String status) {
     switch (status) {
@@ -134,10 +146,156 @@ class ServiceDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _deleteService() async {
+    final loc = AppLocalizations.of(context);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    // Mostrar diálogo de confirmación con estilo de la app
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: themeProvider.cardBgColor,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Título
+              Text(
+                loc?.translate('stop_searching_ally') ??
+                    'Dejar de buscar Aliado',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: themeProvider.textColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+
+              // Mensaje
+              Text(
+                loc?.translate('stop_searching_confirmation') ??
+                    '¿Estás seguro de que deseas dejar de buscar un Aliado para este servicio?',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: themeProvider.secondaryTextColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+
+              // Botones
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[300],
+                        foregroundColor: Colors.black87,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        loc?.translate('cancel') ?? 'Cancelar',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        loc?.translate('delete') ?? 'Eliminar',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      final url =
+          '${Config.baseUrl}/services-in-search/${widget.service.id}?user_email=${Uri.encodeComponent(widget.userEmail)}';
+      print('DELETE URL: $url');
+
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(loc?.translate('service_deleted_success') ??
+                  'Servicio eliminado exitosamente'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true); // Regresar con resultado true
+        }
+      } else {
+        throw Exception('Error al eliminar: ${response.body}');
+      }
+    } catch (e) {
+      print('Error deleting service: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(loc?.translate('error_deleting_service') ??
+                'Error al eliminar el servicio'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final themeColor = _getThemeColor(service.status);
+    final themeColor = _getThemeColor(widget.service.status);
+    final loc = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
@@ -149,8 +307,7 @@ class ServiceDetailScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          AppLocalizations.of(context)?.translate('service_details') ??
-              'Detalles del Servicio',
+          loc?.translate('service_details') ?? 'Detalles del Servicio',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -182,7 +339,7 @@ class ServiceDetailScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     Text(
-                      service.title,
+                      widget.service.title,
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -209,11 +366,11 @@ class ServiceDetailScreen extends StatelessWidget {
                         ],
                       ),
                       child: Text(
-                        _getTranslatedStatus(service.status, context),
+                        _getTranslatedStatus(widget.service.status, context),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: _getStatusColor(service.status),
+                          color: _getStatusColor(widget.service.status),
                         ),
                       ),
                     ),
@@ -268,9 +425,7 @@ class ServiceDetailScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 10),
                                   Text(
-                                    AppLocalizations.of(context)
-                                            ?.translate('start') ??
-                                        'Inicio',
+                                    loc?.translate('start') ?? 'Inicio',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: themeProvider.secondaryTextColor,
@@ -279,7 +434,8 @@ class ServiceDetailScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    _getStatusText(service.status, context),
+                                    _getStatusText(
+                                        widget.service.status, context),
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
@@ -319,9 +475,7 @@ class ServiceDetailScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 10),
                                   Text(
-                                    AppLocalizations.of(context)
-                                            ?.translate('finish') ??
-                                        'Finalización',
+                                    loc?.translate('finish') ?? 'Finalización',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: themeProvider.secondaryTextColor,
@@ -330,7 +484,8 @@ class ServiceDetailScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    _getFinishText(service.status, context),
+                                    _getFinishText(
+                                        widget.service.status, context),
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
@@ -371,11 +526,9 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Aliado a cargo
                             _buildInfoSection(
                               icon: Icons.person_outline,
-                              title: AppLocalizations.of(context)
-                                      ?.translate('ally_in_charge') ??
+                              title: loc?.translate('ally_in_charge') ??
                                   'Aliado a cargo',
-                              content: AppLocalizations.of(context)
-                                      ?.translate('pending_assignment') ??
+                              content: loc?.translate('pending_assignment') ??
                                   'Pendiente por asignar',
                               themeColor: themeColor,
                               themeProvider: themeProvider,
@@ -386,10 +539,9 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Descripción
                             _buildInfoSection(
                               icon: Icons.description_outlined,
-                              title: AppLocalizations.of(context)
-                                      ?.translate('description') ??
+                              title: loc?.translate('description') ??
                                   'Descripción',
-                              content: service.description,
+                              content: widget.service.description,
                               themeColor: themeColor,
                               themeProvider: themeProvider,
                             ),
@@ -399,11 +551,10 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Tiempo estimado
                             _buildInfoSection(
                               icon: Icons.schedule_outlined,
-                              title: AppLocalizations.of(context)
-                                      ?.translate('estimated_time') ??
+                              title: loc?.translate('estimated_time') ??
                                   'Tiempo estimado',
                               content:
-                                  '${service.timeQuantity} ${_formatTimeUnit(service.timeQuantity, service.timeUnit, context)}',
+                                  '${widget.service.timeQuantity} ${_formatTimeUnit(widget.service.timeQuantity, widget.service.timeUnit, context)}',
                               themeColor: themeColor,
                               themeProvider: themeProvider,
                             ),
@@ -413,10 +564,9 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Presupuesto
                             _buildInfoSection(
                               icon: Icons.attach_money,
-                              title: AppLocalizations.of(context)
-                                      ?.translate('budget') ??
-                                  'Presupuesto',
-                              content: '\$${_formatBudget(service.budget)}',
+                              title: loc?.translate('budget') ?? 'Presupuesto',
+                              content:
+                                  '\$${_formatBudget(widget.service.budget)}',
                               themeColor: themeColor,
                               themeProvider: themeProvider,
                             ),
@@ -426,13 +576,11 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Información para el trabajador
                             _buildInfoSection(
                               icon: Icons.work_outline,
-                              title: AppLocalizations.of(context)
-                                      ?.translate('worker_info') ??
+                              title: loc?.translate('worker_info') ??
                                   'Información para el trabajador',
-                              content: service.workerInfo.isNotEmpty
-                                  ? service.workerInfo
-                                  : AppLocalizations.of(context)
-                                          ?.translate('no_additional_info') ??
+                              content: widget.service.workerInfo.isNotEmpty
+                                  ? widget.service.workerInfo
+                                  : loc?.translate('no_additional_info') ??
                                       'Sin información adicional',
                               themeColor: themeColor,
                               themeProvider: themeProvider,
@@ -443,16 +591,56 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Fecha de publicación
                             _buildInfoSection(
                               icon: Icons.calendar_today_outlined,
-                              title: AppLocalizations.of(context)
-                                      ?.translate('publication_date') ??
+                              title: loc?.translate('publication_date') ??
                                   'Fecha de publicación',
-                              content: service.createdAt.substring(0, 10),
+                              content:
+                                  widget.service.createdAt.substring(0, 10),
                               themeColor: themeColor,
                               themeProvider: themeProvider,
                             ),
                           ],
                         ),
                       ),
+
+                      const SizedBox(height: 20),
+
+                      // Botón "Dejar de buscar aliado" - Solo para servicios en búsqueda (EN ESPERA y sin asignar)
+                      if (widget.service.status == 'EN ESPERA' &&
+                          !widget.service.assigned)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: ElevatedButton(
+                            onPressed: _isDeleting ? null : _deleteService,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              elevation: 3,
+                            ),
+                            child: _isDeleting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white),
+                                    ),
+                                  )
+                                : Text(
+                                    loc?.translate('stop_searching_ally') ??
+                                        'Dejar de buscar aliado',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                          ),
+                        ),
 
                       const SizedBox(height: 30),
                     ],

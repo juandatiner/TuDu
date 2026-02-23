@@ -300,13 +300,19 @@ class _UserServicesScreenState extends State<UserServicesScreen>
     return loc?.translate(key) ?? unit;
   }
 
-  void _showServiceDetails(ServiceInSearch service) {
-    Navigator.push(
+  void _showServiceDetails(ServiceInSearch service) async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ServiceDetailScreen(service: service),
+        builder: (context) =>
+            ServiceDetailScreen(service: service, userEmail: widget.userEmail),
       ),
     );
+
+    // Si se eliminó el servicio, recargar la lista
+    if (result == true) {
+      _fetchUserServices();
+    }
   }
 
   void _toggleFilters() {

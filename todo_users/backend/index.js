@@ -1668,6 +1668,49 @@ app.put('/services-in-search/:id/assign', (req, res) => {
   });
 });
 
+// Endpoint para eliminar un servicio en búsqueda (el usuario decidió no buscar más)
+app.delete('/services-in-search/:id', (req, res) => {
+  const { id } = req.params;
+  const { user_email } = req.query;
+
+  if (!user_email) {
+    return res.status(400).json({ error: 'Email de usuario es requerido' });
+  }
+
+  // Verificar que el servicio pertenece al usuario
+  usersDb.get(`SELECT id FROM users WHERE email = ?`, [user_email], (err, user) => {
+    if (err) {
+      console.error('Error buscando usuario:', err);
+      return res.status(500).json({ error: 'Error buscando usuario' });
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Verificar que el servicio existe y pertenece al usuario
+    servicesDb.get(`SELECT * FROM services_in_search WHERE id = ? AND user_id = ?`, [id, user.id], (err, service) => {
+      if (err) {
+        console.error('Error verificando servicio:', err);
+        return res.status(500).json({ error: 'Error verificando servicio' });
+      }
+
+      if (!service) {
+        return res.status(404).json({ error: 'Servicio no encontrado o no pertenece al usuario' });
+      }
+
+      // Eliminar el servicio
+      servicesDb.run(`DELETE FROM services_in_search WHERE id = ?`, [id], function(err) {
+        if (err) {
+          console.error('Error eliminando servicio:', err);
+          return res.status(500).json({ error: 'Error eliminando servicio' });
+        }
+        res.json({ message: 'Servicio eliminado exitosamente' });
+      });
+    });
+  });
+});
+
 // Endpoint para obtener direcciones de un usuario con información de departamento y ciudad
 app.get('/user-addresses', (req, res) => {
   const { user_email } = req.query;
