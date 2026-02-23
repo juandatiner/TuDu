@@ -2054,27 +2054,55 @@ app.post('/users/cards', (req, res) => {
     return res.status(400).json({ error: 'Faltan campos requeridos' });
   }
 
-  // Si es tarjeta predeterminada, quitar predeterminada de las demás
-  if (is_default) {
-    usersDb.run(`UPDATE user_cards SET is_default = 0 WHERE user_email = ?`, [user_email], (err) => {
-      if (err) {
-        console.error('Error actualizando tarjetas predeterminadas:', err);
-      }
-    });
-  }
+  // Normalizar el número de tarjeta (eliminar espacios)
+  const normalizedCardNumber = card_number.replace(/\s+/g, '');
 
-  const query = `INSERT INTO user_cards (user_email, card_number, card_holder, expiry_date, cvv, card_type, document_type, document_number, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  const params = [user_email, card_number, card_holder, expiry_date, cvv, card_type || 'visa', document_type || 'C.C', document_number, is_default ? 1 : 0];
-
-  usersDb.run(query, params, function(err) {
+  // Verificar si ya existe una tarjeta con el mismo número para este usuario
+  usersDb.get(`SELECT id FROM user_cards WHERE user_email = ? AND REPLACE(card_number, ' ', '') = ?`, [user_email, normalizedCardNumber], (err, existingCard) => {
     if (err) {
-      console.error('Error guardando tarjeta:', err);
-      return res.status(500).json({ error: 'Error guardando tarjeta' });
+      console.error('Error verificando tarjeta existente:', err);
+      return res.status(500).json({ error: 'Error verificando tarjeta existente' });
     }
-    res.json({
-      success: true,
-      message: 'Tarjeta guardada exitosamente',
-      id: this.lastID
+
+    if (existingCard) {
+      return res.status(400).json({ error: 'Ya existe una tarjeta con este número' });
+    }
+
+    // Verificar cuántas tarjetas tiene el usuario
+    usersDb.get(`SELECT COUNT(*) as count FROM user_cards WHERE user_email = ?`, [user_email], (err, row) => {
+      if (err) {
+        console.error('Error contando tarjetas:', err);
+        return res.status(500).json({ error: 'Error verificando tarjetas existentes' });
+      }
+
+      const isFirstCard = row.count === 0;
+      // Si es la primera tarjeta, siempre será predeterminada
+      const finalIsDefault = isFirstCard ? true : (is_default || false);
+
+      // Si es tarjeta predeterminada, quitar predeterminada de las demás
+      if (finalIsDefault) {
+        usersDb.run(`UPDATE user_cards SET is_default = 0 WHERE user_email = ?`, [user_email], (err) => {
+          if (err) {
+            console.error('Error actualizando tarjetas predeterminadas:', err);
+          }
+        });
+      }
+
+      const query = `INSERT INTO user_cards (user_email, card_number, card_holder, expiry_date, cvv, card_type, document_type, document_number, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const params = [user_email, card_number, card_holder, expiry_date, cvv, card_type || 'visa', document_type || 'C.C', document_number, finalIsDefault ? 1 : 0];
+
+      usersDb.run(query, params, function(err) {
+        if (err) {
+          console.error('Error guardando tarjeta:', err);
+          return res.status(500).json({ error: 'Error guardando tarjeta' });
+        }
+        res.json({
+          success: true,
+          message: 'Tarjeta guardada exitosamente',
+          id: this.lastID,
+          is_first_card: isFirstCard
+        });
+      });
     });
   });
 });

@@ -36,7 +36,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 
   Future<void> _loadCreditCards() async {
     try {
-      // Aquí se cargarían las tarjetas del usuario desde el backend
+      // Cargar las tarjetas del usuario desde el backend
       final response = await http.get(
         Uri.parse('${Config.baseUrl}/users/cards/${widget.userEmail}'),
       );
@@ -54,6 +54,9 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                     isDefault:
                         (card['is_default'] == 1 || card['is_default'] == true),
                     cardType: _getCardType(card['card_number']),
+                    documentType: card['document_type'] ?? 'C.C',
+                    documentNumber: card['document_number'] ?? '',
+                    createdAt: card['created_at'] ?? '',
                   ))
               .toList();
           _isLoading = false;
@@ -69,6 +72,23 @@ class _MyCardsScreenState extends State<MyCardsScreen>
         _isLoading = false;
       });
     }
+  }
+
+  // Obtener la tarjeta predeterminada
+  CreditCard? get _defaultCard {
+    try {
+      return _creditCards.firstWhere((card) => card.isDefault);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Obtener las otras tarjetas (excluyendo la predeterminada), ordenadas de nueva a antigua
+  List<CreditCard> get _otherCards {
+    final otherCards = _creditCards.where((card) => !card.isDefault).toList();
+    // Ordenar por fecha de creación descendente (más nueva primero)
+    otherCards.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return otherCards;
   }
 
   Future<void> _addCreditCard(CreditCard card) async {
@@ -95,10 +115,8 @@ class _MyCardsScreenState extends State<MyCardsScreen>
       );
 
       if (response.statusCode == 200) {
-        setState(() {
-          _creditCards.add(card);
-          _isSaving = false;
-        });
+        // Recargar las tarjetas desde la base de datos
+        await _loadCreditCards();
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -107,7 +125,10 @@ class _MyCardsScreenState extends State<MyCardsScreen>
           ),
         );
       } else {
-        throw Exception('Error al guardar la tarjeta');
+        final errorData = json.decode(response.body);
+        final errorMessage =
+            errorData['error'] ?? 'Error al guardar la tarjeta';
+        throw Exception(errorMessage);
       }
     } catch (e) {
       print('Error saving credit card: $e');
@@ -126,23 +147,97 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 
   Future<void> _deleteCreditCard(String id) async {
     final loc = AppLocalizations.of(context)!;
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(loc.t('delete_card')),
-        content: Text(loc.t('confirm_delete')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(loc.t('cancel')),
+      barrierColor: Colors.black54,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: themeProvider.cardBgColor,
+            borderRadius: BorderRadius.circular(20),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(loc.t('delete'),
-                style: const TextStyle(color: Colors.red)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Título
+              Text(
+                loc.t('delete_card'),
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: themeProvider.textColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+
+              // Mensaje
+              Text(
+                loc.t('confirm_delete'),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: themeProvider.secondaryTextColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+
+              // Botones
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: themeProvider.cardBgColor,
+                        foregroundColor: themeProvider.textColor,
+                        side: BorderSide(color: themeProvider.borderColor),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(
+                        loc.t('cancel'),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(
+                        loc.t('delete'),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
 
@@ -154,9 +249,8 @@ class _MyCardsScreenState extends State<MyCardsScreen>
         );
 
         if (response.statusCode == 200) {
-          setState(() {
-            _creditCards.removeWhere((card) => card.id == id);
-          });
+          // Recargar las tarjetas desde la base de datos
+          await _loadCreditCards();
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -203,11 +297,8 @@ class _MyCardsScreenState extends State<MyCardsScreen>
       );
 
       if (response.statusCode == 200) {
-        setState(() {
-          for (var card in _creditCards) {
-            card.isDefault = card.id == id;
-          }
-        });
+        // Recargar las tarjetas desde la base de datos
+        await _loadCreditCards();
       } else {
         throw Exception('Error al establecer la tarjeta predeterminada');
       }
@@ -217,9 +308,13 @@ class _MyCardsScreenState extends State<MyCardsScreen>
   }
 
   Future<void> _showAddCardDialog() async {
+    final isFirstCard = _creditCards.isEmpty;
     final result = await showDialog<CreditCard>(
       context: context,
-      builder: (context) => _AddCardDialog(),
+      builder: (context) => _AddCardDialog(
+        isFirstCard: isFirstCard,
+        existingCards: _creditCards,
+      ),
     );
 
     if (result != null) {
@@ -262,21 +357,73 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Lista de Tarjetas
-                          ..._creditCards
-                              .map((card) => _buildCreditCard(
-                                    card,
-                                    themeProvider,
-                                    loc,
-                                  ))
-                              .toList(),
+                          // Sección de Tarjeta Predeterminada
+                          if (_defaultCard != null) ...[
+                            Text(
+                              loc.t('default_card_title'),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: themeProvider.textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildCreditCard(
+                              _defaultCard!,
+                              themeProvider,
+                              loc,
+                              isDefaultSection: true,
+                            ),
+                            const SizedBox(height: 24),
+                          ],
 
-                          const SizedBox(height: 20),
+                          // Sección de Otras Tarjetas
+                          if (_otherCards.isNotEmpty) ...[
+                            Text(
+                              loc.t('other_cards'),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: themeProvider.textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ..._otherCards
+                                .map((card) => _buildCreditCard(
+                                      card,
+                                      themeProvider,
+                                      loc,
+                                      isDefaultSection: false,
+                                    ))
+                                .toList(),
+                          ],
+
+                          const SizedBox(height: 80),
                         ],
                       ),
                     ),
                   ),
       ),
+      floatingActionButton: _creditCards.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _showAddCardDialog,
+              backgroundColor: const Color(0xFF78BF32),
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add, size: 24),
+              label: Text(
+                loc.t('add_card'),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -355,64 +502,90 @@ class _MyCardsScreenState extends State<MyCardsScreen>
   Widget _buildCreditCard(
     CreditCard card,
     ThemeProvider themeProvider,
-    AppLocalizations loc,
-  ) {
-    return GestureDetector(
-      onTap: () {
-        // Acción al hacer clic en la tarjeta
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 24),
-        child: Stack(
-          alignment: Alignment.bottomRight,
+    AppLocalizations loc, {
+    bool isDefaultSection = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _CreditCardWidget(card: card),
-            Positioned(
-              bottom: -10,
-              right: -10,
-              child: PopupMenuButton<String>(
-                icon: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF78BF32),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+            // Tarjeta
+            SizedBox(
+              width: 317, // Ancho proporcional a altura 200 (ratio 1.586:1)
+              child: _CreditCardWidget(card: card),
+            ),
+            const SizedBox(width: 12),
+            // Iconos a la derecha
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icono de estrella (predeterminada)
+                GestureDetector(
+                  onTap: card.isDefault ? null : () => _setDefaultCard(card.id),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: card.isDefault
+                          ? const Color(0xFF78BF32)
+                          : themeProvider.cardBgColor,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: card.isDefault
+                            ? const Color(0xFF78BF32)
+                            : themeProvider.borderColor,
+                        width: 2,
                       ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.more_vert,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                onSelected: (value) {
-                  if (value == 'delete') {
-                    _deleteCreditCard(card.id);
-                  } else if (value == 'default') {
-                    _setDefaultCard(card.id);
-                  }
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'default',
-                    enabled: !card.isDefault,
-                    child: Text(loc.t('set_default_card')),
-                  ),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Text(
-                      loc.t('delete_card'),
-                      style: const TextStyle(color: Colors.red),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      card.isDefault ? Icons.star : Icons.star_border,
+                      color: card.isDefault
+                          ? Colors.white
+                          : const Color(0xFF78BF32),
+                      size: 24,
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                // Icono de eliminar
+                GestureDetector(
+                  onTap: () => _deleteCreditCard(card.id),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: themeProvider.cardBgColor,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: themeProvider.borderColor,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -422,6 +595,12 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 }
 
 class _AddCardDialog extends StatefulWidget {
+  final bool isFirstCard;
+  final List<CreditCard> existingCards;
+
+  const _AddCardDialog(
+      {this.isFirstCard = false, this.existingCards = const []});
+
   @override
   State<_AddCardDialog> createState() => _AddCardDialogState();
 }
@@ -434,13 +613,15 @@ class _AddCardDialogState extends State<_AddCardDialog> {
   final _cvvController = TextEditingController();
   final _documentController = TextEditingController();
   final _cvvFocusNode = FocusNode();
-  bool _isDefault = false;
+  late bool _isDefault;
   String _documentType = 'C.C';
   bool _isCardFlipped = false;
 
   @override
   void initState() {
     super.initState();
+    // Si es la primera tarjeta, será predeterminada automáticamente
+    _isDefault = widget.isFirstCard;
     // Agregar listeners para actualizar la vista previa
     _cardNumberController.addListener(() => setState(() {}));
     _cardHolderController.addListener(() => setState(() {}));
@@ -519,8 +700,16 @@ class _AddCardDialogState extends State<_AddCardDialog> {
       return CardType.visa;
     }
     // Mastercard: empieza con 51-55 o 2221-2720
-    if (RegExp(r'^(5[1-5]|2[2-7][2-7][0-1])').hasMatch(cleaned)) {
+    // Rango 51-55
+    if (RegExp(r'^5[1-5]').hasMatch(cleaned)) {
       return CardType.mastercard;
+    }
+    // Rango 2221-2720 (necesitamos al menos 4 dígitos)
+    if (cleaned.length >= 4 && cleaned.startsWith('2')) {
+      final firstFour = int.tryParse(cleaned.substring(0, 4));
+      if (firstFour != null && firstFour >= 2221 && firstFour <= 2720) {
+        return CardType.mastercard;
+      }
     }
     // American Express: empieza con 34 o 37
     if (cleaned.startsWith('34') || cleaned.startsWith('37')) {
@@ -590,6 +779,18 @@ class _AddCardDialogState extends State<_AddCardDialog> {
       return AppLocalizations.of(context)!.t('card_number_invalid');
     }
 
+    // Verificar si ya existe una tarjeta con el mismo número
+    final normalizedNewCardNumber = cleaned;
+    final exists = widget.existingCards.any((existingCard) {
+      final normalizedExistingNumber =
+          existingCard.cardNumber.replaceAll(RegExp(r'\s+'), '');
+      return normalizedExistingNumber == normalizedNewCardNumber;
+    });
+
+    if (exists) {
+      return AppLocalizations.of(context)!.t('card_already_exists');
+    }
+
     // Validar que empiece con un prefijo válido de tarjeta conocida
     final firstDigit = cleaned[0];
     final firstTwoDigits = cleaned.substring(0, 2);
@@ -602,8 +803,15 @@ class _AddCardDialogState extends State<_AddCardDialog> {
       isValidPrefix = true;
     }
     // Mastercard: empieza con 51-55 o 2221-2720
-    else if (RegExp(r'^(5[1-5]|2[2-7][2-7][0-1])').hasMatch(cleaned)) {
+    else if (RegExp(r'^5[1-5]').hasMatch(cleaned)) {
       isValidPrefix = true;
+    }
+    // Mastercard rango 2221-2720
+    else if (cleaned.length >= 4 && cleaned.startsWith('2')) {
+      final firstFour = int.tryParse(cleaned.substring(0, 4));
+      if (firstFour != null && firstFour >= 2221 && firstFour <= 2720) {
+        isValidPrefix = true;
+      }
     }
     // American Express: empieza con 34 o 37
     else if (cleaned.startsWith('34') || cleaned.startsWith('37')) {
@@ -698,7 +906,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
 
   void _showDocumentTypePicker(
       ThemeProvider themeProvider, AppLocalizations loc) {
-    final documentTypes = ['C.C', 'C.E', 'P.P'];
+    final documentTypes = ['C.C', 'C.E', 'P.P', 'Pasaporte'];
 
     showModalBottomSheet(
       context: context,
@@ -752,7 +960,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
+                        horizontal: 12,
                         vertical: 16,
                       ),
                       child: Row(
@@ -765,17 +973,23 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                                 ? const Color(0xFF78BF32)
                                 : themeProvider.secondaryTextColor,
                           ),
-                          const SizedBox(width: 16),
-                          Text(
-                            type,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                              color: isSelected
-                                  ? const Color(0xFF78BF32)
-                                  : themeProvider.textColor,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                type,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: isSelected
+                                      ? const Color(0xFF78BF32)
+                                      : themeProvider.textColor,
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -792,10 +1006,55 @@ class _AddCardDialogState extends State<_AddCardDialog> {
     );
   }
 
+  // Obtener colores según el tipo de tarjeta
+  List<Color> _getCardColors(CardType cardType) {
+    switch (cardType) {
+      case CardType.visa:
+        return [
+          const Color(0xFF1A1F71),
+          const Color(0xFF0D47A1)
+        ]; // Azul oscuro Visa
+      case CardType.mastercard:
+        return [
+          const Color(0xFFEB001B),
+          const Color(0xFFF79E1B)
+        ]; // Rojo/Naranja Mastercard
+      case CardType.amex:
+        return [
+          const Color(0xFF006FCF),
+          const Color(0xFF00AEFF)
+        ]; // Azul American Express
+      case CardType.discover:
+        return [
+          const Color(0xFFFFB300),
+          const Color(0xFFFFD54F)
+        ]; // Amarillo Discover
+      case CardType.diners:
+        return [
+          const Color(0xFF0079BE),
+          const Color(0xFF004B87)
+        ]; // Azul Diners Club
+      case CardType.jcb:
+        return [const Color(0xFF00875A), const Color(0xFF00B4D8)]; // Verde JCB
+      case CardType.unionpay:
+        return [
+          const Color(0xFFE21836),
+          const Color(0xFF00447C)
+        ]; // Rojo/Azul UnionPay
+      case CardType.unknown:
+      default:
+        return [
+          const Color(0xFF6B7280),
+          const Color(0xFF374151)
+        ]; // Gris para desconocida
+    }
+  }
+
   // Construir el frente de la tarjeta
   Widget _buildFrontCardPreview(
       ThemeProvider themeProvider, AppLocalizations loc) {
     final cardType = _detectCardType(_cardNumberController.text);
+    final cardColors = _getCardColors(cardType);
 
     return Container(
       key: const ValueKey('front'),
@@ -804,13 +1063,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: cardType == CardType.visa
-              ? [Colors.blue[600]!, Colors.blue[800]!]
-              : cardType == CardType.mastercard
-                  ? [Colors.orange[700]!, Colors.red[700]!]
-                  : cardType == CardType.amex
-                      ? [Colors.grey[700]!, Colors.grey[900]!]
-                      : [Colors.blue[600]!, Colors.blue[800]!],
+          colors: cardColors,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
@@ -871,9 +1124,10 @@ class _AddCardDialogState extends State<_AddCardDialog> {
             ),
           ),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Flexible(
+              SizedBox(
+                width: 180,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -887,25 +1141,30 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                         letterSpacing: 1,
                       ),
                     ),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        _cardHolderController.text.isNotEmpty
-                            ? _cardHolderController.text
-                            : loc.t('card_holder_hint'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
+                    Text(
+                      _cardHolderController.text.trim().isNotEmpty
+                          ? _cardHolderController.text
+                              .trim()
+                              .toUpperCase()
+                              .substring(
+                                  0,
+                                  _cardHolderController.text.trim().length > 20
+                                      ? 20
+                                      : _cardHolderController.text
+                                          .trim()
+                                          .length)
+                          : loc.t('card_holder_hint'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
                       ),
                     ),
                   ],
                 ),
               ),
               const Spacer(),
-              const SizedBox(width: 60),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
@@ -924,7 +1183,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                         _expiryDateController.text),
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
@@ -942,6 +1201,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
   Widget _buildBackCardPreview(
       ThemeProvider themeProvider, AppLocalizations loc) {
     final cardType = _detectCardType(_cardNumberController.text);
+    final cardColors = _getCardColors(cardType);
     final cvvLength = _cvvController.text.length;
     final cvvDisplay = cvvLength > 0 ? '*' * cvvLength : '***';
 
@@ -952,13 +1212,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: cardType == CardType.visa
-              ? [Colors.blue[700]!, Colors.blue[900]!]
-              : cardType == CardType.mastercard
-                  ? [Colors.orange[800]!, Colors.red[800]!]
-                  : cardType == CardType.amex
-                      ? [Colors.grey[800]!, Colors.grey[900]!]
-                      : [Colors.blue[700]!, Colors.blue[900]!],
+          colors: cardColors,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
@@ -1105,6 +1359,8 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(
                         RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]')),
+                    LengthLimitingTextInputFormatter(20),
+                    _TrimLeftFormatter(),
                   ],
                   decoration: InputDecoration(
                     labelText: loc.t('card_holder'),
@@ -1226,9 +1482,16 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              _documentType,
-                              style: TextStyle(color: themeProvider.textColor),
+                            Flexible(
+                              child: Text(
+                                _documentType,
+                                style: TextStyle(
+                                  color: themeProvider.textColor,
+                                  fontSize:
+                                      _documentType == 'Pasaporte' ? 10 : 16,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                             const Icon(Icons.keyboard_arrow_up,
                                 color: Color(0xFF78BF32), size: 20),
@@ -1288,11 +1551,13 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                   ),
                   child: CheckboxListTile(
                     value: _isDefault,
-                    onChanged: (value) {
-                      setState(() {
-                        _isDefault = value!;
-                      });
-                    },
+                    onChanged: widget.isFirstCard
+                        ? null // Deshabilitado si es la primera tarjeta
+                        : (value) {
+                            setState(() {
+                              _isDefault = value!;
+                            });
+                          },
                     title: Text(
                       loc.t('default_card'),
                       style: TextStyle(
@@ -1302,7 +1567,9 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                       ),
                     ),
                     subtitle: Text(
-                      loc.t('default_card_description'),
+                      widget.isFirstCard
+                          ? loc.t('first_card_default_description')
+                          : loc.t('default_card_description'),
                       style: TextStyle(
                         fontSize: 12,
                         color: themeProvider.secondaryTextColor,
@@ -1427,12 +1694,52 @@ class _CreditCardWidget extends StatefulWidget {
   State<_CreditCardWidget> createState() => _CreditCardWidgetState();
 }
 
-class _CreditCardWidgetState extends State<_CreditCardWidget>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _frontRotation;
-  late Animation<double> _backRotation;
+class _CreditCardWidgetState extends State<_CreditCardWidget> {
   bool _isFlipped = false;
+
+  // Obtener colores según el tipo de tarjeta
+  List<Color> _getCardColors(CardType cardType) {
+    switch (cardType) {
+      case CardType.visa:
+        return [
+          const Color(0xFF1A1F71),
+          const Color(0xFF0D47A1)
+        ]; // Azul oscuro Visa
+      case CardType.mastercard:
+        return [
+          const Color(0xFFEB001B),
+          const Color(0xFFF79E1B)
+        ]; // Rojo/Naranja Mastercard
+      case CardType.amex:
+        return [
+          const Color(0xFF006FCF),
+          const Color(0xFF00AEFF)
+        ]; // Azul American Express
+      case CardType.discover:
+        return [
+          const Color(0xFFFFB300),
+          const Color(0xFFFFD54F)
+        ]; // Amarillo Discover
+      case CardType.diners:
+        return [
+          const Color(0xFF0079BE),
+          const Color(0xFF004B87)
+        ]; // Azul Diners Club
+      case CardType.jcb:
+        return [const Color(0xFF00875A), const Color(0xFF00B4D8)]; // Verde JCB
+      case CardType.unionpay:
+        return [
+          const Color(0xFFE21836),
+          const Color(0xFF00447C)
+        ]; // Rojo/Azul UnionPay
+      case CardType.unknown:
+      default:
+        return [
+          const Color(0xFF6B7280),
+          const Color(0xFF374151)
+        ]; // Gris para desconocida
+    }
+  }
 
   // Obtener la ruta del logo según el tipo de tarjeta
   String? _getCardLogoPath(CardType cardType) {
@@ -1457,50 +1764,10 @@ class _CreditCardWidgetState extends State<_CreditCardWidget>
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-
-    _frontRotation = TweenSequence<double>([
-      TweenSequenceItem<double>(
-        tween: Tween<double>(begin: 0.0, end: -0.5),
-        weight: 50,
-      ),
-      TweenSequenceItem<double>(
-        tween: ConstantTween<double>(-0.5),
-        weight: 50,
-      ),
-    ]).animate(_controller);
-
-    _backRotation = TweenSequence<double>([
-      TweenSequenceItem<double>(
-        tween: ConstantTween<double>(0.5),
-        weight: 50,
-      ),
-      TweenSequenceItem<double>(
-        tween: Tween<double>(begin: 0.5, end: 0.0),
-        weight: 50,
-      ),
-    ]).animate(_controller);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
   void _flipCard() {
-    if (_isFlipped) {
-      _controller.reverse();
-    } else {
-      _controller.forward();
-    }
-    _isFlipped = !_isFlipped;
+    setState(() {
+      _isFlipped = !_isFlipped;
+    });
   }
 
   @override
@@ -1510,48 +1777,46 @@ class _CreditCardWidgetState extends State<_CreditCardWidget>
 
     return GestureDetector(
       onTap: _flipCard,
-      child: SizedBox(
-        height: 200,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return Stack(
-              children: [
-                Transform(
-                  transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateY(_frontRotation.value * 3.1415),
-                  alignment: Alignment.center,
-                  child: _buildFrontCard(themeProvider, loc),
-                ),
-                Transform(
-                  transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateY(_backRotation.value * 3.1415),
-                  alignment: Alignment.center,
-                  child: _buildBackCard(themeProvider),
-                ),
-              ],
-            );
-          },
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(
+          begin: 0.0,
+          end: _isFlipped ? 1.0 : 0.0,
         ),
+        duration: const Duration(milliseconds: 600),
+        builder: (context, value, child) {
+          final angle = value * 3.14159;
+          final showFront = value < 0.5;
+
+          return Transform(
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001)
+              ..rotateY(showFront ? angle : 3.14159 - angle),
+            alignment: Alignment.center,
+            child: showFront
+                ? _buildFrontCard(themeProvider, loc)
+                : Transform(
+                    transform: Matrix4.identity()..rotateY(3.14159),
+                    alignment: Alignment.center,
+                    child: _buildBackCard(themeProvider),
+                  ),
+          );
+        },
       ),
     );
   }
 
+  // Construir el frente de la tarjeta (copia exacta del diálogo de agregar)
   Widget _buildFrontCard(ThemeProvider themeProvider, AppLocalizations loc) {
+    final cardColors = _getCardColors(widget.card.cardType);
+
     return Container(
+      key: const ValueKey('front'),
+      height: 200,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: widget.card.cardType == CardType.visa
-              ? [const Color(0xFF1a1a2e), const Color(0xFF16213e)]
-              : widget.card.cardType == CardType.mastercard
-                  ? [const Color(0xFFf72585), const Color(0xFF7209b7)]
-                  : widget.card.cardType == CardType.amex
-                      ? [const Color(0xFF4a4a4a), const Color(0xFF2a2a2a)]
-                      : [Colors.blue[600]!, Colors.blue[800]!],
+          colors: cardColors,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
@@ -1567,47 +1832,55 @@ class _CreditCardWidgetState extends State<_CreditCardWidget>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Logotipo de la tarjeta
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Icon(
-                Icons.credit_card,
-                color: Colors.white,
-                size: 30,
-              ),
-              Container(
-                height: 35,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
+          SizedBox(
+            height: 35,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Icon(
+                  Icons.credit_card,
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+                  size: 30,
                 ),
-                child: _getCardLogoPath(widget.card.cardType) != null
-                    ? Image.asset(
-                        _getCardLogoPath(widget.card.cardType)!,
-                        fit: BoxFit.contain,
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
-          // Número de tarjeta
-          Text(
-            widget.card.cardNumber,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-              fontFamily: 'Courier',
+                // Logo de la tarjeta
+                if (_getCardLogoPath(widget.card.cardType) != null)
+                  Container(
+                    height: 35,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Image.asset(
+                      _getCardLogoPath(widget.card.cardType)!,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+              ],
             ),
           ),
-          // Datos del titular y fecha de expiración
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                widget.card.cardNumber,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                  fontFamily: 'Courier',
+                ),
+              ),
+            ),
+          ),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Flexible(
+              SizedBox(
+                width: 180,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -1621,16 +1894,17 @@ class _CreditCardWidgetState extends State<_CreditCardWidget>
                         letterSpacing: 1,
                       ),
                     ),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        widget.card.cardHolder,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
+                    Text(
+                      widget.card.cardHolder.length > 20
+                          ? widget.card.cardHolder
+                              .toUpperCase()
+                              .substring(0, 20)
+                          : widget.card.cardHolder.toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
                       ),
                     ),
                   ],
@@ -1654,7 +1928,7 @@ class _CreditCardWidgetState extends State<_CreditCardWidget>
                     widget.card.expiryDate,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
@@ -1668,15 +1942,20 @@ class _CreditCardWidgetState extends State<_CreditCardWidget>
     );
   }
 
+  // Construir el reverso de la tarjeta (copia exacta del diálogo de agregar)
   Widget _buildBackCard(ThemeProvider themeProvider) {
+    final cardColors = _getCardColors(widget.card.cardType);
+    final cvvLength = widget.card.cvv.length;
+    final cvvDisplay = cvvLength > 0 ? '*' * cvvLength : '***';
+
     return Container(
+      key: const ValueKey('back'),
+      height: 200,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: widget.card.cardType == CardType.visa
-              ? [const Color(0xFF16213e), const Color(0xFF1a1a2e)]
-              : [const Color(0xFF7209b7), const Color(0xFFf72585)],
+          colors: cardColors,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
@@ -1687,59 +1966,42 @@ class _CreditCardWidgetState extends State<_CreditCardWidget>
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Barra magnética
+          const SizedBox(height: 30),
+          // Banda magnética
           Container(
-            height: 50,
-            width: double.infinity,
+            height: 45,
             color: Colors.black,
-            margin: const EdgeInsets.only(bottom: 20),
           ),
+          const SizedBox(height: 20),
           // CVV
-          Container(
-            height: 40,
-            width: double.infinity,
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'CVV',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  widget.card.cvv,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                    fontFamily: 'Courier',
+                Expanded(
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      cvvDisplay,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                        fontFamily: 'Courier',
+                      ),
+                    ),
                   ),
                 ),
               ],
-            ),
-          ),
-          // Logotipo
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Text(
-              widget.card.cardType == CardType.visa ? 'VISA' : 'MASTERCARD',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
             ),
           ),
         ],
@@ -1758,6 +2020,7 @@ class CreditCard {
   final CardType cardType;
   String documentType;
   String documentNumber;
+  String createdAt;
 
   CreditCard({
     required this.id,
@@ -1769,6 +2032,7 @@ class CreditCard {
     required this.cardType,
     this.documentType = 'C.C',
     this.documentNumber = '',
+    this.createdAt = '',
   });
 }
 
@@ -1841,5 +2105,25 @@ class ExpiryDateFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: formattedText.length),
       composing: TextRange.empty,
     );
+  }
+}
+
+class _TrimLeftFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    // Eliminar espacios al principio
+    final trimmedText = newValue.text.trimLeft();
+
+    // Si el texto trimado es diferente, actualizar
+    if (trimmedText != newValue.text) {
+      return TextEditingValue(
+        text: trimmedText,
+        selection: TextSelection.collapsed(offset: trimmedText.length),
+        composing: TextRange.empty,
+      );
+    }
+
+    return newValue;
   }
 }

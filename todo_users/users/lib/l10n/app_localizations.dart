@@ -337,10 +337,17 @@ class AppLocalizations {
       'default_card_description':
           'Esta tarjeta se usará para pagos predeterminados',
       'set_default_card': 'Establecer como predeterminada',
+      'default_card_title': 'Tarjeta Predeterminada',
+      'other_cards': 'Otras Tarjetas',
+      'already_default': 'Ya es predeterminada',
+      'first_card_auto_default': 'Automático',
+      'first_card_default_description':
+          'La primera tarjeta será la predeterminada automáticamente',
       'document': 'Documento',
       'document_required': 'Por favor ingresa el documento',
       'card_holder_label': 'Titular',
       'expires_label': 'Vence',
+      'card_already_exists': 'Ya existe una tarjeta con este número',
 
       // Pantalla Mis Servicios
       'what_service_looking_for': '¿Qué servicio buscas?',
@@ -778,10 +785,17 @@ class AppLocalizations {
       'default_card': 'Default Card',
       'default_card_description': 'This card will be used for default payments',
       'set_default_card': 'Set as default',
+      'default_card_title': 'Default Card',
+      'other_cards': 'Other Cards',
+      'already_default': 'Already default',
+      'first_card_auto_default': 'Automatic',
+      'first_card_default_description':
+          'The first card will be the default automatically',
       'document': 'Document',
       'document_required': 'Please enter the document',
       'card_holder_label': 'Card Holder',
       'expires_label': 'Expires',
+      'card_already_exists': 'A card with this number already exists',
 
       // My Services Screen
       'what_service_looking_for': 'Search service...',
