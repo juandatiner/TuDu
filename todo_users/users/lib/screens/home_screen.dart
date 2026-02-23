@@ -558,7 +558,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 10),
                 // Sección Nuevos Servicios
                 Row(
                   children: [
@@ -684,7 +684,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 10),
                 // Sección "¿No encuentras lo que buscas?"
                 Container(
                   padding: const EdgeInsets.all(12.0),
@@ -777,32 +777,39 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
-          return BottomNavigationBar(
-            items: <BottomNavigationBarItem>[
-              BottomNavigationBarItem(
-                  icon: const Icon(Icons.home),
-                  label: AppLocalizations.of(context)?.translate('home') ??
-                      'Inicio'),
-              BottomNavigationBarItem(
-                  icon: const Icon(Icons.message),
-                  label: AppLocalizations.of(context)?.translate('messages') ??
-                      'Mensajes'),
-              BottomNavigationBarItem(
-                  icon: const Icon(Icons.work),
-                  label: AppLocalizations.of(context)?.translate('services') ??
-                      'Servicios'),
-              BottomNavigationBarItem(
-                  icon: const Icon(Icons.person),
-                  label: AppLocalizations.of(context)?.translate('profile') ??
-                      'Perfil'),
-            ],
-            currentIndex: _selectedIndex,
-            selectedItemColor: Colors.blue,
-            unselectedItemColor: themeProvider.secondaryTextColor,
-            onTap: _onItemTapped,
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: themeProvider.cardBgColor,
-            elevation: 10,
+          return Theme(
+            data: Theme.of(context).copyWith(
+              hoverColor: Colors.blue.withOpacity(0.1),
+            ),
+            child: BottomNavigationBar(
+              items: <BottomNavigationBarItem>[
+                BottomNavigationBarItem(
+                    icon: const Icon(Icons.home),
+                    label: AppLocalizations.of(context)?.translate('home') ??
+                        'Inicio'),
+                BottomNavigationBarItem(
+                    icon: const Icon(Icons.message),
+                    label:
+                        AppLocalizations.of(context)?.translate('messages') ??
+                            'Mensajes'),
+                BottomNavigationBarItem(
+                    icon: const Icon(Icons.work),
+                    label:
+                        AppLocalizations.of(context)?.translate('services') ??
+                            'Servicios'),
+                BottomNavigationBarItem(
+                    icon: const Icon(Icons.person),
+                    label: AppLocalizations.of(context)?.translate('profile') ??
+                        'Perfil'),
+              ],
+              currentIndex: _selectedIndex,
+              selectedItemColor: Colors.blue,
+              unselectedItemColor: Colors.grey,
+              onTap: _onItemTapped,
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: themeProvider.cardBgColor,
+              elevation: 10,
+            ),
           );
         },
       ),

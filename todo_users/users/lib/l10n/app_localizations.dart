@@ -386,6 +386,8 @@ class AppLocalizations {
       // Pantalla Publicar Servicio
       'publish_your_need': 'Publica lo que necesitas',
       'describe_need_phrase': '¿Cómo describirías tu necesidad en una frase?',
+      'describe_need_placeholder':
+          'Describe en al menos 3 palabras tu necesidad',
       'min_3_words': 'Mínimo 3 palabras para mayor claridad',
       'how_long_service':
           '¿Cuánto tiempo crees que tomará completar este servicio?',
@@ -399,6 +401,8 @@ class AppLocalizations {
       'min_budget_error': 'El presupuesto mínimo es de \$5.000 pesos',
       'max_budget_error': 'El presupuesto máximo es de \$100.000.000 de pesos',
       'describe_better': 'Describe mejor lo que necesitas',
+      'describe_better_placeholder':
+          'Describe con detalle lo que necesitas (mínimo 20 palabras)',
       'min_20_words': 'Describe con más detalle (mínimo 20 palabras)',
       'worker_know_before':
           '¿Hay algo que el trabajador deba saber antes de postularse?',
@@ -790,6 +794,7 @@ class AppLocalizations {
       // Publish Service Screen
       'publish_your_need': 'Publish what you need',
       'describe_need_phrase': 'How would you describe your need in one phrase?',
+      'describe_need_placeholder': 'Describe your need in at least 3 words',
       'min_3_words': 'Minimum 3 words for clarity',
       'how_long_service': 'How long do you think this service will take?',
       'max_time_exceeded': '⚠️ Maximum time exceeded (1 year)',
@@ -802,6 +807,8 @@ class AppLocalizations {
       'min_budget_error': 'Minimum budget is \$5,000 pesos',
       'max_budget_error': 'Maximum budget is \$100,000,000 pesos',
       'describe_better': 'Describe better what you need',
+      'describe_better_placeholder':
+          'Describe in detail what you need (minimum 20 words)',
       'min_20_words': 'Describe in more detail (minimum 20 words)',
       'worker_know_before':
           'Is there anything the worker should know before applying?',

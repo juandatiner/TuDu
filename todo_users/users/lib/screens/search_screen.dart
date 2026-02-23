@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/service.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 import 'allies_by_service_screen.dart';
 import 'all_services_screen.dart';
 import 'publish_service_screen.dart';
@@ -308,6 +309,7 @@ class _SearchScreenState extends State<SearchScreen> {
       floatingActionButton: _searchController.text.isNotEmpty
           ? FloatingActionButton(
               onPressed: () {
+                final loc = AppLocalizations.of(context);
                 showModalBottomSheet(
                   context: context,
                   backgroundColor: themeProvider.cardBgColor,
@@ -318,7 +320,8 @@ class _SearchScreenState extends State<SearchScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '¿No encuentras lo que buscas?',
+                            loc?.translate('cant_find_what_looking_for') ??
+                                '¿No encuentras lo que buscas?',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -327,7 +330,8 @@ class _SearchScreenState extends State<SearchScreen> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Publica tu solicitud y deja que los expertos vengan a ti. No pierdas tiempo buscando, ¡ellos te encontrarán!',
+                            loc?.translate('publish_request_experts') ??
+                                'Publica tu solicitud y deja que los expertos vengan a ti. No pierdas tiempo buscando, ¡ellos te encontrarán!',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
@@ -360,9 +364,9 @@ class _SearchScreenState extends State<SearchScreen> {
                               ),
                               elevation: 5,
                             ),
-                            child: const Text(
-                              'Publicar',
-                              style: TextStyle(
+                            child: Text(
+                              loc?.translate('publish_btn') ?? 'Publicar',
+                              style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),

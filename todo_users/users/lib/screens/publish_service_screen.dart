@@ -353,484 +353,458 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     _budgetFocusNode.removeListener(_roundBudgetOnUnfocus);
     _budgetFocusNode.addListener(_roundBudgetOnUnfocus);
     return Scaffold(
-      body: Container(
-        color: themeProvider.scaffoldBgColor,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back,
-                          color: Color(0xFF78BF32)),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                    ),
-                    Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          loc?.translate('publish_your_need') ??
-                              'Publica lo que necesitas',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: themeProvider.textColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 48),
-                  ],
+      backgroundColor: themeProvider.scaffoldBgColor,
+      appBar: AppBar(
+        backgroundColor: themeProvider.cardBgColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF78BF32)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          loc?.translate('publish_your_need') ?? 'Publica lo que necesitas',
+          style: TextStyle(
+            color: themeProvider.textColor,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            Text(
+              loc?.translate('describe_need_phrase') ??
+                  '¿Cómo describirías tu necesidad en una frase?',
+              style: TextStyle(fontSize: 16, color: themeProvider.textColor),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              decoration: BoxDecoration(
+                color: themeProvider.cardBgColor,
+                borderRadius: BorderRadius.circular(25.0),
+                border: _titleError
+                    ? Border.all(color: Colors.red, width: 1.5)
+                    : null,
+              ),
+              child: TextField(
+                controller: _titleController,
+                maxLines: null,
+                minLines: 1,
+                maxLength: 30,
+                onChanged: _validateTitle,
+                style: TextStyle(fontSize: 16, color: themeProvider.textColor),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 15,
+                  ),
+                  counterText: '',
+                  hintText: _titleError
+                      ? loc?.translate('min_3_words') ??
+                          'Mínimo 3 palabras para mayor claridad'
+                      : loc?.translate('describe_need_placeholder') ??
+                          'Describe en al menos 3 palabras tu necesidad',
+                  hintStyle: TextStyle(
+                    fontSize: 16,
+                    color: _titleError
+                        ? Colors.red[400]
+                        : themeProvider.secondaryTextColor,
+                  ),
                 ),
-                const SizedBox(height: 20),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      loc?.translate('describe_need_phrase') ??
-                          '¿Cómo describirías tu necesidad en una frase?',
-                      style: TextStyle(
-                          fontSize: 16, color: themeProvider.textColor),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: themeProvider.cardBgColor,
-                        borderRadius: BorderRadius.circular(25.0),
-                        border: _titleError
-                            ? Border.all(color: Colors.red, width: 1.5)
-                            : null,
-                      ),
-                      child: TextField(
-                        controller: _titleController,
-                        maxLines: null,
-                        minLines: 1,
-                        maxLength: 30,
-                        onChanged: _validateTitle,
-                        style: TextStyle(color: themeProvider.textColor),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 15,
-                          ),
-                          counterText: '',
-                          hintText: _titleError
-                              ? loc?.translate('min_3_words') ??
-                                  'Mínimo 3 palabras para mayor claridad'
-                              : null,
-                          hintStyle: TextStyle(
-                            fontSize: 14,
-                            color: Colors.red[400],
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      loc?.translate('how_long_service') ??
-                          '¿Cuánto tiempo crees que tomará completar este servicio?',
-                      style: TextStyle(
-                          fontSize: 16, color: themeProvider.textColor),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: Container(
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: themeProvider.cardBgColor,
-                              borderRadius: BorderRadius.circular(25.0),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: themeProvider.shadowColor,
-                                  spreadRadius: 2,
-                                  blurRadius: 5,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: ListWheelScrollView.useDelegate(
-                              controller: _quantityController,
-                              itemExtent: 40,
-                              diameterRatio: 2,
-                              physics: const FixedExtentScrollPhysics(),
-                              onSelectedItemChanged: (index) {
-                                setState(() {
-                                  _selectedQuantity = (index % 100) + 1;
-                                  _updateSummary();
-                                });
-                              },
-                              childDelegate: ListWheelChildBuilderDelegate(
-                                childCount: 10000,
-                                builder: (context, index) {
-                                  final actualValue = (index % 100) + 1;
-                                  final distance =
-                                      (index - _quantityController.selectedItem)
-                                              .abs() %
-                                          100;
-                                  final isSelected = distance == 0;
-                                  final fontSize = isSelected ? 28 : 20;
-                                  final color = isSelected
-                                      ? themeProvider.textColor
-                                      : themeProvider.secondaryTextColor
-                                          .withOpacity(0.6);
-                                  final fontWeight = isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal;
-
-                                  return Center(
-                                    child: Text(
-                                      actualValue.toString(),
-                                      style: TextStyle(
-                                        fontSize: fontSize.toDouble(),
-                                        fontWeight: fontWeight,
-                                        color: color,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 1,
-                          child: Container(
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: themeProvider.cardBgColor,
-                              borderRadius: BorderRadius.circular(25.0),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: themeProvider.shadowColor,
-                                  spreadRadius: 2,
-                                  blurRadius: 5,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: ListWheelScrollView.useDelegate(
-                              controller: _unitController,
-                              itemExtent: 40,
-                              diameterRatio: 2,
-                              physics: const FixedExtentScrollPhysics(),
-                              onSelectedItemChanged: (index) {
-                                setState(() {
-                                  _selectedUnitIndex = index % _units.length;
-                                  _updateSummary();
-                                });
-                              },
-                              childDelegate: ListWheelChildBuilderDelegate(
-                                childCount: 10000,
-                                builder: (context, index) {
-                                  final actualIndex = index % _units.length;
-                                  final unit = _selectedQuantity == 1
-                                      ? _unitsSingular[actualIndex]
-                                      : _units[actualIndex];
-                                  final distance =
-                                      (index - _unitController.selectedItem)
-                                              .abs() %
-                                          _units.length;
-                                  final isSelected = distance == 0;
-                                  final fontSize = isSelected ? 20 : 16;
-                                  final color = isSelected
-                                      ? themeProvider.textColor
-                                      : themeProvider.secondaryTextColor
-                                          .withOpacity(0.6);
-                                  final fontWeight = isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal;
-
-                                  return Center(
-                                    child: Text(
-                                      unit,
-                                      style: TextStyle(
-                                        fontSize: fontSize.toDouble(),
-                                        fontWeight: fontWeight,
-                                        color: color,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              loc?.translate('how_long_service') ??
+                  '¿Cuánto tiempo crees que tomará completar este servicio?',
+              style: TextStyle(fontSize: 16, color: themeProvider.textColor),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: themeProvider.cardBgColor,
+                      borderRadius: BorderRadius.circular(25.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: themeProvider.shadowColor,
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.all(12.0),
-                      decoration: BoxDecoration(
-                        color: _showMaxYearWarning
-                            ? Colors.red[50]
-                            : themeProvider.isDarkMode
-                                ? themeProvider.cardBgColor
-                                : Colors.grey[200],
-                        borderRadius: BorderRadius.circular(10.0),
-                        border: _showMaxYearWarning
-                            ? Border.all(color: Colors.red.withOpacity(0.5))
-                            : null,
-                      ),
-                      child: Center(
-                        child: Text(
-                          _showMaxYearWarning
-                              ? loc?.translate('max_time_exceeded') ??
-                                  '⚠️ Tiempo máximo excedido (1 año)'
-                              : _summary,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: _showMaxYearWarning
-                                ? Colors.red
-                                : themeProvider.textColor,
-                            fontWeight: _showMaxYearWarning
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      loc?.translate('how_much_pay') ??
-                          '¿Cuánto estás dispuesto a pagar por este servicio?',
-                      style: TextStyle(
-                          fontSize: 16, color: themeProvider.textColor),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: themeProvider.isDarkMode
-                            ? themeProvider.cardBgColor
-                            : Colors.grey[200],
-                        borderRadius: BorderRadius.circular(25.0),
-                        border: (_budgetError || _budgetMaxError)
-                            ? Border.all(color: Colors.red, width: 1.5)
-                            : null,
-                      ),
-                      child: TextField(
-                        controller: _budgetController,
-                        focusNode: _budgetFocusNode,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        style: TextStyle(color: themeProvider.textColor),
-                        onChanged: (value) {
-                          // Validar que sea mínimo 5.000 y máximo 100.000.000
-                          _validateBudget(value);
+                    child: ListWheelScrollView.useDelegate(
+                      controller: _quantityController,
+                      itemExtent: 40,
+                      diameterRatio: 2,
+                      physics: const FixedExtentScrollPhysics(),
+                      onSelectedItemChanged: (index) {
+                        setState(() {
+                          _selectedQuantity = (index % 100) + 1;
+                          _updateSummary();
+                        });
+                      },
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        childCount: 10000,
+                        builder: (context, index) {
+                          final actualValue = (index % 100) + 1;
+                          final distance =
+                              (index - _quantityController.selectedItem).abs() %
+                                  100;
+                          final isSelected = distance == 0;
+                          final fontSize = isSelected ? 28 : 20;
+                          final color = isSelected
+                              ? themeProvider.textColor
+                              : themeProvider.secondaryTextColor
+                                  .withOpacity(0.6);
+                          final fontWeight =
+                              isSelected ? FontWeight.bold : FontWeight.normal;
 
-                          // Formatear el valor con separadores de miles (sin redondear mientras escribe)
-                          final numericValue =
-                              value.replaceAll('.', '').replaceAll(',', '');
-                          if (numericValue.isNotEmpty &&
-                              double.tryParse(numericValue) != null) {
-                            final number = double.parse(numericValue);
-                            final formatted =
-                                number.toStringAsFixed(0).replaceAllMapped(
-                                      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-                                      (match) => '${match[1]},',
-                                    );
-                            _budgetController.value = TextEditingValue(
-                              text: formatted,
-                              selection: TextSelection.collapsed(
-                                offset: formatted.length,
+                          return Center(
+                            child: Text(
+                              actualValue.toString(),
+                              style: TextStyle(
+                                fontSize: fontSize.toDouble(),
+                                fontWeight: fontWeight,
+                                color: color,
                               ),
-                            );
-                          }
+                            ),
+                          );
                         },
-                        onSubmitted: (value) {
-                          // Redondear a centenas al salir del campo
-                          final numericValue =
-                              value.replaceAll('.', '').replaceAll(',', '');
-                          if (numericValue.isNotEmpty &&
-                              double.tryParse(numericValue) != null) {
-                            final number = double.parse(numericValue);
-                            final roundedNumber = (number / 100).round() * 100;
-                            final formatted = roundedNumber
-                                .toStringAsFixed(0)
-                                .replaceAllMapped(
-                                  RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-                                  (match) => '${match[1]},',
-                                );
-                            _budgetController.value = TextEditingValue(
-                              text: formatted,
-                              selection: TextSelection.collapsed(
-                                offset: formatted.length,
-                              ),
-                            );
-                            _validateBudget(formatted);
-                          }
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: themeProvider.cardBgColor,
+                      borderRadius: BorderRadius.circular(25.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: themeProvider.shadowColor,
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ListWheelScrollView.useDelegate(
+                      controller: _unitController,
+                      itemExtent: 40,
+                      diameterRatio: 2,
+                      physics: const FixedExtentScrollPhysics(),
+                      onSelectedItemChanged: (index) {
+                        setState(() {
+                          _selectedUnitIndex = index % _units.length;
+                          _updateSummary();
+                        });
+                      },
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        childCount: 10000,
+                        builder: (context, index) {
+                          final actualIndex = index % _units.length;
+                          final unit = _selectedQuantity == 1
+                              ? _unitsSingular[actualIndex]
+                              : _units[actualIndex];
+                          final distance =
+                              (index - _unitController.selectedItem).abs() %
+                                  _units.length;
+                          final isSelected = distance == 0;
+                          final fontSize = isSelected ? 20 : 16;
+                          final color = isSelected
+                              ? themeProvider.textColor
+                              : themeProvider.secondaryTextColor
+                                  .withOpacity(0.6);
+                          final fontWeight =
+                              isSelected ? FontWeight.bold : FontWeight.normal;
 
-                          if (_budgetMaxError) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(loc
-                                        ?.translate('max_budget_error') ??
-                                    'El presupuesto máximo es de \$100.000.000 pesos'),
-                                backgroundColor: Colors.red,
+                          return Center(
+                            child: Text(
+                              unit,
+                              style: TextStyle(
+                                fontSize: fontSize.toDouble(),
+                                fontWeight: fontWeight,
+                                color: color,
                               ),
-                            );
-                          } else if (_budgetError) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(loc
-                                        ?.translate('min_budget_error') ??
-                                    'El presupuesto mínimo es de \$5.000 pesos'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
+                            ),
+                          );
                         },
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 15,
-                          ),
-                          hintText: _budgetError
-                              ? loc?.translate('min_budget') ??
-                                  'El mínimo es \$5.000 pesos'
-                              : _budgetMaxError
-                                  ? loc?.translate('max_budget') ??
-                                      'El máximo es \$100.000.000 pesos'
-                                  : loc?.translate('enter_budget') ??
-                                      'Ingresa el presupuesto',
-                          hintStyle: TextStyle(
-                            fontSize: 16,
-                            color: (_budgetError || _budgetMaxError)
-                                ? Colors.red[400]
-                                : themeProvider.secondaryTextColor,
-                          ),
-                          suffixText: 'COP',
-                          suffixStyle: TextStyle(
-                            fontSize: 16,
-                            color: (_budgetError || _budgetMaxError)
-                                ? Colors.red[400]
-                                : themeProvider.secondaryTextColor,
-                          ),
-                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      loc?.translate('describe_better') ??
-                          'Describe mejor lo que necesitas',
-                      style: TextStyle(
-                          fontSize: 16, color: themeProvider.textColor),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: themeProvider.cardBgColor,
-                        borderRadius: BorderRadius.circular(25.0),
-                        border: _descriptionError
-                            ? Border.all(color: Colors.red, width: 1.5)
-                            : null,
-                      ),
-                      child: TextField(
-                        controller: _descriptionController,
-                        maxLines: null,
-                        minLines: 3,
-                        maxLength: 200,
-                        onChanged: _validateDescription,
-                        style: TextStyle(color: themeProvider.textColor),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 15,
-                          ),
-                          counterText: '',
-                          hintText: _descriptionError
-                              ? loc?.translate('min_20_words') ??
-                                  'Describe con más detalle (mínimo 20 palabras)'
-                              : null,
-                          hintStyle: TextStyle(
-                            fontSize: 14,
-                            color: Colors.red[400],
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      loc?.translate('worker_know_before') ??
-                          '¿Hay algo que el trabajador deba saber antes de postularse?',
-                      style: TextStyle(
-                          fontSize: 16, color: themeProvider.textColor),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: themeProvider.cardBgColor,
-                        borderRadius: BorderRadius.circular(25.0),
-                      ),
-                      child: TextField(
-                        controller: _workerInfoController,
-                        maxLines: null,
-                        minLines: 2,
-                        maxLength: 100,
-                        style: TextStyle(color: themeProvider.textColor),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 15,
-                          ),
-                          counterText: '',
-                          hintText: loc?.translate('additional_info_worker') ??
-                              'Información adicional para el trabajador',
-                          hintStyle: TextStyle(
-                            color: themeProvider.secondaryTextColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _publishService,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF78BF32),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 100,
-                            vertical: 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          elevation: 5,
-                        ),
-                        child: Text(
-                          loc?.translate('publish_btn') ?? 'Publicar',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.all(12.0),
+              decoration: BoxDecoration(
+                color: _showMaxYearWarning
+                    ? Colors.red[50]
+                    : themeProvider.isDarkMode
+                        ? themeProvider.cardBgColor
+                        : Colors.grey[200],
+                borderRadius: BorderRadius.circular(10.0),
+                border: _showMaxYearWarning
+                    ? Border.all(color: Colors.red.withOpacity(0.5))
+                    : null,
+              ),
+              child: Center(
+                child: Text(
+                  _showMaxYearWarning
+                      ? loc?.translate('max_time_exceeded') ??
+                          '⚠️ Tiempo máximo excedido (1 año)'
+                      : _summary,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: _showMaxYearWarning
+                        ? Colors.red
+                        : themeProvider.textColor,
+                    fontWeight: _showMaxYearWarning
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              loc?.translate('how_much_pay') ??
+                  '¿Cuánto estás dispuesto a pagar por este servicio?',
+              style: TextStyle(fontSize: 16, color: themeProvider.textColor),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              decoration: BoxDecoration(
+                color: themeProvider.isDarkMode
+                    ? themeProvider.cardBgColor
+                    : Colors.grey[200],
+                borderRadius: BorderRadius.circular(25.0),
+                border: (_budgetError || _budgetMaxError)
+                    ? Border.all(color: Colors.red, width: 1.5)
+                    : null,
+              ),
+              child: TextField(
+                controller: _budgetController,
+                focusNode: _budgetFocusNode,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                style: TextStyle(fontSize: 16, color: themeProvider.textColor),
+                onChanged: (value) {
+                  // Validar que sea mínimo 5.000 y máximo 100.000.000
+                  _validateBudget(value);
+
+                  // Formatear el valor con separadores de miles (sin redondear mientras escribe)
+                  final numericValue =
+                      value.replaceAll('.', '').replaceAll(',', '');
+                  if (numericValue.isNotEmpty &&
+                      double.tryParse(numericValue) != null) {
+                    final number = double.parse(numericValue);
+                    final formatted =
+                        number.toStringAsFixed(0).replaceAllMapped(
+                              RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+                              (match) => '${match[1]},',
+                            );
+                    _budgetController.value = TextEditingValue(
+                      text: formatted,
+                      selection: TextSelection.collapsed(
+                        offset: formatted.length,
+                      ),
+                    );
+                  }
+                },
+                onSubmitted: (value) {
+                  // Redondear a centenas al salir del campo
+                  final numericValue =
+                      value.replaceAll('.', '').replaceAll(',', '');
+                  if (numericValue.isNotEmpty &&
+                      double.tryParse(numericValue) != null) {
+                    final number = double.parse(numericValue);
+                    final roundedNumber = (number / 100).round() * 100;
+                    final formatted =
+                        roundedNumber.toStringAsFixed(0).replaceAllMapped(
+                              RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+                              (match) => '${match[1]},',
+                            );
+                    _budgetController.value = TextEditingValue(
+                      text: formatted,
+                      selection: TextSelection.collapsed(
+                        offset: formatted.length,
+                      ),
+                    );
+                    _validateBudget(formatted);
+                  }
+
+                  if (_budgetMaxError) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(loc?.translate('max_budget_error') ??
+                            'El presupuesto máximo es de \$100.000.000 pesos'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  } else if (_budgetError) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(loc?.translate('min_budget_error') ??
+                            'El presupuesto mínimo es de \$5.000 pesos'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 15,
+                  ),
+                  hintText: _budgetError
+                      ? loc?.translate('min_budget') ??
+                          'El mínimo es \$5.000 pesos'
+                      : _budgetMaxError
+                          ? loc?.translate('max_budget') ??
+                              'El máximo es \$100.000.000 pesos'
+                          : loc?.translate('enter_budget') ??
+                              'Ingresa el presupuesto',
+                  hintStyle: TextStyle(
+                    fontSize: 16,
+                    color: (_budgetError || _budgetMaxError)
+                        ? Colors.red[400]
+                        : themeProvider.secondaryTextColor,
+                  ),
+                  suffixText: 'COP',
+                  suffixStyle: TextStyle(
+                    fontSize: 16,
+                    color: (_budgetError || _budgetMaxError)
+                        ? Colors.red[400]
+                        : themeProvider.secondaryTextColor,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              loc?.translate('describe_better') ??
+                  'Describe mejor lo que necesitas',
+              style: TextStyle(fontSize: 16, color: themeProvider.textColor),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              decoration: BoxDecoration(
+                color: themeProvider.cardBgColor,
+                borderRadius: BorderRadius.circular(25.0),
+                border: _descriptionError
+                    ? Border.all(color: Colors.red, width: 1.5)
+                    : null,
+              ),
+              child: TextField(
+                controller: _descriptionController,
+                maxLines: null,
+                minLines: 3,
+                maxLength: 200,
+                onChanged: _validateDescription,
+                style: TextStyle(fontSize: 16, color: themeProvider.textColor),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 15,
+                  ),
+                  counterText: '',
+                  hintText: _descriptionError
+                      ? loc?.translate('min_20_words') ??
+                          'Describe con más detalle (mínimo 20 palabras)'
+                      : loc?.translate('describe_better_placeholder') ??
+                          'Describe con detalle lo que necesitas (mínimo 20 palabras)',
+                  hintStyle: TextStyle(
+                    fontSize: 16,
+                    color: _descriptionError
+                        ? Colors.red[400]
+                        : themeProvider.secondaryTextColor,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              loc?.translate('worker_know_before') ??
+                  '¿Hay algo que el trabajador deba saber antes de postularse?',
+              style: TextStyle(fontSize: 16, color: themeProvider.textColor),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              decoration: BoxDecoration(
+                color: themeProvider.cardBgColor,
+                borderRadius: BorderRadius.circular(25.0),
+              ),
+              child: TextField(
+                controller: _workerInfoController,
+                maxLines: null,
+                minLines: 2,
+                maxLength: 100,
+                style: TextStyle(fontSize: 16, color: themeProvider.textColor),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 15,
+                  ),
+                  counterText: '',
+                  hintText: loc?.translate('additional_info_worker') ??
+                      'Información adicional para el trabajador',
+                  hintStyle: TextStyle(
+                    fontSize: 16,
+                    color: themeProvider.secondaryTextColor,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _publishService,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF78BF32),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 100,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  elevation: 5,
+                ),
+                child: Text(
+                  loc?.translate('publish_btn') ?? 'Publicar',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
