@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 
 class TermsAndConditionsScreen extends StatelessWidget {
   const TermsAndConditionsScreen({super.key});
@@ -8,6 +9,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
@@ -19,7 +21,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Términos y Condiciones',
+          loc.translate('terms_and_conditions'),
           style: TextStyle(
             color: themeProvider.textColor,
             fontSize: 24,
@@ -56,7 +58,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Bienvenido a nuestra aplicación',
+                        loc.translate('terms_welcome'),
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -65,7 +67,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '1. Introducción',
+                        loc.translate('terms_intro_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -74,7 +76,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Al utilizar nuestra aplicación, usted acepta estos términos y condiciones de uso. Por favor, léalos cuidadosamente antes de acceder o usar la aplicación.',
+                        loc.translate('terms_intro_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -82,7 +84,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '2. Uso de la aplicación',
+                        loc.translate('terms_usage_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -91,7 +93,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Nuestra aplicación es una plataforma que conecta usuarios con servicios y aliados. Usted se compromete a usar la aplicación solo para fines legales y de acuerdo con estas políticas.',
+                        loc.translate('terms_usage_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -99,7 +101,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '3. Responsabilidades',
+                        loc.translate('terms_responsibilities_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -108,7 +110,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Usted es responsable de mantener la confidencialidad de su cuenta y contraseña. Debe notificarnos inmediatamente si detecta cualquier uso no autorizado de su cuenta.',
+                        loc.translate('terms_responsibilities_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -116,7 +118,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '4. Propiedad intelectual',
+                        loc.translate('terms_intellectual_property_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -125,7 +127,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Todos los derechos reservados. La aplicación y su contenido son propiedad exclusiva de nuestra empresa y están protegidos por las leyes de propiedad intelectual.',
+                        loc.translate('terms_intellectual_property_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -133,7 +135,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '5. Modificaciones',
+                        loc.translate('terms_modifications_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -142,7 +144,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Nos reservamos el derecho de modificar estos términos y condiciones en cualquier momento. Las modificaciones entrarán en vigor inmediatamente al publicarlas en la aplicación.',
+                        loc.translate('terms_modifications_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -150,7 +152,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '6. Contacto',
+                        loc.translate('terms_contact_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -159,7 +161,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Si tienes alguna pregunta sobre estos términos y condiciones, por favor contáctanos a través de la sección de soporte de la aplicación.',
+                        loc.translate('terms_contact_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -167,7 +169,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'Fecha de última actualización: Febrero 2026',
+                        loc.translate('terms_last_update'),
                         style: TextStyle(
                           fontSize: 12,
                           color: themeProvider.secondaryTextColor,

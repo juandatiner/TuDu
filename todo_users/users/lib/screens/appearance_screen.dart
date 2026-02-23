@@ -43,7 +43,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Personaliza la apariencia de la aplicación según tus preferencias.',
+                loc.translate('appearance_subtitle'),
                 style: TextStyle(
                   fontSize: 16,
                   color: themeProvider.secondaryTextColor,
@@ -61,27 +61,25 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
               const SizedBox(height: 16),
               _buildThemeOption(
                 themeProvider,
+                loc,
                 Icons.light_mode,
                 loc.translate('light_theme'),
-                isDark
-                    ? 'Light background with dark text'
-                    : 'Fondo claro con textos oscuros',
+                loc.translate('light_theme_desc'),
                 !isDark,
                 () => themeProvider.setDarkMode(false),
               ),
               const SizedBox(height: 12),
               _buildThemeOption(
                 themeProvider,
+                loc,
                 Icons.dark_mode,
                 loc.translate('dark_theme'),
-                isDark
-                    ? 'Dark gray background with light text'
-                    : 'Fondo gris oscuro con textos claros',
+                loc.translate('dark_theme_desc'),
                 isDark,
                 () => themeProvider.setDarkMode(true),
               ),
               const SizedBox(height: 40),
-              _buildInfoCard(themeProvider),
+              _buildInfoCard(themeProvider, loc),
             ],
           ),
         ),
@@ -91,6 +89,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
 
   Widget _buildThemeOption(
     ThemeProvider themeProvider,
+    AppLocalizations loc,
     IconData icon,
     String title,
     String subtitle,
@@ -188,7 +187,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
     );
   }
 
-  Widget _buildInfoCard(ThemeProvider themeProvider) {
+  Widget _buildInfoCard(ThemeProvider themeProvider, AppLocalizations loc) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -213,7 +212,7 @@ class _AppearanceScreenState extends State<AppearanceScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'El tema seleccionado se guardará automáticamente y se aplicará cada vez que abras la aplicación.',
+              loc.translate('theme_info_message'),
               style: TextStyle(
                 fontSize: 14,
                 color: themeProvider.secondaryTextColor,

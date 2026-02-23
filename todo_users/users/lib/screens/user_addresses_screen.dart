@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 
 class UserAddressesScreen extends StatefulWidget {
   final String userEmail;
@@ -75,7 +77,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     }
   }
 
-  bool _validateAddress(Function(VoidCallback) setDialogState) {
+  bool _validateAddress(
+      Function(VoidCallback) setDialogState, AppLocalizations loc) {
     // Limpiar errores anteriores
     setDialogState(() {
       _addressNameError = null;
@@ -96,78 +99,78 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     if (_addressNameController.text.isEmpty) {
       setDialogState(() {
-        _addressNameError = 'Campo obligatorio';
+        _addressNameError = loc.translate('field_required');
       });
       isValid = false;
     }
 
     if (_selectedDepartmentId == null) {
       setDialogState(() {
-        _departmentError = 'Campo obligatorio';
+        _departmentError = loc.translate('field_required');
       });
       isValid = false;
     }
 
     if (_selectedCityId == null) {
       setDialogState(() {
-        _cityError = 'Campo obligatorio';
+        _cityError = loc.translate('field_required');
       });
       isValid = false;
     }
 
     if (_selectedTypeVia == null) {
       setDialogState(() {
-        _typeViaError = 'Campo obligatorio';
+        _typeViaError = loc.translate('field_required');
       });
       isValid = false;
     }
 
     if (_numberPrincipalController.text.isEmpty) {
       setDialogState(() {
-        _numberPrincipalError = 'Campo obligatorio';
+        _numberPrincipalError = loc.translate('field_required');
       });
       isValid = false;
     } else if (!hasNumber(_numberPrincipalController.text)) {
       setDialogState(() {
-        _numberPrincipalError = 'Debe contener al menos un dígito';
+        _numberPrincipalError = loc.translate('must_contain_digit');
       });
       isValid = false;
     }
 
     if (_numberSecondaryController.text.isEmpty) {
       setDialogState(() {
-        _numberSecondaryError = 'Campo obligatorio';
+        _numberSecondaryError = loc.translate('field_required');
       });
       isValid = false;
     } else if (!hasNumber(_numberSecondaryController.text)) {
       setDialogState(() {
-        _numberSecondaryError = 'Debe contener al menos un dígito';
+        _numberSecondaryError = loc.translate('must_contain_digit');
       });
       isValid = false;
     }
 
     if (_numberFinalController.text.isEmpty) {
       setDialogState(() {
-        _numberFinalError = 'Campo obligatorio';
+        _numberFinalError = loc.translate('field_required');
       });
       isValid = false;
     } else if (!hasNumber(_numberFinalController.text)) {
       setDialogState(() {
-        _numberFinalError = 'Debe contener al menos un dígito';
+        _numberFinalError = loc.translate('must_contain_digit');
       });
       isValid = false;
     }
 
     if (_additionalInfoController.text.isEmpty) {
       setDialogState(() {
-        _additionalInfoError = 'Campo obligatorio';
+        _additionalInfoError = loc.translate('field_required');
       });
       isValid = false;
     }
 
     if (_selectedIcon == null) {
       setDialogState(() {
-        _addressIconError = 'Campo obligatorio';
+        _addressIconError = loc.translate('field_required');
       });
       isValid = false;
     }
@@ -175,8 +178,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     return isValid;
   }
 
-  Future<void> _addAddress(Function(VoidCallback) setDialogState) async {
-    if (!_validateAddress(setDialogState)) {
+  Future<void> _addAddress(
+      Function(VoidCallback) setDialogState, AppLocalizations loc) async {
+    if (!_validateAddress(setDialogState, loc)) {
       return;
     }
 
@@ -231,7 +235,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     } catch (e) {
       print('Error agregando dirección: $e');
       setDialogState(() {
-        _generalError = 'Error al agregar dirección';
+        _generalError = loc.translate('error_adding_address');
       });
     } finally {
       setDialogState(() {
@@ -240,10 +244,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     }
   }
 
-  Future<void> _updateAddress(Function(VoidCallback) setDialogState) async {
+  Future<void> _updateAddress(
+      Function(VoidCallback) setDialogState, AppLocalizations loc) async {
     if (_editingAddressId == null) return;
 
-    if (!_validateAddress(setDialogState)) {
+    if (!_validateAddress(setDialogState, loc)) {
       return;
     }
 
@@ -298,7 +303,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     } catch (e) {
       print('Error actualizando dirección: $e');
       setDialogState(() {
-        _generalError = 'Error al actualizar dirección';
+        _generalError = loc.translate('error_updating_address');
       });
     } finally {
       setDialogState(() {
@@ -363,6 +368,40 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     'Camino'
   ];
 
+  // Métodos helper para obtener traducciones
+  String _getTranslatedIconName(String name, AppLocalizations loc) {
+    final Map<String, String> iconTranslations = {
+      'Casa': loc.translate('icon_home'),
+      'Apartamento': loc.translate('icon_apartment'),
+      'Empresa': loc.translate('icon_company'),
+      'Colegio': loc.translate('icon_school'),
+      'Tienda': loc.translate('icon_store'),
+      'Iglesia': loc.translate('icon_church'),
+      'Hospital': loc.translate('icon_hospital'),
+      'Restaurante': loc.translate('icon_restaurant'),
+      'Hotel': loc.translate('icon_hotel'),
+      'Gimnasio': loc.translate('icon_gym'),
+      'Parque': loc.translate('icon_park'),
+      'Finca': loc.translate('icon_farm'),
+    };
+    return iconTranslations[name] ?? name;
+  }
+
+  String _getTranslatedViaName(String name, AppLocalizations loc) {
+    final Map<String, String> viaTranslations = {
+      'Calle': loc.translate('via_street'),
+      'Carrera': loc.translate('via_race'),
+      'Avenida': loc.translate('via_avenue'),
+      'Diagonal': loc.translate('via_diagonal'),
+      'Transversal': loc.translate('via_transversal'),
+      'Circular': loc.translate('via_circular'),
+      'Autopista': loc.translate('via_highway'),
+      'Carretera': loc.translate('via_road'),
+      'Camino': loc.translate('via_path'),
+    };
+    return viaTranslations[name] ?? name;
+  }
+
   Future<void> _loadDepartments() async {
     try {
       final response =
@@ -392,6 +431,338 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
       print('Error al cargar ciudades: $e');
     }
     return [];
+  }
+
+  void _showDepartmentPicker(
+      Function(VoidCallback) setDialogState, AppLocalizations loc) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.6,
+            decoration: BoxDecoration(
+              color: themeProvider.cardBgColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: themeProvider.isDarkMode
+                        ? Colors.grey[600]
+                        : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    loc.translate('department_label'),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: themeProvider.textColor,
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: themeProvider.borderColor),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _departments.length,
+                    itemBuilder: (context, index) {
+                      final department = _departments[index];
+                      final isSelected =
+                          _selectedDepartmentId == department['id'];
+                      return InkWell(
+                        onTap: () async {
+                          final cities = await _loadCities(department['id']);
+                          setDialogState(() {
+                            _selectedDepartmentId = department['id'];
+                            _selectedCityId = null;
+                            _cities = cities;
+                            _departmentError = null;
+                            _cityError = null;
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isSelected
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_off,
+                                color: isSelected
+                                    ? const Color(0xFF78BF32)
+                                    : themeProvider.secondaryTextColor,
+                              ),
+                              const SizedBox(width: 16),
+                              Text(
+                                department['name'],
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: isSelected
+                                      ? const Color(0xFF78BF32)
+                                      : themeProvider.textColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCityPicker(
+      Function(VoidCallback) setDialogState, AppLocalizations loc) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    if (_selectedDepartmentId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc.translate('select_department_first')),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.6,
+            decoration: BoxDecoration(
+              color: themeProvider.cardBgColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: themeProvider.isDarkMode
+                        ? Colors.grey[600]
+                        : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    loc.translate('city_label'),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: themeProvider.textColor,
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: themeProvider.borderColor),
+                Expanded(
+                  child: _cities.isEmpty
+                      ? Center(
+                          child: Text(
+                            loc.translate('no_cities_available'),
+                            style: TextStyle(
+                                color: themeProvider.secondaryTextColor),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: _cities.length,
+                          itemBuilder: (context, index) {
+                            final city = _cities[index];
+                            final isSelected = _selectedCityId == city['id'];
+                            return InkWell(
+                              onTap: () {
+                                setDialogState(() {
+                                  _selectedCityId = city['id'];
+                                  _cityError = null;
+                                });
+                                Navigator.pop(context);
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 16,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isSelected
+                                          ? Icons.radio_button_checked
+                                          : Icons.radio_button_off,
+                                      color: isSelected
+                                          ? const Color(0xFF78BF32)
+                                          : themeProvider.secondaryTextColor,
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Text(
+                                      city['name'],
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                        color: isSelected
+                                            ? const Color(0xFF78BF32)
+                                            : themeProvider.textColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showTypeViaPicker(
+      Function(VoidCallback) setDialogState, AppLocalizations loc) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.55,
+            decoration: BoxDecoration(
+              color: themeProvider.cardBgColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: themeProvider.isDarkMode
+                        ? Colors.grey[600]
+                        : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    loc.translate('type_via_label'),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: themeProvider.textColor,
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: themeProvider.borderColor),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _typeViaOptions.length,
+                    itemBuilder: (context, index) {
+                      final typeVia = _typeViaOptions[index];
+                      final isSelected = _selectedTypeVia == typeVia;
+                      return InkWell(
+                        onTap: () {
+                          setDialogState(() {
+                            _selectedTypeVia = typeVia;
+                            _typeViaError = null;
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isSelected
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_off,
+                                color: isSelected
+                                    ? const Color(0xFF78BF32)
+                                    : themeProvider.secondaryTextColor,
+                              ),
+                              const SizedBox(width: 16),
+                              Text(
+                                _getTranslatedViaName(typeVia, loc),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: isSelected
+                                      ? const Color(0xFF78BF32)
+                                      : themeProvider.textColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _showAddAddressDialog() async {
@@ -426,6 +797,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     if (!mounted) return;
 
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final loc = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
@@ -444,7 +816,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                 children: [
                   // Title
                   Text(
-                    'Agregar Dirección',
+                    loc.translate('add_address'),
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -477,11 +849,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       controller: _addressNameController,
                       style: TextStyle(color: themeProvider.textColor),
                       decoration: InputDecoration(
-                        labelText: 'Nombre',
+                        labelText: loc.translate('address_name_label'),
                         labelStyle: TextStyle(
                             color: themeProvider.secondaryTextColor,
                             fontSize: 13),
-                        hintText: 'Casa, Empresa...',
+                        hintText: loc.translate('address_name_hint'),
                         prefixIcon: const Icon(Icons.label_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
@@ -519,127 +891,137 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: themeProvider.cardBgColor,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: themeProvider.shadowColor,
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: _departmentError != null
-                                  ? Colors.red
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          child: DropdownButton<int>(
-                            value: _selectedDepartmentId,
-                            hint: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text('Departamento',
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      color: themeProvider.secondaryTextColor)),
-                            ),
-                            isExpanded: true,
-                            underline: Container(),
-                            items: _departments.map((department) {
-                              return DropdownMenuItem<int>(
-                                value: department['id'],
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(department['name'],
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          color: themeProvider.textColor)),
+                        child: GestureDetector(
+                          onTap: () =>
+                              _showDepartmentPicker(setDialogState, loc),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: themeProvider.cardBgColor,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: themeProvider.shadowColor,
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 2),
                                 ),
-                              );
-                            }).toList(),
-                            onChanged: (value) async {
-                              if (value != null) {
-                                print('Seleccionado departamento: $value');
-                                final cities = await _loadCities(value);
-                                print('Ciudades cargadas: $cities');
-                                setDialogState(() {
-                                  _selectedDepartmentId = value;
-                                  _selectedCityId = null;
-                                  _cities = cities;
-                                  _departmentError = null;
-                                  _cityError = null;
-                                });
-                              } else {
-                                setDialogState(() {
-                                  _selectedDepartmentId = null;
-                                  _selectedCityId = null;
-                                  _cities = [];
-                                });
-                              }
-                            },
+                              ],
+                              border: Border.all(
+                                color: _departmentError != null
+                                    ? Colors.red
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: loc.translate('department_label'),
+                                labelStyle: TextStyle(
+                                    fontSize: 13,
+                                    color: themeProvider.secondaryTextColor),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        _selectedDepartmentId != null
+                                            ? _departments.firstWhere(
+                                                (d) =>
+                                                    d['id'] ==
+                                                    _selectedDepartmentId,
+                                                orElse: () => {'name': ''},
+                                              )['name']
+                                            : '',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: _selectedDepartmentId != null
+                                              ? themeProvider.textColor
+                                              : themeProvider
+                                                  .secondaryTextColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(Icons.keyboard_arrow_up,
+                                      color: Color(0xFF78BF32), size: 20),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: themeProvider.cardBgColor,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: themeProvider.shadowColor,
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: _cityError != null
-                                  ? Colors.red
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          child: DropdownButton<int>(
-                            value: _selectedCityId,
-                            hint: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text('Ciudad',
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      color: themeProvider.secondaryTextColor)),
-                            ),
-                            isExpanded: true,
-                            underline: Container(),
-                            items: _cities.map((city) {
-                              return DropdownMenuItem<int>(
-                                value: city['id'],
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(city['name'],
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          color: themeProvider.textColor)),
+                        child: GestureDetector(
+                          onTap: () => _showCityPicker(setDialogState, loc),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: themeProvider.cardBgColor,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: themeProvider.shadowColor,
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 2),
                                 ),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setDialogState(() {
-                                _selectedCityId = value;
-                                _cityError = null;
-                              });
-                            },
+                              ],
+                              border: Border.all(
+                                color: _cityError != null
+                                    ? Colors.red
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: loc.translate('city_label'),
+                                labelStyle: TextStyle(
+                                    fontSize: 13,
+                                    color: themeProvider.secondaryTextColor),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        _selectedCityId != null
+                                            ? _cities.firstWhere(
+                                                (c) =>
+                                                    c['id'] == _selectedCityId,
+                                                orElse: () => {'name': ''},
+                                              )['name']
+                                            : '',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: _selectedCityId != null
+                                              ? themeProvider.textColor
+                                              : themeProvider
+                                                  .secondaryTextColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(Icons.keyboard_arrow_up,
+                                      color: Color(0xFF78BF32), size: 20),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -661,58 +1043,65 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                   Row(
                     children: [
                       Expanded(
-                        flex: 2,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: themeProvider.cardBgColor,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: themeProvider.shadowColor,
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: _typeViaError != null
-                                  ? Colors.red
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 12),
-                          child: DropdownButton<String>(
-                            value: _selectedTypeVia,
-                            hint: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text('Tipo de vía',
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      color: themeProvider.secondaryTextColor)),
-                            ),
-                            isExpanded: true,
-                            underline: Container(),
-                            items: _typeViaOptions.map((type) {
-                              return DropdownMenuItem<String>(
-                                value: type,
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(type,
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          color: themeProvider.textColor)),
+                        child: GestureDetector(
+                          onTap: () => _showTypeViaPicker(setDialogState, loc),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: themeProvider.cardBgColor,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: themeProvider.shadowColor,
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 2),
                                 ),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setDialogState(() {
-                                _selectedTypeVia = value;
-                                _typeViaError = null;
-                              });
-                            },
+                              ],
+                              border: Border.all(
+                                color: _typeViaError != null
+                                    ? Colors.red
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: loc.translate('type_via_label'),
+                                labelStyle: TextStyle(
+                                    fontSize: 13,
+                                    color: themeProvider.secondaryTextColor),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        _selectedTypeVia != null
+                                            ? _getTranslatedViaName(
+                                                _selectedTypeVia!, loc)
+                                            : '',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: _selectedTypeVia != null
+                                              ? themeProvider.textColor
+                                              : themeProvider
+                                                  .secondaryTextColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(Icons.keyboard_arrow_up,
+                                      color: Color(0xFF78BF32), size: 20),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -741,13 +1130,19 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             controller: _numberPrincipalController,
                             style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
-                              labelText: '# Principal',
-                              labelStyle: TextStyle(
-                                  color: themeProvider.secondaryTextColor,
-                                  fontSize: 13),
+                              label: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  loc.translate('number_principal_label'),
+                                  style: TextStyle(
+                                    color: themeProvider.secondaryTextColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                                horizontal: 8,
                                 vertical: 10,
                               ),
                               counterText: '', // Oculta el contador
@@ -807,13 +1202,19 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             controller: _numberSecondaryController,
                             style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
-                              labelText: '# Secundario',
-                              labelStyle: TextStyle(
-                                  color: themeProvider.secondaryTextColor,
-                                  fontSize: 13),
+                              label: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  loc.translate('number_secondary_label'),
+                                  style: TextStyle(
+                                    color: themeProvider.secondaryTextColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                                horizontal: 8,
                                 vertical: 10,
                               ),
                               counterText: '', // Oculta el contador
@@ -857,13 +1258,19 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             controller: _numberFinalController,
                             style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
-                              labelText: '# Final',
-                              labelStyle: TextStyle(
-                                  color: themeProvider.secondaryTextColor,
-                                  fontSize: 13),
+                              label: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  loc.translate('number_final_label'),
+                                  style: TextStyle(
+                                    color: themeProvider.secondaryTextColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                                horizontal: 8,
                                 vertical: 10,
                               ),
                               counterText: '', // Oculta el contador
@@ -921,7 +1328,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       controller: _additionalInfoController,
                       style: TextStyle(color: themeProvider.textColor),
                       decoration: InputDecoration(
-                        labelText: 'Información Adicional',
+                        labelText: loc.translate('additional_info_label'),
                         labelStyle: TextStyle(
                             color: themeProvider.secondaryTextColor,
                             fontSize: 14),
@@ -986,7 +1393,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Icono',
+                          loc.translate('icon_label'),
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -1083,8 +1490,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
-                          child: const Text(
-                            'Cancelar',
+                          child: Text(
+                            loc.translate('cancel_btn'),
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -1097,7 +1504,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         child: ElevatedButton(
                           onPressed: _isAddingAddress
                               ? null
-                              : () => _addAddress(setDialogState),
+                              : () => _addAddress(setDialogState, loc),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF78BF32),
                             foregroundColor: Colors.white,
@@ -1116,8 +1523,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                         Colors.white),
                                   ),
                                 )
-                              : const Text(
-                                  'Agregar',
+                              : Text(
+                                  loc.translate('add_btn'),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -1189,6 +1596,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     if (!mounted) return;
 
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final loc = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
@@ -1207,7 +1615,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                 children: [
                   // Title
                   Text(
-                    'Editar Dirección',
+                    loc.translate('edit_address'),
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -1240,11 +1648,11 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       controller: _addressNameController,
                       style: TextStyle(color: themeProvider.textColor),
                       decoration: InputDecoration(
-                        labelText: 'Nombre',
+                        labelText: loc.translate('address_name_label'),
                         labelStyle: TextStyle(
                             color: themeProvider.secondaryTextColor,
                             fontSize: 13),
-                        hintText: 'Casa, Empresa...',
+                        hintText: loc.translate('address_name_hint'),
                         prefixIcon: const Icon(Icons.label_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
@@ -1282,127 +1690,137 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: themeProvider.cardBgColor,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: themeProvider.shadowColor,
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: _departmentError != null
-                                  ? Colors.red
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          child: DropdownButton<int>(
-                            value: _selectedDepartmentId,
-                            hint: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text('Departamento',
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      color: themeProvider.secondaryTextColor)),
-                            ),
-                            isExpanded: true,
-                            underline: Container(),
-                            items: _departments.map((department) {
-                              return DropdownMenuItem<int>(
-                                value: department['id'],
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(department['name'],
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          color: themeProvider.textColor)),
+                        child: GestureDetector(
+                          onTap: () =>
+                              _showDepartmentPicker(setDialogState, loc),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: themeProvider.cardBgColor,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: themeProvider.shadowColor,
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 2),
                                 ),
-                              );
-                            }).toList(),
-                            onChanged: (value) async {
-                              if (value != null) {
-                                print('Seleccionado departamento: $value');
-                                final cities = await _loadCities(value);
-                                print('Ciudades cargadas: $cities');
-                                setDialogState(() {
-                                  _selectedDepartmentId = value;
-                                  _selectedCityId = null;
-                                  _cities = cities;
-                                  _departmentError = null;
-                                  _cityError = null;
-                                });
-                              } else {
-                                setDialogState(() {
-                                  _selectedDepartmentId = null;
-                                  _selectedCityId = null;
-                                  _cities = [];
-                                });
-                              }
-                            },
+                              ],
+                              border: Border.all(
+                                color: _departmentError != null
+                                    ? Colors.red
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: loc.translate('department_label'),
+                                labelStyle: TextStyle(
+                                    fontSize: 13,
+                                    color: themeProvider.secondaryTextColor),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        _selectedDepartmentId != null
+                                            ? _departments.firstWhere(
+                                                (d) =>
+                                                    d['id'] ==
+                                                    _selectedDepartmentId,
+                                                orElse: () => {'name': ''},
+                                              )['name']
+                                            : '',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: _selectedDepartmentId != null
+                                              ? themeProvider.textColor
+                                              : themeProvider
+                                                  .secondaryTextColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(Icons.keyboard_arrow_up,
+                                      color: Color(0xFF78BF32), size: 20),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: themeProvider.cardBgColor,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: themeProvider.shadowColor,
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: _cityError != null
-                                  ? Colors.red
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          child: DropdownButton<int>(
-                            value: _selectedCityId,
-                            hint: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text('Ciudad',
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      color: themeProvider.secondaryTextColor)),
-                            ),
-                            isExpanded: true,
-                            underline: Container(),
-                            items: _cities.map((city) {
-                              return DropdownMenuItem<int>(
-                                value: city['id'],
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(city['name'],
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          color: themeProvider.textColor)),
+                        child: GestureDetector(
+                          onTap: () => _showCityPicker(setDialogState, loc),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: themeProvider.cardBgColor,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: themeProvider.shadowColor,
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 2),
                                 ),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setDialogState(() {
-                                _selectedCityId = value;
-                                _cityError = null;
-                              });
-                            },
+                              ],
+                              border: Border.all(
+                                color: _cityError != null
+                                    ? Colors.red
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: loc.translate('city_label'),
+                                labelStyle: TextStyle(
+                                    fontSize: 13,
+                                    color: themeProvider.secondaryTextColor),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        _selectedCityId != null
+                                            ? _cities.firstWhere(
+                                                (c) =>
+                                                    c['id'] == _selectedCityId,
+                                                orElse: () => {'name': ''},
+                                              )['name']
+                                            : '',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: _selectedCityId != null
+                                              ? themeProvider.textColor
+                                              : themeProvider
+                                                  .secondaryTextColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(Icons.keyboard_arrow_up,
+                                      color: Color(0xFF78BF32), size: 20),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -1424,56 +1842,65 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                   Row(
                     children: [
                       Expanded(
-                        flex: 2,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: themeProvider.cardBgColor,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: themeProvider.shadowColor,
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: _typeViaError != null
-                                  ? Colors.red
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 12),
-                          child: DropdownButton<String>(
-                            value: _selectedTypeVia,
-                            hint: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text('Tipo vía',
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      color: themeProvider.secondaryTextColor)),
-                            ),
-                            isExpanded: true,
-                            underline: Container(),
-                            items: _typeViaOptions.map((type) {
-                              return DropdownMenuItem<String>(
-                                value: type,
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(type,
-                                      style: const TextStyle(fontSize: 13)),
+                        child: GestureDetector(
+                          onTap: () => _showTypeViaPicker(setDialogState, loc),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: themeProvider.cardBgColor,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: themeProvider.shadowColor,
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 2),
                                 ),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setDialogState(() {
-                                _selectedTypeVia = value;
-                                _typeViaError = null;
-                              });
-                            },
+                              ],
+                              border: Border.all(
+                                color: _typeViaError != null
+                                    ? Colors.red
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: InputDecorator(
+                              decoration: InputDecoration(
+                                labelText: loc.translate('type_via_label'),
+                                labelStyle: TextStyle(
+                                    fontSize: 13,
+                                    color: themeProvider.secondaryTextColor),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        _selectedTypeVia != null
+                                            ? _getTranslatedViaName(
+                                                _selectedTypeVia!, loc)
+                                            : '',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: _selectedTypeVia != null
+                                              ? themeProvider.textColor
+                                              : themeProvider
+                                                  .secondaryTextColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(Icons.keyboard_arrow_up,
+                                      color: Color(0xFF78BF32), size: 20),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -1502,13 +1929,19 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             controller: _numberPrincipalController,
                             style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
-                              labelText: '# Principal',
-                              labelStyle: TextStyle(
-                                  color: themeProvider.secondaryTextColor,
-                                  fontSize: 13),
+                              label: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  loc.translate('number_principal_label'),
+                                  style: TextStyle(
+                                    color: themeProvider.secondaryTextColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                                horizontal: 8,
                                 vertical: 10,
                               ),
                               counterText: '', // Oculta el contador
@@ -1568,13 +2001,19 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             controller: _numberSecondaryController,
                             style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
-                              labelText: '# Secundario',
-                              labelStyle: TextStyle(
-                                  color: themeProvider.secondaryTextColor,
-                                  fontSize: 13),
+                              label: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  loc.translate('number_secondary_label'),
+                                  style: TextStyle(
+                                    color: themeProvider.secondaryTextColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                                horizontal: 8,
                                 vertical: 10,
                               ),
                               counterText: '', // Oculta el contador
@@ -1618,13 +2057,19 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             controller: _numberFinalController,
                             style: TextStyle(color: themeProvider.textColor),
                             decoration: InputDecoration(
-                              labelText: '# Final',
-                              labelStyle: TextStyle(
-                                  color: themeProvider.secondaryTextColor,
-                                  fontSize: 13),
+                              label: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  loc.translate('number_final_label'),
+                                  style: TextStyle(
+                                    color: themeProvider.secondaryTextColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                                horizontal: 8,
                                 vertical: 10,
                               ),
                               counterText: '', // Oculta el contador
@@ -1682,7 +2127,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       controller: _additionalInfoController,
                       style: TextStyle(color: themeProvider.textColor),
                       decoration: InputDecoration(
-                        labelText: 'Información Adicional',
+                        labelText: loc.translate('additional_info_label'),
                         labelStyle: TextStyle(
                             color: themeProvider.secondaryTextColor,
                             fontSize: 14),
@@ -1747,7 +2192,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Icono',
+                          loc.translate('icon_label'),
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -1832,8 +2277,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
-                          child: const Text(
-                            'Cancelar',
+                          child: Text(
+                            loc.translate('cancel_btn'),
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -1846,7 +2291,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         child: ElevatedButton(
                           onPressed: _isEditingAddress || !_hasChanges()
                               ? null
-                              : () => _updateAddress(setDialogState),
+                              : () => _updateAddress(setDialogState, loc),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _hasChanges()
                                 ? const Color(0xFF78BF32)
@@ -1873,8 +2318,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                         Colors.white),
                                   ),
                                 )
-                              : const Text(
-                                  'Guardar',
+                              : Text(
+                                  loc.translate('save_btn'),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -1888,7 +2333,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Text(
-                        'Aún no has hecho cambios',
+                        loc.translate('no_changes'),
                         style: TextStyle(
                           color: themeProvider.isDarkMode
                               ? Colors.red[300]
@@ -1926,6 +2371,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
         : Icons.location_on;
 
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final loc = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
@@ -2053,8 +2499,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                     padding: const EdgeInsets.symmetric(
                         vertical: 16, horizontal: 32),
                   ),
-                  child: const Text(
-                    'Cerrar',
+                  child: Text(
+                    loc.translate('close_btn'),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -2072,6 +2518,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
   void _showDeleteConfirmDialog(int id) {
     final addressToDelete = _addresses.firstWhere((addr) => addr['id'] == id);
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final loc = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
@@ -2089,7 +2536,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
               children: [
                 // Title
                 Text(
-                  'Eliminar Dirección',
+                  loc.translate('delete_address_title'),
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -2107,9 +2554,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       color: themeProvider.secondaryTextColor,
                     ),
                     children: [
-                      const TextSpan(
-                          text:
-                              '¿Estás seguro de que quieres eliminar la dirección '),
+                      TextSpan(
+                          text: '${loc.translate('delete_address_confirm')} '),
                       TextSpan(
                         text: addressToDelete['address_name'],
                         style: TextStyle(
@@ -2138,8 +2584,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        child: const Text(
-                          'Cancelar',
+                        child: Text(
+                          loc.translate('cancel_btn'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -2162,8 +2608,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        child: const Text(
-                          'Eliminar',
+                        child: Text(
+                          loc.translate('delete_btn'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -2291,6 +2737,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
@@ -2302,7 +2749,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Mis Direcciones',
+          loc.translate('my_addresses'),
           style: TextStyle(
             color: themeProvider.textColor,
             fontSize: 24,
@@ -2326,7 +2773,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         ),
                         const SizedBox(height: 24),
                         Text(
-                          'No tienes direcciones guardadas',
+                          loc.translate('no_addresses'),
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -2336,7 +2783,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Agrega tu primera dirección',
+                          loc.translate('add_first_address'),
                           style: TextStyle(
                             fontSize: 16,
                             color: themeProvider.secondaryTextColor,
@@ -2363,15 +2810,15 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(
+                              children: [
+                                const Icon(
                                   Icons.add,
                                   size: 24,
                                   color: Colors.white,
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(
-                                  'Agregar Dirección',
+                                  loc.translate('add_address'),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -2527,9 +2974,9 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
               backgroundColor: const Color(0xFF78BF32),
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add, size: 24),
-              label: const Text(
-                'Agregar Dirección',
-                style: TextStyle(
+              label: Text(
+                loc.translate('add_address'),
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),

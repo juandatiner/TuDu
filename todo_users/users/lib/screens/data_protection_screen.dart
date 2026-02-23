@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 
 class DataProtectionScreen extends StatelessWidget {
   const DataProtectionScreen({super.key});
@@ -8,6 +9,7 @@ class DataProtectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
@@ -19,7 +21,7 @@ class DataProtectionScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Protección de Datos',
+          loc.translate('data_protection'),
           style: TextStyle(
             color: themeProvider.textColor,
             fontSize: 24,
@@ -56,7 +58,7 @@ class DataProtectionScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Política de Protección de Datos',
+                        loc.translate('data_protection_policy'),
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -65,7 +67,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '1. Recopilación de información',
+                        loc.translate('data_collection_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -74,7 +76,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Recopilamos información que usted nos proporciona directamente, como su nombre, correo electrónico, número de teléfono y otra información necesaria para brindarle nuestros servicios.',
+                        loc.translate('data_collection_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -82,7 +84,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '2. Uso de la información',
+                        loc.translate('data_usage_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -91,7 +93,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Utilizamos su información para proporcionar, mantener y mejorar nuestros servicios, procesar transacciones, enviar comunicaciones relacionadas con el servicio y proteger contra fraudes.',
+                        loc.translate('data_usage_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -99,7 +101,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '3. Compartir información',
+                        loc.translate('data_sharing_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -108,7 +110,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'No vendemos ni alquilamos su información personal a terceros. Solo compartimos su información con proveedores de servicios que nos ayudan a operar nuestra aplicación y cumplir con la ley.',
+                        loc.translate('data_sharing_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -116,7 +118,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '4. Seguridad de datos',
+                        loc.translate('data_security_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -125,7 +127,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Implementamos medidas de seguridad técnicas y organizativas para proteger su información personal contra acceso no autorizado, alteración, divulgación o destrucción.',
+                        loc.translate('data_security_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -133,7 +135,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '5. Sus derechos',
+                        loc.translate('data_rights_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -142,7 +144,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Usted tiene derecho a acceder, corregir, eliminar y portar su información personal. También tiene derecho a oponerse al procesamiento de sus datos en ciertas circunstancias.',
+                        loc.translate('data_rights_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -150,7 +152,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '6. Cookies y tecnologías similares',
+                        loc.translate('data_cookies_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -159,7 +161,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Utilizamos cookies y tecnologías similares para mejorar su experiencia, analizar el uso de nuestra aplicación y personalizar el contenido que se le muestra.',
+                        loc.translate('data_cookies_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -167,7 +169,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '7. Contacto',
+                        loc.translate('data_contact_title'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -176,7 +178,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Si tiene preguntas sobre esta política de protección de datos, puede contactarnos a través de la sección de soporte de la aplicación.',
+                        loc.translate('data_contact_text'),
                         style: TextStyle(
                           fontSize: 14,
                           color: themeProvider.textColor,
@@ -184,7 +186,7 @@ class DataProtectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'Fecha de última actualización: Febrero 2026',
+                        loc.translate('data_last_update'),
                         style: TextStyle(
                           fontSize: 12,
                           color: themeProvider.secondaryTextColor,
