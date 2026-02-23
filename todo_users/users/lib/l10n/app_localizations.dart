@@ -359,6 +359,69 @@ class AppLocalizations {
       'worker_info': 'Información para el trabajador',
       'no_additional_info': 'Sin información adicional',
       'publication_date': 'Fecha de publicación',
+
+      // Pantalla de Inicio (Home)
+      'what_service_need_today': '¿Qué servicio necesitas hoy?',
+      'suggestions': 'Sugerencias',
+      'explore_more_services': 'Explorar más servicios',
+      'image': 'Imagen',
+      'home_service': 'Servicio de hogar',
+      'new_services': 'Nuevos Servicios',
+      'cant_find_what_looking_for': '¿No encuentras lo que buscas?',
+      'publish_request_experts':
+          'Publica tu solicitud y deja que los expertos vengan a ti. No pierdas tiempo buscando, ¡ellos te encontrarán!',
+      'publish_btn': 'Publicar',
+
+      // Diálogo de sesión expirada
+      'session_closed': 'Sesión cerrada',
+      'session_closed_message':
+          'Tu sesión ha sido cerrada porque iniciaste sesión en otro dispositivo.\n\nPara usar la aplicación en este dispositivo, debes verificar tu identidad nuevamente.',
+
+      // Pantalla Todos los Servicios
+      'services_of': 'Servicios de...',
+      'no_results_for_query': "No encontramos resultados para",
+      'no_results_found': 'No se encontraron resultados',
+      'try_different_search': 'Intenta buscando de otra manera',
+
+      // Pantalla Publicar Servicio
+      'publish_your_need': 'Publica lo que necesitas',
+      'describe_need_phrase': '¿Cómo describirías tu necesidad en una frase?',
+      'min_3_words': 'Mínimo 3 palabras para mayor claridad',
+      'how_long_service':
+          '¿Cuánto tiempo crees que tomará completar este servicio?',
+      'max_time_exceeded': '⚠️ Tiempo máximo excedido (1 año)',
+      'summary': 'Resumen',
+      'max_time_exceeded_summary': 'Tiempo máximo excedido',
+      'how_much_pay': '¿Cuánto estás dispuesto a pagar por este servicio?',
+      'min_budget': 'El mínimo es \$5.000 pesos',
+      'max_budget': 'El máximo es \$100.000.000 pesos',
+      'enter_budget': 'Ingresa el presupuesto',
+      'min_budget_error': 'El presupuesto mínimo es de \$5.000 pesos',
+      'max_budget_error': 'El presupuesto máximo es de \$100.000.000 de pesos',
+      'describe_better': 'Describe mejor lo que necesitas',
+      'min_20_words': 'Describe con más detalle (mínimo 20 palabras)',
+      'worker_know_before':
+          '¿Hay algo que el trabajador deba saber antes de postularse?',
+      'additional_info_worker': 'Información adicional para el trabajador',
+      'all_fields_required': 'Todos los campos son obligatorios',
+      'title_min_3_words': 'El título debe tener al menos 3 palabras',
+      'description_min_20_words':
+          'La descripción debe tener al menos 20 palabras',
+      'service_published_success': 'Servicio publicado exitosamente!',
+      'error_publishing_service': 'Error al publicar el servicio',
+      'connection_error': 'Error de conexión',
+
+      // Unidades de tiempo
+      'hours': 'Horas',
+      'days': 'Días',
+      'weeks': 'Semanas',
+      'months': 'Meses',
+      'years': 'Años',
+      'hour': 'Hora',
+      'day': 'Día',
+      'week': 'Semana',
+      'month': 'Mes',
+      'year': 'Año',
     },
     'en': {
       // Navigation and general
@@ -700,6 +763,67 @@ class AppLocalizations {
       'worker_info': 'Information for worker',
       'no_additional_info': 'No additional information',
       'publication_date': 'Publication date',
+
+      // Home Screen
+      'what_service_need_today': 'What service do you need today?',
+      'suggestions': 'Suggestions',
+      'explore_more_services': 'Explore more services',
+      'image': 'Image',
+      'home_service': 'Home service',
+      'new_services': 'New Services',
+      'cant_find_what_looking_for': "Can't find what you're looking for?",
+      'publish_request_experts':
+          'Publish your request and let the experts come to you. Stop wasting time searching, they will find you!',
+      'publish_btn': 'Publish',
+
+      // Session Expired Dialog
+      'session_closed': 'Session closed',
+      'session_closed_message':
+          'Your session has been closed because you logged in on another device.\n\nTo use the application on this device, you must verify your identity again.',
+
+      // All Services Screen
+      'services_of': 'Services of...',
+      'no_results_for_query': "We couldn't find results for",
+      'no_results_found': 'No results found',
+      'try_different_search': 'Try searching differently',
+
+      // Publish Service Screen
+      'publish_your_need': 'Publish what you need',
+      'describe_need_phrase': 'How would you describe your need in one phrase?',
+      'min_3_words': 'Minimum 3 words for clarity',
+      'how_long_service': 'How long do you think this service will take?',
+      'max_time_exceeded': '⚠️ Maximum time exceeded (1 year)',
+      'summary': 'Summary',
+      'max_time_exceeded_summary': 'Maximum time exceeded',
+      'how_much_pay': 'How much are you willing to pay for this service?',
+      'min_budget': 'Minimum is \$5,000 pesos',
+      'max_budget': 'Maximum is \$100,000,000 pesos',
+      'enter_budget': 'Enter the budget',
+      'min_budget_error': 'Minimum budget is \$5,000 pesos',
+      'max_budget_error': 'Maximum budget is \$100,000,000 pesos',
+      'describe_better': 'Describe better what you need',
+      'min_20_words': 'Describe in more detail (minimum 20 words)',
+      'worker_know_before':
+          'Is there anything the worker should know before applying?',
+      'additional_info_worker': 'Additional information for the worker',
+      'all_fields_required': 'All fields are required',
+      'title_min_3_words': 'Title must have at least 3 words',
+      'description_min_20_words': 'Description must have at least 20 words',
+      'service_published_success': 'Service published successfully!',
+      'error_publishing_service': 'Error publishing service',
+      'connection_error': 'Connection error',
+
+      // Time units
+      'hours': 'Hours',
+      'days': 'Days',
+      'weeks': 'Weeks',
+      'months': 'Months',
+      'years': 'Years',
+      'hour': 'Hour',
+      'day': 'Day',
+      'week': 'Week',
+      'month': 'Month',
+      'year': 'Year',
     },
   };
 

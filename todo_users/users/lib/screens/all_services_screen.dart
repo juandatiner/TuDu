@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/service.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 import 'allies_by_service_screen.dart';
 import 'publish_service_screen.dart';
 
@@ -109,7 +110,9 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              hintText: 'Servicios de...',
+              hintText:
+                  AppLocalizations.of(context)?.translate('services_of') ??
+                      'Servicios de...',
               hintStyle: TextStyle(color: themeProvider.secondaryTextColor),
               prefixIcon:
                   Icon(Icons.search, color: themeProvider.secondaryTextColor),
@@ -187,7 +190,9 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                                     ),
                                     child: Center(
                                       child: Text(
-                                        'Imagen',
+                                        AppLocalizations.of(context)
+                                                ?.translate('image') ??
+                                            'Imagen',
                                         style: TextStyle(
                                           color:
                                               themeProvider.secondaryTextColor,
@@ -225,14 +230,16 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
           showModalBottomSheet(
             context: context,
             backgroundColor: themeProvider.cardBgColor,
-            builder: (BuildContext context) {
+            builder: (BuildContext modalContext) {
               return Container(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '¿No encuentras lo que buscas?',
+                      AppLocalizations.of(modalContext)
+                              ?.translate('cant_find_what_looking_for') ??
+                          '¿No encuentras lo que buscas?',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -241,7 +248,9 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Publica tu solicitud y deja que los expertos vengan a ti. No pierdas tiempo buscando, ¡ellos te encontrarán!',
+                      AppLocalizations.of(modalContext)
+                              ?.translate('publish_request_experts') ??
+                          'Publica tu solicitud y deja que los expertos vengan a ti. No pierdas tiempo buscando, ¡ellos te encontrarán!',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -252,7 +261,7 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () {
-                        Navigator.pop(context); // Cerrar el modal
+                        Navigator.pop(modalContext); // Cerrar el modal
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -276,9 +285,11 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
                         ),
                         elevation: 5,
                       ),
-                      child: const Text(
-                        'Publicar',
-                        style: TextStyle(
+                      child: Text(
+                        AppLocalizations.of(modalContext)
+                                ?.translate('publish_btn') ??
+                            'Publicar',
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -301,6 +312,7 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
 
   Widget _buildNoResultsContent(ThemeProvider themeProvider) {
     final searchQuery = _searchController.text;
+    final loc = AppLocalizations.of(context);
 
     return Center(
       child: Column(
@@ -314,8 +326,9 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
           const SizedBox(height: 16),
           Text(
             searchQuery.isNotEmpty
-                ? "No encontramos resultados para '$searchQuery'"
-                : 'No se encontraron resultados',
+                ? "${loc?.translate('no_results_for_query') ?? "No encontramos resultados para"} '$searchQuery'"
+                : loc?.translate('no_results_found') ??
+                    'No se encontraron resultados',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -325,7 +338,8 @@ class _AllServicesScreenState extends State<AllServicesScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Intenta buscando de otra manera',
+            loc?.translate('try_different_search') ??
+                'Intenta buscando de otra manera',
             style: TextStyle(
               fontSize: 14,
               color: themeProvider.secondaryTextColor,

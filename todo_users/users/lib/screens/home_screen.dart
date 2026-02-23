@@ -7,6 +7,7 @@ import '../config.dart';
 import '../models/service.dart';
 import '../providers/theme_provider.dart';
 import '../services/session_service.dart';
+import '../l10n/app_localizations.dart';
 import 'all_services_screen.dart';
 import 'allies_by_service_screen.dart';
 import 'publish_service_screen.dart';
@@ -100,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black54,
-      builder: (context) => Dialog(
+      builder: (dialogContext) => Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
@@ -159,9 +160,11 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 24),
 
               // Título
-              const Text(
-                'Sesión cerrada',
-                style: TextStyle(
+              Text(
+                AppLocalizations.of(dialogContext)
+                        ?.translate('session_closed') ??
+                    'Sesión cerrada',
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
@@ -172,7 +175,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
               // Mensaje
               Text(
-                'Tu sesión ha sido cerrada porque iniciaste sesión en otro dispositivo.\n\nPara usar la aplicación en este dispositivo, debes verificar tu identidad nuevamente.',
+                AppLocalizations.of(dialogContext)
+                        ?.translate('session_closed_message') ??
+                    'Tu sesión ha sido cerrada porque iniciaste sesión en otro dispositivo.\n\nPara usar la aplicación en este dispositivo, debes verificar tu identidad nuevamente.',
                 style: TextStyle(
                   fontSize: 15,
                   color: Colors.black.withOpacity(0.7),
@@ -187,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.of(context).pop();
+                    Navigator.of(dialogContext).pop();
                     _navigateToLogin();
                   },
                   style: ElevatedButton.styleFrom(
@@ -199,9 +204,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     elevation: 4,
                   ),
-                  child: const Text(
-                    'Aceptar',
-                    style: TextStyle(
+                  child: Text(
+                    AppLocalizations.of(dialogContext)?.translate('accept') ??
+                        'Aceptar',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -373,9 +379,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: TextField(
                       enabled: false,
                       decoration: InputDecoration(
-                        hintText: '¿Qué servicio necesitas hoy?',
-                        hintStyle:
-                            TextStyle(color: themeProvider.secondaryTextColor),
+                        hintText: AppLocalizations.of(context)
+                                ?.translate('what_service_need_today') ??
+                            '¿Qué servicio necesitas hoy?',
+                        hintStyle: TextStyle(
+                          color: themeProvider.secondaryTextColor,
+                          fontSize: 14,
+                        ),
                         prefixIcon: Icon(Icons.search,
                             color: themeProvider.secondaryTextColor),
                         suffixIcon: Icon(Icons.mic,
@@ -399,7 +409,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Text('💡', style: TextStyle(fontSize: 24)),
                         const SizedBox(width: 8),
                         Text(
-                          'Sugerencias',
+                          AppLocalizations.of(context)
+                                  ?.translate('suggestions') ??
+                              'Sugerencias',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -429,7 +441,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                       ),
-                      child: const Text('Explorar más servicios'),
+                      child: Text(
+                        AppLocalizations.of(context)
+                                ?.translate('explore_more_services') ??
+                            'Explorar más servicios',
+                      ),
                     ),
                   ],
                 ),
@@ -482,10 +498,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                       bottomLeft: Radius.circular(10),
                                     ),
                                   ),
-                                  child: const Center(
+                                  child: Center(
                                     child: Text(
-                                      'Imagen',
-                                      style: TextStyle(color: Colors.white),
+                                      AppLocalizations.of(context)
+                                              ?.translate('image') ??
+                                          'Imagen',
+                                      style:
+                                          const TextStyle(color: Colors.white),
                                     ),
                                   ),
                                 ),
@@ -500,7 +519,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        service?.name ?? 'Servicio de hogar',
+                                        service?.name ??
+                                            AppLocalizations.of(context)
+                                                ?.translate('home_service') ??
+                                            'Servicio de hogar',
                                         style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
@@ -543,7 +565,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Text('🎉', style: TextStyle(fontSize: 24)),
                     const SizedBox(width: 8),
                     Text(
-                      'Nuevos Servicios',
+                      AppLocalizations.of(context)?.translate('new_services') ??
+                          'Nuevos Servicios',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -601,10 +624,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                       bottomLeft: Radius.circular(10),
                                     ),
                                   ),
-                                  child: const Center(
+                                  child: Center(
                                     child: Text(
-                                      'Imagen',
-                                      style: TextStyle(color: Colors.white),
+                                      AppLocalizations.of(context)
+                                              ?.translate('image') ??
+                                          'Imagen',
+                                      style:
+                                          const TextStyle(color: Colors.white),
                                     ),
                                   ),
                                 ),
@@ -619,7 +645,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        service?.name ?? 'Servicio de hogar',
+                                        service?.name ??
+                                            AppLocalizations.of(context)
+                                                ?.translate('home_service') ??
+                                            'Servicio de hogar',
                                         style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
@@ -676,18 +705,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        '¿No encuentras lo que buscas?',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: themeProvider.textColor,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          AppLocalizations.of(context)
+                                  ?.translate('cant_find_what_looking_for') ??
+                              '¿No encuentras lo que buscas?',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: themeProvider.textColor,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Publica tu solicitud y deja que los expertos vengan a ti. No pierdas tiempo buscando, ¡ellos te encontrarán!',
+                        AppLocalizations.of(context)
+                                ?.translate('publish_request_experts') ??
+                            'Publica tu solicitud y deja que los expertos vengan a ti. No pierdas tiempo buscando, ¡ellos te encontrarán!',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -721,9 +757,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           elevation: 5,
                         ),
-                        child: const Text(
-                          'Publicar',
-                          style: TextStyle(
+                        child: Text(
+                          AppLocalizations.of(context)
+                                  ?.translate('publish_btn') ??
+                              'Publicar',
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -740,14 +778,23 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
           return BottomNavigationBar(
-            items: const <BottomNavigationBarItem>[
-              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
+            items: <BottomNavigationBarItem>[
               BottomNavigationBarItem(
-                  icon: Icon(Icons.message), label: 'Mensajes'),
+                  icon: const Icon(Icons.home),
+                  label: AppLocalizations.of(context)?.translate('home') ??
+                      'Inicio'),
               BottomNavigationBarItem(
-                  icon: Icon(Icons.work), label: 'Servicios'),
+                  icon: const Icon(Icons.message),
+                  label: AppLocalizations.of(context)?.translate('messages') ??
+                      'Mensajes'),
               BottomNavigationBarItem(
-                  icon: Icon(Icons.person), label: 'Perfil'),
+                  icon: const Icon(Icons.work),
+                  label: AppLocalizations.of(context)?.translate('services') ??
+                      'Servicios'),
+              BottomNavigationBarItem(
+                  icon: const Icon(Icons.person),
+                  label: AppLocalizations.of(context)?.translate('profile') ??
+                      'Perfil'),
             ],
             currentIndex: _selectedIndex,
             selectedItemColor: Colors.blue,

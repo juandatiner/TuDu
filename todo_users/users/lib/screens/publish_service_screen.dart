@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 
 class PublishServiceScreen extends StatefulWidget {
   final String userEmail;
@@ -34,14 +35,36 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
 
   final FocusNode _budgetFocusNode = FocusNode();
 
-  final List<String> _units = ['Horas', 'Días', 'Semanas', 'Meses', 'Años'];
-  final List<String> _unitsSingular = ['Hora', 'Día', 'Semana', 'Mes', 'Año'];
   final FixedExtentScrollController _quantityController =
       FixedExtentScrollController(initialItem: 5000);
   final FixedExtentScrollController _unitController =
       FixedExtentScrollController(initialItem: 5000);
 
+  // Listas de unidades que se actualizarán dinámicamente según el idioma
+  List<String> _units = ['Horas', 'Días', 'Semanas', 'Meses', 'Años'];
+  List<String> _unitsSingular = ['Hora', 'Día', 'Semana', 'Mes', 'Año'];
+
+  void _updateUnitsForLanguage(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    _units = [
+      loc?.translate('hours') ?? 'Horas',
+      loc?.translate('days') ?? 'Días',
+      loc?.translate('weeks') ?? 'Semanas',
+      loc?.translate('months') ?? 'Meses',
+      loc?.translate('years') ?? 'Años',
+    ];
+    _unitsSingular = [
+      loc?.translate('hour') ?? 'Hora',
+      loc?.translate('day') ?? 'Día',
+      loc?.translate('week') ?? 'Semana',
+      loc?.translate('month') ?? 'Mes',
+      loc?.translate('year') ?? 'Año',
+    ];
+  }
+
   Future<void> _publishService() async {
+    final loc = AppLocalizations.of(context);
+
     // Redondear presupuesto a centenas antes de validar
     final budgetText = _budgetController.text.trim();
     final numericBudgetForRounding = budgetText.replaceAll(',', '');
@@ -68,8 +91,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
         budget.isEmpty ||
         workerInfo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Todos los campos son obligatorios'),
+        SnackBar(
+          content: Text(loc?.translate('all_fields_required') ??
+              'Todos los campos son obligatorios'),
           backgroundColor: Colors.red,
         ),
       );
@@ -82,8 +106,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
         _titleError = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('El título debe tener al menos 3 palabras'),
+        SnackBar(
+          content: Text(loc?.translate('title_min_3_words') ??
+              'El título debe tener al menos 3 palabras'),
           backgroundColor: Colors.red,
         ),
       );
@@ -96,8 +121,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
         _descriptionError = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('La descripción debe tener al menos 20 palabras'),
+        SnackBar(
+          content: Text(loc?.translate('description_min_20_words') ??
+              'La descripción debe tener al menos 20 palabras'),
           backgroundColor: Colors.red,
         ),
       );
@@ -109,8 +135,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     final budgetValue = double.tryParse(numericBudget) ?? 0;
     if (budgetValue < 5000) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('El presupuesto mínimo es de \$5.000 pesos'),
+        SnackBar(
+          content: Text(loc?.translate('min_budget_error') ??
+              'El presupuesto mínimo es de \$5.000 pesos'),
           backgroundColor: Colors.red,
         ),
       );
@@ -118,8 +145,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     }
     if (budgetValue > 100000000) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('El presupuesto máximo es de \$100.000.000 de pesos'),
+        SnackBar(
+          content: Text(loc?.translate('max_budget_error') ??
+              'El presupuesto máximo es de \$100.000.000 de pesos'),
           backgroundColor: Colors.red,
         ),
       );
@@ -150,8 +178,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Servicio publicado exitosamente!'),
+          SnackBar(
+            content: Text(loc?.translate('service_published_success') ??
+                'Servicio publicado exitosamente!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -160,7 +189,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Error al publicar el servicio: ${response.statusCode} - ${response.body}',
+              '${loc?.translate('error_publishing_service') ?? 'Error al publicar el servicio'}: ${response.statusCode} - ${response.body}',
             ),
             backgroundColor: Colors.red,
           ),
@@ -170,7 +199,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
       print('Exception: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error de conexión: $e'),
+          content: Text(
+              '${loc?.translate('connection_error') ?? 'Error de conexión'}: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -222,9 +252,12 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
   }
 
   void _updateSummary() {
+    final loc = AppLocalizations.of(context);
+
     if (_selectedQuantity == 0) {
       setState(() {
-        _summary = 'Resumen: 0 días';
+        _summary =
+            '${loc?.translate('summary') ?? 'Resumen'}: 0 ${loc?.translate('days') ?? 'días'}';
         _showMaxYearWarning = false;
       });
       return;
@@ -255,7 +288,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
 
     if (_showMaxYearWarning) {
       setState(() {
-        _summary = 'Resumen: Tiempo máximo excedido';
+        _summary =
+            '${loc?.translate('summary') ?? 'Resumen'}: ${loc?.translate('max_time_exceeded_summary') ?? 'Tiempo máximo excedido'}';
         return;
       });
     }
@@ -268,17 +302,27 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     final days = remainingDays2 % 7;
 
     final parts = <String>[];
-    if (years > 0) parts.add('$years ${years == 1 ? 'año' : 'años'}');
-    if (months > 0) parts.add('$months ${months == 1 ? 'mes' : 'meses'}');
-    if (weeks > 0) parts.add('$weeks ${weeks == 1 ? 'semana' : 'semanas'}');
-    if (days > 0) parts.add('$days ${days == 1 ? 'día' : 'días'}');
+    if (years > 0)
+      parts.add(
+          '$years ${years == 1 ? (loc?.translate('year') ?? 'año') : (loc?.translate('years') ?? 'años')}');
+    if (months > 0)
+      parts.add(
+          '$months ${months == 1 ? (loc?.translate('month') ?? 'mes') : (loc?.translate('months') ?? 'meses')}');
+    if (weeks > 0)
+      parts.add(
+          '$weeks ${weeks == 1 ? (loc?.translate('week') ?? 'semana') : (loc?.translate('weeks') ?? 'semanas')}');
+    if (days > 0)
+      parts.add(
+          '$days ${days == 1 ? (loc?.translate('day') ?? 'día') : (loc?.translate('days') ?? 'días')}');
 
     if (parts.isEmpty && totalDays > 0) {
-      parts.add('$totalDays ${totalDays == 1 ? 'día' : 'días'}');
+      parts.add(
+          '$totalDays ${totalDays == 1 ? (loc?.translate('day') ?? 'día') : (loc?.translate('days') ?? 'días')}');
     }
 
     setState(() {
-      _summary = 'Resumen: ${parts.isNotEmpty ? parts.join(' y ') : '0 días'}';
+      _summary =
+          '${loc?.translate('summary') ?? 'Resumen'}: ${parts.isNotEmpty ? parts.join(' y ') : '0 ${loc?.translate('days') ?? 'días'}'}';
     });
   }
 
@@ -300,6 +344,10 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final loc = AppLocalizations.of(context);
+
+    // Actualizar unidades según el idioma
+    _updateUnitsForLanguage(context);
 
     // Agregar listener para redondear cuando el campo pierde el foco
     _budgetFocusNode.removeListener(_roundBudgetOnUnfocus);
@@ -327,7 +375,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          'Publica lo que necesitas',
+                          loc?.translate('publish_your_need') ??
+                              'Publica lo que necesitas',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -344,7 +393,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '¿Cómo describirías tu necesidad en una frase?',
+                      loc?.translate('describe_need_phrase') ??
+                          '¿Cómo describirías tu necesidad en una frase?',
                       style: TextStyle(
                           fontSize: 16, color: themeProvider.textColor),
                     ),
@@ -372,7 +422,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                           ),
                           counterText: '',
                           hintText: _titleError
-                              ? 'Mínimo 3 palabras para mayor claridad'
+                              ? loc?.translate('min_3_words') ??
+                                  'Mínimo 3 palabras para mayor claridad'
                               : null,
                           hintStyle: TextStyle(
                             fontSize: 14,
@@ -384,7 +435,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      '¿Cuánto tiempo crees que tomará completar este servicio?',
+                      loc?.translate('how_long_service') ??
+                          '¿Cuánto tiempo crees que tomará completar este servicio?',
                       style: TextStyle(
                           fontSize: 16, color: themeProvider.textColor),
                     ),
@@ -534,7 +586,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                       child: Center(
                         child: Text(
                           _showMaxYearWarning
-                              ? '⚠️ Tiempo máximo excedido (1 año)'
+                              ? loc?.translate('max_time_exceeded') ??
+                                  '⚠️ Tiempo máximo excedido (1 año)'
                               : _summary,
                           textAlign: TextAlign.center,
                           style: TextStyle(
@@ -551,7 +604,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      '¿Cuánto estás dispuesto a pagar por este servicio?',
+                      loc?.translate('how_much_pay') ??
+                          '¿Cuánto estás dispuesto a pagar por este servicio?',
                       style: TextStyle(
                           fontSize: 16, color: themeProvider.textColor),
                     ),
@@ -622,16 +676,18 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
 
                           if (_budgetMaxError) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
+                              SnackBar(
+                                content: Text(loc
+                                        ?.translate('max_budget_error') ??
                                     'El presupuesto máximo es de \$100.000.000 pesos'),
                                 backgroundColor: Colors.red,
                               ),
                             );
                           } else if (_budgetError) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
+                              SnackBar(
+                                content: Text(loc
+                                        ?.translate('min_budget_error') ??
                                     'El presupuesto mínimo es de \$5.000 pesos'),
                                 backgroundColor: Colors.red,
                               ),
@@ -645,10 +701,13 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                             vertical: 15,
                           ),
                           hintText: _budgetError
-                              ? 'El mínimo es \$5.000 pesos'
+                              ? loc?.translate('min_budget') ??
+                                  'El mínimo es \$5.000 pesos'
                               : _budgetMaxError
-                                  ? 'El máximo es \$100.000.000 pesos'
-                                  : 'Ingresa el presupuesto',
+                                  ? loc?.translate('max_budget') ??
+                                      'El máximo es \$100.000.000 pesos'
+                                  : loc?.translate('enter_budget') ??
+                                      'Ingresa el presupuesto',
                           hintStyle: TextStyle(
                             fontSize: 16,
                             color: (_budgetError || _budgetMaxError)
@@ -667,7 +726,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Describe mejor lo que necesitas',
+                      loc?.translate('describe_better') ??
+                          'Describe mejor lo que necesitas',
                       style: TextStyle(
                           fontSize: 16, color: themeProvider.textColor),
                     ),
@@ -695,7 +755,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                           ),
                           counterText: '',
                           hintText: _descriptionError
-                              ? 'Describe con más detalle (mínimo 20 palabras)'
+                              ? loc?.translate('min_20_words') ??
+                                  'Describe con más detalle (mínimo 20 palabras)'
                               : null,
                           hintStyle: TextStyle(
                             fontSize: 14,
@@ -707,7 +768,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      '¿Hay algo que el trabajador deba saber antes de postularse?',
+                      loc?.translate('worker_know_before') ??
+                          '¿Hay algo que el trabajador deba saber antes de postularse?',
                       style: TextStyle(
                           fontSize: 16, color: themeProvider.textColor),
                     ),
@@ -730,7 +792,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                             vertical: 15,
                           ),
                           counterText: '',
-                          hintText: 'Información adicional para el trabajador',
+                          hintText: loc?.translate('additional_info_worker') ??
+                              'Información adicional para el trabajador',
                           hintStyle: TextStyle(
                             color: themeProvider.secondaryTextColor,
                           ),
@@ -754,9 +817,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                           ),
                           elevation: 5,
                         ),
-                        child: const Text(
-                          'Publicar',
-                          style: TextStyle(
+                        child: Text(
+                          loc?.translate('publish_btn') ?? 'Publicar',
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
