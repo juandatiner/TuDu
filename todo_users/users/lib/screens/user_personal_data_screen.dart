@@ -648,7 +648,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
   Widget _getIconWidget() {
     return Icon(
       _getIconData(_selectedIcon),
-      size: 60,
+      size: 50,
       color: Colors.white,
     );
   }
@@ -1064,14 +1064,14 @@ class _MyDataScreenState extends State<MyDataScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 10),
                       // Avatar
                       Stack(
                         alignment: Alignment.bottomRight,
                         children: [
                           Container(
-                            width: 120,
-                            height: 120,
+                            width: 100,
+                            height: 100,
                             decoration: BoxDecoration(
                               color: _parseColor(_avatarColor),
                               shape: BoxShape.circle,
@@ -1117,8 +1117,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           GestureDetector(
                             onTap: _showAvatarOptions,
                             child: Container(
-                              width: 40,
-                              height: 40,
+                              width: 32,
+                              height: 32,
                               decoration: BoxDecoration(
                                 color: const Color(0xFF78BF32),
                                 shape: BoxShape.circle,
@@ -1139,14 +1139,14 @@ class _MyDataScreenState extends State<MyDataScreen> {
                               ),
                               child: const Icon(
                                 Icons.camera_alt,
-                                size: 20,
+                                size: 16,
                                 color: Colors.white,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 24),
                       // Campo Nombre
                       Container(
                         decoration: BoxDecoration(
