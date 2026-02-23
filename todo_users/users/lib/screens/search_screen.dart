@@ -251,6 +251,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final loc = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
@@ -289,7 +290,7 @@ class _SearchScreenState extends State<SearchScreen> {
               }
             },
             decoration: InputDecoration(
-              hintText: 'Servicios de...',
+              hintText: loc?.translate('services_of') ?? 'Servicios de...',
               hintStyle: TextStyle(color: themeProvider.secondaryTextColor),
               prefixIcon:
                   Icon(Icons.search, color: themeProvider.secondaryTextColor),
@@ -305,7 +306,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
       ),
-      body: _buildBody(themeProvider),
+      body: _buildBody(themeProvider, loc),
       floatingActionButton: _searchController.text.isNotEmpty
           ? FloatingActionButton(
               onPressed: () {
@@ -388,7 +389,7 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildBody(ThemeProvider themeProvider) {
+  Widget _buildBody(ThemeProvider themeProvider, AppLocalizations? loc) {
     // Si está escribiendo y hay texto
     if (_searchController.text.isNotEmpty) {
       // Si hay sugerencias que coinciden
@@ -396,7 +397,7 @@ class _SearchScreenState extends State<SearchScreen> {
         return _buildSuggestionsList(themeProvider);
       } else {
         // Si nada coincide, mostrar botón con imagen difuminada
-        return _buildNoResultsView(themeProvider);
+        return _buildNoResultsView(themeProvider, loc);
       }
     }
 
@@ -443,7 +444,8 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildNoResultsView(ThemeProvider themeProvider) {
+  Widget _buildNoResultsView(
+      ThemeProvider themeProvider, AppLocalizations? loc) {
     return Column(
       children: [
         const SizedBox(height: 20),
@@ -475,7 +477,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                "No encontramos resultados para '${_searchController.text}'",
+                "${loc?.translate('no_results_for_query') ?? 'No encontramos resultados para'} '${_searchController.text}'",
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -485,7 +487,8 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Intenta buscando de otra manera',
+                loc?.translate('try_different_search') ??
+                    'Intenta buscando de otra manera',
                 style: TextStyle(
                   fontSize: 14,
                   color: themeProvider.secondaryTextColor,
