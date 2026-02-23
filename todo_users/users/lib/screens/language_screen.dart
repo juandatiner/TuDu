@@ -55,7 +55,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
               _buildLanguageOption(
                 themeProvider,
                 languageProvider,
-                Icons.language,
+                'colombia',
                 'Español (Colombia)',
                 'Español - Colombia',
                 languageProvider.isSpanish,
@@ -65,7 +65,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
               _buildLanguageOption(
                 themeProvider,
                 languageProvider,
-                Icons.language,
+                'usa',
                 'English (US)',
                 'English - United States',
                 languageProvider.isEnglish,
@@ -105,7 +105,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
   Widget _buildLanguageOption(
     ThemeProvider themeProvider,
     LanguageProvider languageProvider,
-    IconData icon,
+    String country,
     String title,
     String subtitle,
     bool isSelected,
@@ -136,23 +136,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
         ),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? ThemeProvider.primaryColor.withOpacity(0.15)
-                    : themeProvider.borderColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected
-                    ? ThemeProvider.primaryColor
-                    : themeProvider.secondaryTextColor,
-                size: 28,
-              ),
-            ),
+            _buildFlag(country, isSelected),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -199,6 +183,31 @@ class _LanguageScreenState extends State<LanguageScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFlag(String country, bool isSelected) {
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: country == 'colombia' ? _buildColombiaFlag() : _buildUSAFlag(),
+      ),
+    );
+  }
+
+  Widget _buildColombiaFlag() {
+    return Image.asset(
+      'assets/images/flags/flag-colombia.png',
+      fit: BoxFit.cover,
+    );
+  }
+
+  Widget _buildUSAFlag() {
+    return Image.asset(
+      'assets/images/flags/flag-united-states.png',
+      fit: BoxFit.cover,
     );
   }
 

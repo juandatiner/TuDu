@@ -39,6 +39,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/logos/
+    - assets/images/flags/
     - assets/icons/
     - assets/sounds/entrada.mp3
 
