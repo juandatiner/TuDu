@@ -826,39 +826,48 @@ class _AddCardDialogState extends State<_AddCardDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Icon(
-                Icons.credit_card,
-                color: Colors.white,
-                size: 30,
-              ),
-              // Logo de la tarjeta
-              if (_getCardLogoPath(cardType) != null)
-                Container(
-                  height: 35,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Image.asset(
-                    _getCardLogoPath(cardType)!,
-                    fit: BoxFit.contain,
-                  ),
+          SizedBox(
+            height: 35,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Icon(
+                  Icons.credit_card,
+                  color: Colors.white,
+                  size: 30,
                 ),
-            ],
+                // Logo de la tarjeta
+                if (_getCardLogoPath(cardType) != null)
+                  Container(
+                    height: 35,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Image.asset(
+                      _getCardLogoPath(cardType)!,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+              ],
+            ),
           ),
-          Text(
-            _formatCardNumberWithHashes(_cardNumberController.text),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-              fontFamily: 'Courier',
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                _formatCardNumberWithHashes(_cardNumberController.text),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                  fontFamily: 'Courier',
+                ),
+              ),
             ),
           ),
           Row(
