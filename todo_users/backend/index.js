@@ -1228,6 +1228,28 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
         console.log('Tabla device_sessions lista');
       }
     });
+
+  // Crear tabla de tarjetas de usuarios si no existe
+  usersDb.run(`CREATE TABLE IF NOT EXISTS user_cards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_email TEXT NOT NULL,
+      card_number TEXT NOT NULL,
+      card_holder TEXT NOT NULL,
+      expiry_date TEXT NOT NULL,
+      cvv TEXT NOT NULL,
+      card_type TEXT DEFAULT 'visa',
+      document_type TEXT DEFAULT 'C.C',
+      document_number TEXT,
+      is_default INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_email) REFERENCES users(email)
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla user_cards:', err.message);
+      } else {
+        console.log('Tabla user_cards lista');
+      }
+    });
   }
 });
 
@@ -1994,6 +2016,112 @@ app.delete('/user-addresses/:id', (req, res) => {
       return res.status(404).json({ error: 'Direccion no encontrada' });
     }
     res.json({ message: 'Direccion eliminada exitosamente' });
+  });
+});
+
+// ============================================
+// ENDPOINTS PARA TARJETAS DE USUARIO
+// ============================================
+
+// Endpoint para obtener tarjetas de un usuario
+app.get('/users/cards/:userEmail', (req, res) => {
+  const { userEmail } = req.params;
+
+  usersDb.all(`SELECT * FROM user_cards WHERE user_email = ? ORDER BY is_default DESC, created_at DESC`, [userEmail], (err, rows) => {
+    if (err) {
+      console.error('Error obteniendo tarjetas:', err);
+      return res.status(500).json({ error: 'Error obteniendo tarjetas' });
+    }
+    res.json(rows);
+  });
+});
+
+// Endpoint para agregar una tarjeta
+app.post('/users/cards', (req, res) => {
+  const {
+    user_email,
+    card_number,
+    card_holder,
+    expiry_date,
+    cvv,
+    card_type,
+    document_type,
+    document_number,
+    is_default
+  } = req.body;
+
+  if (!user_email || !card_number || !card_holder || !expiry_date || !cvv) {
+    return res.status(400).json({ error: 'Faltan campos requeridos' });
+  }
+
+  // Si es tarjeta predeterminada, quitar predeterminada de las demás
+  if (is_default) {
+    usersDb.run(`UPDATE user_cards SET is_default = 0 WHERE user_email = ?`, [user_email], (err) => {
+      if (err) {
+        console.error('Error actualizando tarjetas predeterminadas:', err);
+      }
+    });
+  }
+
+  const query = `INSERT INTO user_cards (user_email, card_number, card_holder, expiry_date, cvv, card_type, document_type, document_number, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const params = [user_email, card_number, card_holder, expiry_date, cvv, card_type || 'visa', document_type || 'C.C', document_number, is_default ? 1 : 0];
+
+  usersDb.run(query, params, function(err) {
+    if (err) {
+      console.error('Error guardando tarjeta:', err);
+      return res.status(500).json({ error: 'Error guardando tarjeta' });
+    }
+    res.json({
+      success: true,
+      message: 'Tarjeta guardada exitosamente',
+      id: this.lastID
+    });
+  });
+});
+
+// Endpoint para eliminar una tarjeta
+app.delete('/users/cards/:id', (req, res) => {
+  const { id } = req.params;
+
+  usersDb.run(`DELETE FROM user_cards WHERE id = ?`, [id], function(err) {
+    if (err) {
+      console.error('Error eliminando tarjeta:', err);
+      return res.status(500).json({ error: 'Error eliminando tarjeta' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    }
+    res.json({ message: 'Tarjeta eliminada exitosamente' });
+  });
+});
+
+// Endpoint para establecer tarjeta predeterminada
+app.put('/users/cards/:id/default', (req, res) => {
+  const { id } = req.params;
+  const { user_email } = req.body;
+
+  if (!user_email) {
+    return res.status(400).json({ error: 'Email de usuario es requerido' });
+  }
+
+  // Quitar predeterminada de todas las tarjetas del usuario
+  usersDb.run(`UPDATE user_cards SET is_default = 0 WHERE user_email = ?`, [user_email], (err) => {
+    if (err) {
+      console.error('Error actualizando tarjetas:', err);
+      return res.status(500).json({ error: 'Error actualizando tarjetas' });
+    }
+
+    // Establecer la tarjeta seleccionada como predeterminada
+    usersDb.run(`UPDATE user_cards SET is_default = 1 WHERE id = ?`, [id], function(err) {
+      if (err) {
+        console.error('Error estableciendo tarjeta predeterminada:', err);
+        return res.status(500).json({ error: 'Error estableciendo tarjeta predeterminada' });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Tarjeta no encontrada' });
+      }
+      res.json({ message: 'Tarjeta establecida como predeterminada' });
+    });
   });
 });
 

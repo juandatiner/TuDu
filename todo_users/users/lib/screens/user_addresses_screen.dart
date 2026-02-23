@@ -809,14 +809,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Title
-                  Text(
-                    loc.translate('add_address'),
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: themeProvider.textColor,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      loc.translate('add_address'),
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: themeProvider.textColor,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   // Address Name Field

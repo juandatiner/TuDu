@@ -11,6 +11,7 @@ import 'home_screen.dart';
 import 'user_services_screen.dart';
 import 'user_personal_data_screen.dart';
 import 'user_addresses_screen.dart';
+import 'user_cards_screen.dart';
 import 'terms_and_conditions_screen.dart';
 import 'data_protection_screen.dart';
 import 'login_screen.dart';
@@ -417,7 +418,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             icon: Icons.credit_card,
                             label: loc.translate('my_cards'),
                             onTap: () {
-                              // Sin funcionalidad por ahora
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => MyCardsScreen(
+                                      userEmail: widget.userEmail),
+                                ),
+                              );
                             },
                           ),
                         ],
