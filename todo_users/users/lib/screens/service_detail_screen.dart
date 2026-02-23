@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/service_in_search.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 
 class ServiceDetailScreen extends StatelessWidget {
   final ServiceInSearch service;
@@ -35,20 +36,21 @@ class ServiceDetailScreen extends StatelessWidget {
     return const Color(0xFF78BF32);
   }
 
-  String _getStatusText(String status) {
+  String _getStatusText(String status, BuildContext context) {
+    final loc = AppLocalizations.of(context);
     switch (status) {
       case 'EN ESPERA':
-        return 'Pendiente por asignar';
+        return loc?.translate('pending_assignment') ?? 'Pendiente por asignar';
       case 'EN PROCESO':
-        return 'En proceso';
+        return loc?.translate('in_process') ?? 'En proceso';
       case 'TERMINADO':
-        return 'Terminado';
+        return loc?.translate('finished') ?? 'Terminado';
       case 'CANCELADO':
-        return 'Cancelado';
+        return loc?.translate('cancelled') ?? 'Cancelado';
       case 'RETRASADO':
-        return 'Retrasado';
+        return loc?.translate('delayed') ?? 'Retrasado';
       case 'FINALIZADO':
-        return 'Finalizado';
+        return loc?.translate('completed') ?? 'Finalizado';
       default:
         return status;
     }
@@ -60,43 +62,75 @@ class ServiceDetailScreen extends StatelessWidget {
     return budget;
   }
 
-  String _formatTimeUnit(int quantity, String unit) {
-    // Mapa de unidades en plural a singular
-    final singularUnits = {
-      'años': 'año',
-      'meses': 'mes',
-      'semanas': 'semana',
-      'días': 'día',
-      'horas': 'hora',
-      'año': 'año',
-      'mes': 'mes',
-      'semana': 'semana',
-      'día': 'día',
-      'hora': 'hora',
+  String _formatTimeUnit(int quantity, String unit, BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    // Normalizar la unidad a minúsculas y singular para buscar
+    final normalizedUnit =
+        unit.toLowerCase().replaceAll('es', '').replaceAll('s', '');
+
+    // Determinar si usar singular o plural basado en la cantidad
+    final isSingular = quantity == 1;
+
+    // Mapa de unidades normalizadas a sus claves de traducción
+    final singularKeys = {
+      'año': 'year_singular',
+      'mes': 'month_singular',
+      'semana': 'week_singular',
+      'día': 'day_singular',
+      'hora': 'hour_singular',
     };
 
-    final singularUnit = singularUnits[unit.toLowerCase()] ?? unit;
-    return quantity == 1
-        ? singularUnit
-        : '${singularUnit}${unit.toLowerCase() == 'mes' ? 'es' : 's'}';
+    final pluralKeys = {
+      'año': 'year_plural',
+      'mes': 'month_plural',
+      'semana': 'week_plural',
+      'día': 'day_plural',
+      'hora': 'hour_plural',
+    };
+
+    final keyMap = isSingular ? singularKeys : pluralKeys;
+    final key = keyMap[normalizedUnit] ?? unit;
+    return loc?.translate(key) ?? unit;
   }
 
-  String _getFinishText(String status) {
+  String _getFinishText(String status, BuildContext context) {
+    final loc = AppLocalizations.of(context);
     switch (status) {
       case 'EN ESPERA':
-        return 'Pendiente por asignar';
+        return loc?.translate('pending_assignment') ?? 'Pendiente por asignar';
       case 'EN PROCESO':
-        return 'En desarrollo';
+        return loc?.translate('in_development') ?? 'En desarrollo';
       case 'TERMINADO':
-        return 'Completado';
+        return loc?.translate('finished') ?? 'Completado';
       case 'CANCELADO':
-        return 'Cancelado';
+        return loc?.translate('cancelled') ?? 'Cancelado';
       case 'RETRASADO':
-        return 'En retraso';
+        return loc?.translate('in_delay') ?? 'En retraso';
       case 'FINALIZADO':
-        return 'Finalizado';
+        return loc?.translate('completed') ?? 'Finalizado';
       default:
-        return 'Pendiente por asignar';
+        return loc?.translate('pending_assignment') ?? 'Pendiente por asignar';
+    }
+  }
+
+  String _getTranslatedStatus(String status, BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    switch (status) {
+      case 'EN ESPERA':
+        return loc?.translate('waiting_status') ?? 'EN ESPERA';
+      case 'EN PROCESO':
+        return loc?.translate('in_process_status') ?? 'EN PROCESO';
+      case 'TERMINADO':
+        return loc?.translate('finished_status') ?? 'TERMINADO';
+      case 'CANCELADO':
+        return loc?.translate('cancelled_status') ?? 'CANCELADO';
+      case 'RETRASADO':
+        return loc?.translate('delayed_status') ?? 'RETRASADO';
+      case 'FINALIZADO':
+        return loc?.translate('completed_status') ?? 'FINALIZADO';
+      default:
+        return status;
     }
   }
 
@@ -115,7 +149,8 @@ class ServiceDetailScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Detalles del Servicio',
+          AppLocalizations.of(context)?.translate('service_details') ??
+              'Detalles del Servicio',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -174,7 +209,7 @@ class ServiceDetailScreen extends StatelessWidget {
                         ],
                       ),
                       child: Text(
-                        service.status,
+                        _getTranslatedStatus(service.status, context),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -233,7 +268,9 @@ class ServiceDetailScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 10),
                                   Text(
-                                    'Inicio',
+                                    AppLocalizations.of(context)
+                                            ?.translate('start') ??
+                                        'Inicio',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: themeProvider.secondaryTextColor,
@@ -242,7 +279,7 @@ class ServiceDetailScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    _getStatusText(service.status),
+                                    _getStatusText(service.status, context),
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
@@ -282,7 +319,9 @@ class ServiceDetailScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 10),
                                   Text(
-                                    'Finalización',
+                                    AppLocalizations.of(context)
+                                            ?.translate('finish') ??
+                                        'Finalización',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: themeProvider.secondaryTextColor,
@@ -291,7 +330,7 @@ class ServiceDetailScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    _getFinishText(service.status),
+                                    _getFinishText(service.status, context),
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
@@ -332,8 +371,12 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Aliado a cargo
                             _buildInfoSection(
                               icon: Icons.person_outline,
-                              title: 'Aliado a cargo',
-                              content: 'Pendiente por asignar',
+                              title: AppLocalizations.of(context)
+                                      ?.translate('ally_in_charge') ??
+                                  'Aliado a cargo',
+                              content: AppLocalizations.of(context)
+                                      ?.translate('pending_assignment') ??
+                                  'Pendiente por asignar',
                               themeColor: themeColor,
                               themeProvider: themeProvider,
                             ),
@@ -343,7 +386,9 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Descripción
                             _buildInfoSection(
                               icon: Icons.description_outlined,
-                              title: 'Descripción',
+                              title: AppLocalizations.of(context)
+                                      ?.translate('description') ??
+                                  'Descripción',
                               content: service.description,
                               themeColor: themeColor,
                               themeProvider: themeProvider,
@@ -354,9 +399,11 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Tiempo estimado
                             _buildInfoSection(
                               icon: Icons.schedule_outlined,
-                              title: 'Tiempo estimado',
+                              title: AppLocalizations.of(context)
+                                      ?.translate('estimated_time') ??
+                                  'Tiempo estimado',
                               content:
-                                  '${service.timeQuantity} ${_formatTimeUnit(service.timeQuantity, service.timeUnit)}',
+                                  '${service.timeQuantity} ${_formatTimeUnit(service.timeQuantity, service.timeUnit, context)}',
                               themeColor: themeColor,
                               themeProvider: themeProvider,
                             ),
@@ -366,7 +413,9 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Presupuesto
                             _buildInfoSection(
                               icon: Icons.attach_money,
-                              title: 'Presupuesto',
+                              title: AppLocalizations.of(context)
+                                      ?.translate('budget') ??
+                                  'Presupuesto',
                               content: '\$${_formatBudget(service.budget)}',
                               themeColor: themeColor,
                               themeProvider: themeProvider,
@@ -377,10 +426,14 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Información para el trabajador
                             _buildInfoSection(
                               icon: Icons.work_outline,
-                              title: 'Información para el trabajador',
+                              title: AppLocalizations.of(context)
+                                      ?.translate('worker_info') ??
+                                  'Información para el trabajador',
                               content: service.workerInfo.isNotEmpty
                                   ? service.workerInfo
-                                  : 'Sin información adicional',
+                                  : AppLocalizations.of(context)
+                                          ?.translate('no_additional_info') ??
+                                      'Sin información adicional',
                               themeColor: themeColor,
                               themeProvider: themeProvider,
                             ),
@@ -390,7 +443,9 @@ class ServiceDetailScreen extends StatelessWidget {
                             // Fecha de publicación
                             _buildInfoSection(
                               icon: Icons.calendar_today_outlined,
-                              title: 'Fecha de publicación',
+                              title: AppLocalizations.of(context)
+                                      ?.translate('publication_date') ??
+                                  'Fecha de publicación',
                               content: service.createdAt.substring(0, 10),
                               themeColor: themeColor,
                               themeProvider: themeProvider,

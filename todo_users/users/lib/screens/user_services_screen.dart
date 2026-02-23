@@ -6,6 +6,7 @@ import '../config.dart';
 import '../models/service_in_search.dart';
 import '../models/service.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 import 'all_services_screen.dart';
 import 'service_detail_screen.dart';
 import 'home_screen.dart';
@@ -44,14 +45,47 @@ class _UserServicesScreenState extends State<UserServicesScreen>
   late Animation<double> _expandAnimation;
 
   // Lista de estados disponibles con sus colores naturales
-  final List<Map<String, dynamic>> _statusFilters = [
-    {'status': 'EN ESPERA', 'color': Colors.grey, 'icon': Icons.schedule},
-    {'status': 'EN PROCESO', 'color': Colors.amber, 'icon': Icons.autorenew},
-    {'status': 'TERMINADO', 'color': Colors.green, 'icon': Icons.check_circle},
-    {'status': 'CANCELADO', 'color': Colors.red, 'icon': Icons.cancel},
-    {'status': 'RETRASADO', 'color': Colors.orange, 'icon': Icons.warning},
-    {'status': 'FINALIZADO', 'color': Colors.brown, 'icon': Icons.done_all},
-  ];
+  List<Map<String, dynamic>> _getStatusFilters(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return [
+      {
+        'status': 'EN ESPERA',
+        'translatedStatus': loc?.translate('waiting_status') ?? 'EN ESPERA',
+        'color': Colors.grey,
+        'icon': Icons.schedule
+      },
+      {
+        'status': 'EN PROCESO',
+        'translatedStatus': loc?.translate('in_process_status') ?? 'EN PROCESO',
+        'color': Colors.amber,
+        'icon': Icons.autorenew
+      },
+      {
+        'status': 'TERMINADO',
+        'translatedStatus': loc?.translate('finished_status') ?? 'TERMINADO',
+        'color': Colors.green,
+        'icon': Icons.check_circle
+      },
+      {
+        'status': 'CANCELADO',
+        'translatedStatus': loc?.translate('cancelled_status') ?? 'CANCELADO',
+        'color': Colors.red,
+        'icon': Icons.cancel
+      },
+      {
+        'status': 'RETRASADO',
+        'translatedStatus': loc?.translate('delayed_status') ?? 'RETRASADO',
+        'color': Colors.orange,
+        'icon': Icons.warning
+      },
+      {
+        'status': 'FINALIZADO',
+        'translatedStatus': loc?.translate('completed_status') ?? 'FINALIZADO',
+        'color': Colors.brown,
+        'icon': Icons.done_all
+      },
+    ];
+  }
 
   @override
   void initState() {
@@ -157,36 +191,46 @@ class _UserServicesScreenState extends State<UserServicesScreen>
   }
 
   Widget _getStatusBadge(String status) {
+    final loc = AppLocalizations.of(context);
     Color color;
     IconData icon;
+    String translatedStatus;
+
     switch (status) {
       case 'EN ESPERA':
         color = Colors.grey;
         icon = Icons.schedule;
+        translatedStatus = loc?.translate('waiting_status') ?? 'EN ESPERA';
         break;
       case 'EN PROCESO':
         color = Colors.amber;
         icon = Icons.autorenew;
+        translatedStatus = loc?.translate('in_process_status') ?? 'EN PROCESO';
         break;
       case 'TERMINADO':
         color = Colors.green;
         icon = Icons.check_circle;
+        translatedStatus = loc?.translate('finished_status') ?? 'TERMINADO';
         break;
       case 'CANCELADO':
         color = Colors.red;
         icon = Icons.cancel;
+        translatedStatus = loc?.translate('cancelled_status') ?? 'CANCELADO';
         break;
       case 'RETRASADO':
         color = Colors.orange;
         icon = Icons.warning;
+        translatedStatus = loc?.translate('delayed_status') ?? 'RETRASADO';
         break;
       case 'FINALIZADO':
         color = Colors.brown;
         icon = Icons.done_all;
+        translatedStatus = loc?.translate('completed_status') ?? 'FINALIZADO';
         break;
       default:
         color = Colors.grey;
         icon = Icons.help;
+        translatedStatus = status;
     }
 
     return Container(
@@ -212,7 +256,7 @@ class _UserServicesScreenState extends State<UserServicesScreen>
           Icon(icon, color: Colors.white, size: 12),
           const SizedBox(width: 4),
           Text(
-            status,
+            translatedStatus,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 10,
@@ -225,27 +269,35 @@ class _UserServicesScreenState extends State<UserServicesScreen>
   }
 
   String _formatTimeUnit(int quantity, String unit) {
-    // Mapa de unidades en plural a singular
-    final singularUnits = {
-      'años': 'año',
-      'meses': 'mes',
-      'semanas': 'semana',
-      'días': 'día',
-      'horas': 'hora',
-      'año': 'año',
-      'mes': 'mes',
-      'semana': 'semana',
-      'día': 'día',
-      'hora': 'hora',
+    final loc = AppLocalizations.of(context);
+
+    // Normalizar la unidad a minúsculas y singular para buscar
+    final normalizedUnit =
+        unit.toLowerCase().replaceAll('es', '').replaceAll('s', '');
+
+    // Determinar si usar singular o plural basado en la cantidad
+    final isSingular = quantity == 1;
+
+    // Mapa de unidades normalizadas a sus claves de traducción
+    final singularKeys = {
+      'año': 'year_singular',
+      'mes': 'month_singular',
+      'semana': 'week_singular',
+      'día': 'day_singular',
+      'hora': 'hour_singular',
     };
 
-    final singularUnit = singularUnits[unit.toLowerCase()] ?? unit;
-    if (quantity == 1) {
-      return singularUnit;
-    }
-    // Casos especiales para plurales
-    if (singularUnit == 'mes') return 'meses';
-    return '${singularUnit}s';
+    final pluralKeys = {
+      'año': 'year_plural',
+      'mes': 'month_plural',
+      'semana': 'week_plural',
+      'día': 'day_plural',
+      'hora': 'hour_plural',
+    };
+
+    final keyMap = isSingular ? singularKeys : pluralKeys;
+    final key = keyMap[normalizedUnit] ?? unit;
+    return loc?.translate(key) ?? unit;
   }
 
   void _showServiceDetails(ServiceInSearch service) {
@@ -362,7 +414,8 @@ class _UserServicesScreenState extends State<UserServicesScreen>
         ),
         centerTitle: true,
         title: Text(
-          'Mis Servicios',
+          AppLocalizations.of(context)?.translate('my_services') ??
+              'Mis Servicios',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -531,7 +584,10 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                                   });
                                                 },
                                                 decoration: InputDecoration(
-                                                  hintText:
+                                                  hintText: AppLocalizations.of(
+                                                              context)
+                                                          ?.translate(
+                                                              'what_service_looking_for') ??
                                                       '¿Qué servicio buscas?',
                                                   hintStyle: TextStyle(
                                                     color: themeProvider
@@ -647,7 +703,7 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
-                                          '${_filteredServices.length} de ${_userServices.length} servicios',
+                                          '${_filteredServices.length} ${AppLocalizations.of(context)?.translate('of') ?? 'de'} ${_userServices.length} ${AppLocalizations.of(context)?.translate('services_count') ?? 'servicios'}',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
@@ -778,7 +834,9 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
-                                          'Estado:',
+                                          AppLocalizations.of(context)
+                                                  ?.translate('status_label') ??
+                                              'Estado:',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w700,
@@ -793,7 +851,9 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                       runSpacing: 8,
                                       children: [
                                         _buildAnimatedChip(
-                                          label: 'Todos',
+                                          label: AppLocalizations.of(context)
+                                                  ?.translate('all') ??
+                                              'Todos',
                                           icon: Icons.select_all,
                                           isSelected:
                                               _selectedStatusFilter == null,
@@ -806,9 +866,10 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                             });
                                           },
                                         ),
-                                        ..._statusFilters.map((filter) {
+                                        ..._getStatusFilters(context)
+                                            .map((filter) {
                                           return _buildAnimatedChip(
-                                            label: filter['status'],
+                                            label: filter['translatedStatus'],
                                             icon: filter['icon'],
                                             isSelected: _selectedStatusFilter ==
                                                 filter['status'],
@@ -844,7 +905,9 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
-                                          'Ordenar por:',
+                                          AppLocalizations.of(context)
+                                                  ?.translate('sort_by') ??
+                                              'Ordenar por:',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w700,
@@ -857,7 +920,9 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                     Row(
                                       children: [
                                         _buildAnimatedChip(
-                                          label: 'Más reciente',
+                                          label: AppLocalizations.of(context)
+                                                  ?.translate('newest') ??
+                                              'Más reciente',
                                           icon: Icons.arrow_downward,
                                           iconColor: const Color(
                                               0xFFE91E63), // Flecha rosa
@@ -873,7 +938,9 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                         ),
                                         const SizedBox(width: 8),
                                         _buildAnimatedChip(
-                                          label: 'Más antiguo',
+                                          label: AppLocalizations.of(context)
+                                                  ?.translate('oldest') ??
+                                              'Más antiguo',
                                           icon: Icons.arrow_upward,
                                           iconColor: const Color(
                                               0xFF00838F), // Flecha agua marina oscuro
@@ -915,7 +982,9 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                 ),
                                 const SizedBox(height: 20),
                                 Text(
-                                  'No tienes servicios asignados',
+                                  AppLocalizations.of(context)
+                                          ?.translate('no_services_assigned') ??
+                                      'No tienes servicios asignados',
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
@@ -925,7 +994,9 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                 ),
                                 const SizedBox(height: 10),
                                 Text(
-                                  'Busca o publica que necesitas',
+                                  AppLocalizations.of(context)
+                                          ?.translate('search_or_publish') ??
+                                      'Busca o publica que necesitas',
                                   style: TextStyle(
                                       fontSize: 14,
                                       color: themeProvider.secondaryTextColor),
@@ -956,9 +1027,11 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                     ),
                                     elevation: 5,
                                   ),
-                                  child: const Text(
-                                    'Buscar Servicios',
-                                    style: TextStyle(
+                                  child: Text(
+                                    AppLocalizations.of(context)?.translate(
+                                            'search_services_btn') ??
+                                        'Buscar Servicios',
+                                    style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -989,8 +1062,10 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                     const SizedBox(height: 16),
                                     Text(
                                       _searchQuery.isNotEmpty
-                                          ? 'No se encontraron resultados para "$_searchQuery"'
-                                          : 'No hay servicios con estos filtros',
+                                          ? '${AppLocalizations.of(context)?.translate('no_results_for') ?? 'No se encontraron resultados para'} "$_searchQuery"'
+                                          : AppLocalizations.of(context)?.translate(
+                                                  'no_services_with_filters') ??
+                                              'No hay servicios con estos filtros',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w500,
@@ -1010,9 +1085,11 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                       },
                                       icon: const Icon(Icons.refresh,
                                           color: Color(0xFF78BF32)),
-                                      label: const Text(
-                                        'Limpiar filtros',
-                                        style: TextStyle(
+                                      label: Text(
+                                        AppLocalizations.of(context)
+                                                ?.translate('clear_filters') ??
+                                            'Limpiar filtros',
+                                        style: const TextStyle(
                                           color: Color(0xFF78BF32),
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -1192,11 +1269,23 @@ class _UserServicesScreenState extends State<UserServicesScreen>
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
-          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Mensajes'),
-          BottomNavigationBarItem(icon: Icon(Icons.work), label: 'Servicios'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
+        items: <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+              icon: const Icon(Icons.home),
+              label:
+                  AppLocalizations.of(context)?.translate('home') ?? 'Inicio'),
+          BottomNavigationBarItem(
+              icon: const Icon(Icons.message),
+              label: AppLocalizations.of(context)?.translate('messages') ??
+                  'Mensajes'),
+          BottomNavigationBarItem(
+              icon: const Icon(Icons.work),
+              label: AppLocalizations.of(context)?.translate('services') ??
+                  'Servicios'),
+          BottomNavigationBarItem(
+              icon: const Icon(Icons.person),
+              label: AppLocalizations.of(context)?.translate('profile') ??
+                  'Perfil'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
