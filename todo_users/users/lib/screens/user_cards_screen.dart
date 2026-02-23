@@ -18,10 +18,14 @@ class MyCardsScreen extends StatefulWidget {
 }
 
 class _MyCardsScreenState extends State<MyCardsScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   List<CreditCard> _creditCards = [];
   bool _isLoading = true;
   bool _isSaving = false;
+
+  // Para animaciones de reordenamiento de tarjetas
+  String? _animatingCardId;
+  bool _isMovingUp = false;
 
   // Controlador para la animación de la tarjeta
   late AnimationController _controller;
@@ -288,6 +292,19 @@ class _MyCardsScreenState extends State<MyCardsScreen>
   }
 
   Future<void> _setDefaultCard(String id) async {
+    // Encontrar la tarjeta que se va a hacer predeterminada
+    final cardToMakeDefault = _creditCards.firstWhere((card) => card.id == id);
+    final currentDefaultCard = _defaultCard;
+
+    // Iniciar animación - la tarjeta sube
+    setState(() {
+      _animatingCardId = id;
+      _isMovingUp = true;
+    });
+
+    // Esperar un momento para la animación visual
+    await Future.delayed(const Duration(milliseconds: 500));
+
     try {
       // Enviar solicitud a la API para establecer la tarjeta predeterminada
       final response = await http.put(
@@ -299,11 +316,32 @@ class _MyCardsScreenState extends State<MyCardsScreen>
       if (response.statusCode == 200) {
         // Recargar las tarjetas desde la base de datos
         await _loadCreditCards();
+
+        // Mantener la animación de la tarjeta que bajó (la que era predeterminada)
+        if (currentDefaultCard != null && currentDefaultCard.id != id) {
+          setState(() {
+            _animatingCardId = currentDefaultCard.id;
+            _isMovingUp = false;
+          });
+
+          // Quitar la animación después de un momento
+          await Future.delayed(const Duration(milliseconds: 600));
+        }
+
+        setState(() {
+          _animatingCardId = null;
+        });
       } else {
+        setState(() {
+          _animatingCardId = null;
+        });
         throw Exception('Error al establecer la tarjeta predeterminada');
       }
     } catch (e) {
       print('Error setting default card: $e');
+      setState(() {
+        _animatingCardId = null;
+      });
     }
   }
 
@@ -505,89 +543,110 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     AppLocalizations loc, {
     bool isDefaultSection = false,
   }) {
-    return Container(
+    // Determinar si esta tarjeta está siendo animada
+    final isAnimating = _animatingCardId == card.id;
+    final isMovingUp = _isMovingUp;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOutCubic,
+      transform: Matrix4.translationValues(
+        0,
+        isAnimating ? (isMovingUp ? -20.0 : 20.0) : 0,
+        0,
+      ),
       margin: const EdgeInsets.only(bottom: 24),
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Tarjeta
-            SizedBox(
-              width: 317, // Ancho proporcional a altura 200 (ratio 1.586:1)
-              child: _CreditCardWidget(card: card),
-            ),
-            const SizedBox(width: 12),
-            // Iconos a la derecha
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Icono de estrella (predeterminada)
-                GestureDetector(
-                  onTap: card.isDefault ? null : () => _setDefaultCard(card.id),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: card.isDefault
-                          ? const Color(0xFF78BF32)
-                          : themeProvider.cardBgColor,
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 300),
+        opacity: isAnimating ? 0.7 : 1.0,
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Tarjeta
+              SizedBox(
+                width: 317, // Ancho proporcional a altura 200 (ratio 1.586:1)
+                child: _CreditCardWidget(card: card),
+              ),
+              const SizedBox(width: 12),
+              // Iconos a la derecha
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icono de estrella (predeterminada)
+                  GestureDetector(
+                    onTap:
+                        card.isDefault ? null : () => _setDefaultCard(card.id),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
                         color: card.isDefault
                             ? const Color(0xFF78BF32)
-                            : themeProvider.borderColor,
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                            : themeProvider.cardBgColor,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: card.isDefault
+                              ? const Color(0xFF78BF32)
+                              : themeProvider.borderColor,
+                          width: 2,
                         ),
-                      ],
-                    ),
-                    child: Icon(
-                      card.isDefault ? Icons.star : Icons.star_border,
-                      color: card.isDefault
-                          ? Colors.white
-                          : const Color(0xFF78BF32),
-                      size: 24,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: AnimatedRotation(
+                        duration: const Duration(milliseconds: 400),
+                        turns: card.isDefault ? 0.1 : 0,
+                        child: Icon(
+                          card.isDefault ? Icons.star : Icons.star_border,
+                          color: card.isDefault
+                              ? Colors.white
+                              : const Color(0xFF78BF32),
+                          size: 24,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                // Icono de eliminar
-                GestureDetector(
-                  onTap: () => _deleteCreditCard(card.id),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: themeProvider.cardBgColor,
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                        color: themeProvider.borderColor,
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                  const SizedBox(height: 12),
+                  // Icono de eliminar
+                  GestureDetector(
+                    onTap: () => _deleteCreditCard(card.id),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: themeProvider.cardBgColor,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: themeProvider.borderColor,
+                          width: 2,
                         ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.delete_outline,
-                      color: Colors.red,
-                      size: 24,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                        size: 24,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
