@@ -29,6 +29,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.3
 
 flutter:
   uses-material-design: true
@@ -54,3 +55,13 @@ flutter_launcher_icons:
     image_path: "assets/icons/icono.png"
     background_color: "#78BF32"
     theme_color: "#78BF32"
+
+flutter_native_splash:
+  color: "#78BF32"
+  color_dark: "#78BF32"
+  image: "assets/icons/icono.png"
+  android: true
+  ios: true
+  android_gravity: center
+  ios_content_mode: center
+  fullscreen: true
