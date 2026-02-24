@@ -376,7 +376,6 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 20),
             Text(
               loc?.translate('describe_need_phrase') ??
                   '¿Cómo describirías tu necesidad en una frase?',

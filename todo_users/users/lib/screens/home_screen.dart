@@ -409,47 +409,59 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        const Text('💡', style: TextStyle(fontSize: 24)),
-                        const SizedBox(width: 8),
-                        Text(
-                          AppLocalizations.of(context)
-                                  ?.translate('suggestions') ??
-                              'Sugerencias',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: themeProvider.textColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AllServicesScreen(
-                              services: _services,
-                              userEmail: widget.userEmail,
+                    Flexible(
+                      child: Row(
+                        children: [
+                          const Text('💡', style: TextStyle(fontSize: 24)),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              AppLocalizations.of(context)
+                                      ?.translate('suggestions') ??
+                                  'Sugerencias',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: themeProvider.textColor,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: themeProvider.isDarkMode
-                            ? themeProvider.cardBgColor
-                            : const Color(0xFFE7E7E7),
-                        foregroundColor: themeProvider.textColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
+                        ],
                       ),
-                      child: Text(
-                        AppLocalizations.of(context)
-                                ?.translate('explore_more_services') ??
-                            'Explorar más servicios',
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AllServicesScreen(
+                                services: _services,
+                                userEmail: widget.userEmail,
+                              ),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: themeProvider.isDarkMode
+                              ? themeProvider.cardBgColor
+                              : const Color(0xFFE7E7E7),
+                          foregroundColor: themeProvider.textColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            AppLocalizations.of(context)
+                                    ?.translate('explore_more_services') ??
+                                'Explorar más servicios',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
                     ),
                   ],

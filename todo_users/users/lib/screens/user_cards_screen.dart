@@ -651,20 +651,17 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                                 : 0.0),
                         left: 0,
                         right: 0,
-                        child: Transform.translate(
-                          offset: const Offset(-10, 0),
-                          child: _AnimatedCard(
-                            key: ValueKey(_favoriteCard!.id),
-                            isExiting:
-                                _cardExitAnimations[_favoriteCard!.id] == true,
-                            isEntering: _enteringCardId == _favoriteCard!.id,
-                            child: _buildWalletCard(
-                              _favoriteCard!,
-                              themeProvider,
-                              loc,
-                              isSelected: _selectedCardId == _favoriteCard!.id,
-                              onTap: () => _onCardTap(_favoriteCard!.id),
-                            ),
+                        child: _AnimatedCard(
+                          key: ValueKey(_favoriteCard!.id),
+                          isExiting:
+                              _cardExitAnimations[_favoriteCard!.id] == true,
+                          isEntering: _enteringCardId == _favoriteCard!.id,
+                          child: _buildWalletCard(
+                            _favoriteCard!,
+                            themeProvider,
+                            loc,
+                            isSelected: _selectedCardId == _favoriteCard!.id,
+                            onTap: () => _onCardTap(_favoriteCard!.id),
                           ),
                         ),
                       ),
@@ -710,8 +707,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 
     // Determinar la escala de la tarjeta según si es favorita o no
     final isFavorite = card.isDefault;
-    final scale =
-        isFavorite ? 1.0 : 0.95; // Tarjetas detrás son un poco más pequeñas
+    final scale = isFavorite ? 1.0 : 0.97; // Favorita un poco más grande
 
     // Si la tarjeta no está seleccionada y no es favorita, solo mostrar la parte superior
     final showTopOnly = !isSelected && !isFavorite;
@@ -725,6 +721,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
           isAnimating ? (isMovingUp ? -30.0 : 30.0) : 0.0,
         )
         ..scale(isAnimating ? 0.95 : scale),
+      transformAlignment: Alignment.center,
       margin: EdgeInsets.only(bottom: isAnimating ? 40.0 : 0.0),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 400),
@@ -1574,31 +1571,17 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                             letterSpacing: 1,
                           ),
                         ),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            _cardHolderController.text.trim().isNotEmpty
-                                ? _cardHolderController.text
-                                    .trim()
-                                    .toUpperCase()
-                                    .substring(
-                                        0,
-                                        _cardHolderController.text
-                                                    .trim()
-                                                    .length >
-                                                20
-                                            ? 20
-                                            : _cardHolderController.text
-                                                .trim()
-                                                .length)
-                                : loc.t('card_holder_hint'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1,
-                            ),
+                        Text(
+                          _cardHolderController.text.trim().isNotEmpty
+                              ? _cardHolderController.text.trim().toUpperCase()
+                              : loc.t('card_holder_hint'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
                           ),
                         ),
                       ],
@@ -1619,14 +1602,18 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                             letterSpacing: 1,
                           ),
                         ),
-                        Text(
-                          _formatExpiryDateWithPlaceholders(
-                              _expiryDateController.text),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            _formatExpiryDateWithPlaceholders(
+                                _expiryDateController.text),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
                           ),
                         ),
                       ],
@@ -2028,11 +2015,14 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
-                          child: Text(
-                            loc.t('add_card'),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Agregar',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
@@ -2364,21 +2354,15 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
                               letterSpacing: 1,
                             ),
                           ),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              widget.card.cardHolder.length > 20
-                                  ? widget.card.cardHolder
-                                      .toUpperCase()
-                                      .substring(0, 20)
-                                  : widget.card.cardHolder.toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                              ),
+                          Text(
+                            widget.card.cardHolder.toUpperCase(),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
                             ),
                           ),
                         ],
@@ -2399,13 +2383,17 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
                               letterSpacing: 1,
                             ),
                           ),
-                          Text(
-                            widget.card.expiryDate,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              widget.card.expiryDate,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
                             ),
                           ),
                         ],
