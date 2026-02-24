@@ -740,13 +740,6 @@ class _MyCardsScreenState extends State<MyCardsScreen>
               colors: cardColors,
             ),
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
           ),
           child: Container(
             height: 200,
@@ -1338,13 +1331,6 @@ class _AddCardDialogState extends State<_AddCardDialog> {
           colors: cardColors,
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -1488,13 +1474,6 @@ class _AddCardDialogState extends State<_AddCardDialog> {
           colors: cardColors,
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
       ),
       child: Column(
         children: [
@@ -2141,13 +2120,6 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
               colors: cardColors,
             ),
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
           ),
           child: Container(
             key: const ValueKey('front'),
@@ -2328,13 +2300,6 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
           colors: cardColors,
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
       ),
       child: Column(
         children: [
