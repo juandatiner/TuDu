@@ -30,6 +30,10 @@ class _MyCardsScreenState extends State<MyCardsScreen>
   // Tarjeta seleccionada para mostrar acciones
   String? _selectedCardId;
 
+  // Para animaciones de entrada y salida de tarjetas
+  Map<String, bool> _cardExitAnimations = {};
+  String? _enteringCardId; // ID de la tarjeta que está entrando
+
   @override
   void initState() {
     super.initState();
@@ -120,6 +124,29 @@ class _MyCardsScreenState extends State<MyCardsScreen>
         // Recargar las tarjetas desde la base de datos
         await _loadCreditCards();
 
+        // Determinar qué tarjeta es la nueva (puede ser favorita o no)
+        String? newCardId;
+        if (card.isDefault && _favoriteCard != null) {
+          // Si la nueva tarjeta es favorita, animar la tarjeta favorita
+          newCardId = _favoriteCard!.id;
+        } else if (_otherCards.isNotEmpty) {
+          // Si no es favorita, la nueva tarjeta será la primera en otras tarjetas
+          newCardId = _otherCards.first.id;
+        }
+
+        if (newCardId != null) {
+          // Marcar la tarjeta como entrante (se animará con TweenAnimationBuilder)
+          setState(() {
+            _enteringCardId = newCardId;
+          });
+
+          // Remover la animación después de que termine
+          await Future.delayed(const Duration(milliseconds: 400));
+          setState(() {
+            _enteringCardId = null;
+          });
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(AppLocalizations.of(context)!.t('card_saved')),
@@ -150,6 +177,11 @@ class _MyCardsScreenState extends State<MyCardsScreen>
   Future<void> _deleteCreditCard(String id) async {
     final loc = AppLocalizations.of(context)!;
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    // Primero cerrar la tarjeta seleccionada
+    setState(() {
+      _selectedCardId = null;
+    });
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -244,6 +276,14 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     );
 
     if (confirmed == true) {
+      // Iniciar animación de salida (deslizamiento a la izquierda) DESPUÉS de confirmar
+      setState(() {
+        _cardExitAnimations[id] = true;
+      });
+
+      // Esperar a que termine la animación
+      await Future.delayed(const Duration(milliseconds: 300));
+
       try {
         // Enviar solicitud a la API para eliminar la tarjeta
         final response = await http.delete(
@@ -251,8 +291,11 @@ class _MyCardsScreenState extends State<MyCardsScreen>
         );
 
         if (response.statusCode == 200) {
-          // Recargar las tarjetas desde la base de datos
-          await _loadCreditCards();
+          // Eliminar la tarjeta localmente después de la animación
+          setState(() {
+            _creditCards.removeWhere((card) => card.id == id);
+            _cardExitAnimations.remove(id);
+          });
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -261,10 +304,18 @@ class _MyCardsScreenState extends State<MyCardsScreen>
             ),
           );
         } else {
+          // Revertir animación si hay error
+          setState(() {
+            _cardExitAnimations.remove(id);
+          });
           throw Exception('Error al eliminar la tarjeta');
         }
       } catch (e) {
         print('Error deleting credit card: $e');
+        // Revertir animación si hay error
+        setState(() {
+          _cardExitAnimations.remove(id);
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(loc.t('error_saving_card')),
@@ -272,6 +323,8 @@ class _MyCardsScreenState extends State<MyCardsScreen>
           ),
         );
       }
+    } else {
+      // Si cancela, no hay animación que revertir
     }
   }
 
@@ -494,13 +547,6 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 
   // Construir las tarjetas en formato billetera (apiladas)
   Widget _buildWalletCards(ThemeProvider themeProvider, AppLocalizations loc) {
-    // Combinar todas las tarjetas: otras tarjetas primero, favorita al final
-    final allCards = <CreditCard>[];
-    allCards.addAll(_otherCards);
-    if (_favoriteCard != null) {
-      allCards.add(_favoriteCard!);
-    }
-
     return SingleChildScrollView(
       child: Center(
         child: Padding(
@@ -508,70 +554,55 @@ class _MyCardsScreenState extends State<MyCardsScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Stack de tarjetas tipo billetera
-              SizedBox(
-                height: 350, // Altura aumentada para más espacio entre tarjetas
-                width: 317, // Ancho de las tarjetas
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.topCenter,
-                  children: [
-                    // Primero renderizar las otras tarjetas (estarán detrás en el Stack visualmente arriba)
-                    ..._otherCards.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final card = entry.value;
-                      final positionIndex = index;
+              // Contenedor de tarjetas con altura dinámica
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child: SizedBox(
+                  width: 317,
+                  child: Column(
+                    children: [
+                      // Otras tarjetas (arriba)
+                      ..._otherCards.map((card) {
+                        final isSelected = _selectedCardId == card.id;
+                        final isExiting = _cardExitAnimations[card.id] == true;
+                        final isEntering = _enteringCardId == card.id;
 
-                      // Calcular desplazamiento adicional si una tarjeta está seleccionada
-                      double extraOffset = 0;
-                      if (_selectedCardId != null) {
-                        final selectedIndex = _otherCards
-                            .indexWhere((c) => c.id == _selectedCardId);
-                        // Si se seleccionó una tarjeta de arriba, las de abajo se desplazan
-                        if (selectedIndex >= 0 && index > selectedIndex) {
-                          extraOffset = 145; // Desplazar las tarjetas de abajo
-                        }
-                      }
-
-                      final isSelected = _selectedCardId == card.id;
-
-                      return AnimatedPositioned(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOutCubic,
-                        top: (positionIndex * 55.0) + extraOffset,
-                        child: IgnorePointer(
-                          // Ignorar toques si hay otra tarjeta seleccionada
-                          ignoring: _selectedCardId != null && !isSelected,
+                        return _AnimatedCard(
+                          key: ValueKey(card.id),
+                          isExiting: isExiting,
+                          isEntering: isEntering,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              bottom: isSelected ? 145.0 : 0.0,
+                            ),
+                            child: _buildWalletCard(
+                              card,
+                              themeProvider,
+                              loc,
+                              isSelected: isSelected,
+                              onTap: () => _onCardTap(card.id),
+                            ),
+                          ),
+                        );
+                      }),
+                      // Tarjeta favorita (abajo, al frente)
+                      if (_favoriteCard != null)
+                        _AnimatedCard(
+                          key: ValueKey(_favoriteCard!.id),
+                          isExiting:
+                              _cardExitAnimations[_favoriteCard!.id] == true,
+                          isEntering: _enteringCardId == _favoriteCard!.id,
                           child: _buildWalletCard(
-                            card,
+                            _favoriteCard!,
                             themeProvider,
                             loc,
-                            isSelected: isSelected,
-                            onTap: () => _onCardTap(card.id),
+                            isSelected: _selectedCardId == _favoriteCard!.id,
+                            onTap: () => _onCardTap(_favoriteCard!.id),
                           ),
                         ),
-                      );
-                    }),
-                    // Luego renderizar la favorita (estará al frente en el Stack visualmente abajo)
-                    if (_favoriteCard != null)
-                      AnimatedPositioned(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOutCubic,
-                        // La favorita también se desplaza si hay una tarjeta seleccionada arriba
-                        top: (_otherCards.length * 55.0) +
-                            (_selectedCardId != null &&
-                                    _selectedCardId != _favoriteCard!.id
-                                ? 145.0
-                                : 0.0),
-                        child: _buildWalletCard(
-                          _favoriteCard!,
-                          themeProvider,
-                          loc,
-                          isSelected: _selectedCardId == _favoriteCard!.id,
-                          onTap: () => _onCardTap(_favoriteCard!.id),
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
 
@@ -1130,15 +1161,16 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                   color: Colors.white,
                   size: 30,
                 ),
-                // Logo de la tarjeta
+                // Logo de la tarjeta - tamaño uniforme
                 if (_getCardLogoPath(cardType) != null)
                   Container(
-                    height: 35,
+                    height: 30,
+                    width: 50,
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Image.asset(
                       _getCardLogoPath(cardType)!,
@@ -1947,7 +1979,7 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
                             if (!widget.card.isDefault && widget.isSelected)
                               GestureDetector(
                                 onTap: widget.onFavoriteTap,
-                                behavior: HitTestBehavior.opaque,
+                                behavior: HitTestBehavior.translucent,
                                 child: const Padding(
                                   padding: EdgeInsets.all(8.0),
                                   child: Icon(
@@ -1962,7 +1994,7 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
                             if (widget.isSelected)
                               GestureDetector(
                                 onTap: widget.onDeleteTap,
-                                behavior: HitTestBehavior.opaque,
+                                behavior: HitTestBehavior.translucent,
                                 child: const Padding(
                                   padding: EdgeInsets.all(8.0),
                                   child: Icon(
@@ -1976,15 +2008,16 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
                         )
                       else
                         const SizedBox.shrink(),
-                      // Logo de la tarjeta
+                      // Logo de la tarjeta - tamaño uniforme
                       if (_getCardLogoPath(widget.card.cardType) != null)
                         Container(
-                          height: 35,
+                          height: 30,
+                          width: 50,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                              horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Image.asset(
                             _getCardLogoPath(widget.card.cardType)!,
@@ -2262,5 +2295,119 @@ class _TrimLeftFormatter extends TextInputFormatter {
     }
 
     return newValue;
+  }
+}
+
+// Widget animado para entrada y salida de tarjetas
+class _AnimatedCard extends StatefulWidget {
+  final Widget child;
+  final bool isExiting;
+  final bool isEntering;
+
+  const _AnimatedCard({
+    super.key,
+    required this.child,
+    this.isExiting = false,
+    this.isEntering = false,
+  });
+
+  @override
+  State<_AnimatedCard> createState() => _AnimatedCardState();
+}
+
+class _AnimatedCardState extends State<_AnimatedCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    // Si está entrando, iniciar desde la derecha
+    if (widget.isEntering) {
+      _slideAnimation = Tween<Offset>(
+        begin: const Offset(1.5, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOut,
+      ));
+      _controller.forward();
+    } else {
+      _slideAnimation = Tween<Offset>(
+        begin: Offset.zero,
+        end: Offset.zero,
+      ).animate(_controller);
+    }
+
+    _fadeAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.0,
+    ).animate(_controller);
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Si cambió el estado de salida
+    if (widget.isExiting && !oldWidget.isExiting) {
+      _slideAnimation = Tween<Offset>(
+        begin: Offset.zero,
+        end: const Offset(-1.5, 0),
+      ).animate(CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeIn,
+      ));
+      _fadeAnimation = Tween<double>(
+        begin: 1.0,
+        end: 0.0,
+      ).animate(CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeIn,
+      ));
+      _controller.forward(from: 0);
+    }
+
+    // Si cambió el estado de entrada
+    if (widget.isEntering && !oldWidget.isEntering) {
+      _slideAnimation = Tween<Offset>(
+        begin: const Offset(1.5, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOut,
+      ));
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return SlideTransition(
+          position: _slideAnimation,
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
+    );
   }
 }
