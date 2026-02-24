@@ -800,6 +800,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
           backgroundColor: themeProvider.scaffoldBgColor,
           child: Container(
             width: MediaQuery.of(context).size.width * 0.95,
@@ -1610,6 +1612,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
           backgroundColor: themeProvider.scaffoldBgColor,
           child: Container(
             width: MediaQuery.of(context).size.width * 0.95,

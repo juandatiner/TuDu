@@ -1635,6 +1635,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
 
     return AlertDialog(
       backgroundColor: themeProvider.scaffoldBgColor,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       title: Text(
         loc.t('add_card'),
         textAlign: TextAlign.center,
