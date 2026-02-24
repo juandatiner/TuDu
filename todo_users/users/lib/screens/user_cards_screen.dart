@@ -56,7 +56,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                     cardNumber: card['card_number'],
                     cardHolder: card['card_holder'],
                     expiryDate: card['expiry_date'],
-                    cvv: card['cvv'],
+                    // CVV no se almacena por seguridad
                     isDefault:
                         (card['is_default'] == 1 || card['is_default'] == true),
                     cardType: _getCardType(card['card_number']),
@@ -104,6 +104,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 
     try {
       // Enviar datos a la API para guardar la tarjeta de forma segura
+      // NOTA: El CVV no se envía ni almacena por seguridad (PCI-DSS)
       final response = await http.post(
         Uri.parse('${Config.baseUrl}/users/cards'),
         headers: {'Content-Type': 'application/json'},
@@ -112,7 +113,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
           'card_number': card.cardNumber,
           'card_holder': card.cardHolder,
           'expiry_date': card.expiryDate,
-          'cvv': card.cvv,
+          // CVV no se envía por seguridad
           'is_default': card.isDefault,
           'card_type': card.cardType.toString().split('.').last,
           'document_type': card.documentType,
@@ -899,12 +900,9 @@ class _AddCardDialogState extends State<_AddCardDialog> {
   final _cardNumberController = TextEditingController();
   final _cardHolderController = TextEditingController();
   final _expiryDateController = TextEditingController();
-  final _cvvController = TextEditingController();
   final _documentController = TextEditingController();
-  final _cvvFocusNode = FocusNode();
   late bool _isDefault;
   String _documentType = 'C.C';
-  bool _isCardFlipped = false;
 
   @override
   void initState() {
@@ -915,14 +913,6 @@ class _AddCardDialogState extends State<_AddCardDialog> {
     _cardNumberController.addListener(() => setState(() {}));
     _cardHolderController.addListener(() => setState(() {}));
     _expiryDateController.addListener(() => setState(() {}));
-    _cvvController.addListener(() => setState(() {}));
-
-    // Listener para voltear la tarjeta cuando el CVV tiene el foco
-    _cvvFocusNode.addListener(() {
-      setState(() {
-        _isCardFlipped = _cvvFocusNode.hasFocus;
-      });
-    });
   }
 
   @override
@@ -930,9 +920,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
     _cardNumberController.dispose();
     _cardHolderController.dispose();
     _expiryDateController.dispose();
-    _cvvController.dispose();
     _documentController.dispose();
-    _cvvFocusNode.dispose();
     super.dispose();
   }
 
@@ -1173,18 +1161,6 @@ class _AddCardDialogState extends State<_AddCardDialog> {
     return null;
   }
 
-  String? _validateCvv(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return AppLocalizations.of(context)!.t('cvv_required');
-    }
-
-    if (value.length < 3 || value.length > 4) {
-      return AppLocalizations.of(context)!.t('cvv_invalid');
-    }
-
-    return null;
-  }
-
   String? _validateDocument(String? value) {
     if (value == null || value.trim().isEmpty) {
       return AppLocalizations.of(context)!.t('document_required');
@@ -1345,200 +1321,151 @@ class _AddCardDialogState extends State<_AddCardDialog> {
     final cardType = _detectCardType(_cardNumberController.text);
     final cardColors = _getCardColors(cardType);
 
-    return Container(
-      key: const ValueKey('front'),
-      height: 200,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: cardColors,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          SizedBox(
-            height: 35,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Icon(
-                  Icons.credit_card,
-                  color: Colors.white,
-                  size: 30,
-                ),
-                // Logo de la tarjeta - tamaño uniforme
-                if (_getCardLogoPath(cardType) != null)
-                  Container(
-                    height: 30,
-                    width: 50,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Image.asset(
-                      _getCardLogoPath(cardType)!,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          key: const ValueKey('front'),
+          height: 200,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: cardColors,
             ),
+            borderRadius: BorderRadius.circular(16),
           ),
-          SizedBox(
-            width: double.infinity,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                _formatCardNumberWithHashes(_cardNumberController.text),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                  fontFamily: 'Courier',
-                ),
-              ),
-            ),
-          ),
-          Row(
+          padding: const EdgeInsets.all(20),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               SizedBox(
-                width: 180,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+                height: 35,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      loc.t('card_holder_label'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
+                    const Icon(
+                      Icons.credit_card,
+                      color: Colors.white,
+                      size: 30,
                     ),
-                    Text(
-                      _cardHolderController.text.trim().isNotEmpty
-                          ? _cardHolderController.text
-                              .trim()
-                              .toUpperCase()
-                              .substring(
-                                  0,
-                                  _cardHolderController.text.trim().length > 20
-                                      ? 20
-                                      : _cardHolderController.text
-                                          .trim()
-                                          .length)
-                          : loc.t('card_holder_hint'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
+                    // Logo de la tarjeta - tamaño uniforme
+                    if (_getCardLogoPath(cardType) != null)
+                      Container(
+                        height: 30,
+                        width: 50,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Image.asset(
+                          _getCardLogoPath(cardType)!,
+                          fit: BoxFit.contain,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
-              const Spacer(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    loc.t('expires_label'),
+              SizedBox(
+                width: double.infinity,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    _formatCardNumberWithHashes(_cardNumberController.text),
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 8,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
+                      letterSpacing: 2,
+                      fontFamily: 'Courier',
                     ),
                   ),
-                  Text(
-                    _formatExpiryDateWithPlaceholders(
-                        _expiryDateController.text),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
+                ),
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          loc.t('card_holder_label'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            _cardHolderController.text.trim().isNotEmpty
+                                ? _cardHolderController.text
+                                    .trim()
+                                    .toUpperCase()
+                                    .substring(
+                                        0,
+                                        _cardHolderController.text
+                                                    .trim()
+                                                    .length >
+                                                20
+                                            ? 20
+                                            : _cardHolderController.text
+                                                .trim()
+                                                .length)
+                                : loc.t('card_holder_hint'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          loc.t('expires_label'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        Text(
+                          _formatExpiryDateWithPlaceholders(
+                              _expiryDateController.text),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  // Construir el reverso de la tarjeta
-  Widget _buildBackCardPreview(
-      ThemeProvider themeProvider, AppLocalizations loc) {
-    final cardType = _detectCardType(_cardNumberController.text);
-    final cardColors = _getCardColors(cardType);
-    final cvvLength = _cvvController.text.length;
-    final cvvDisplay = cvvLength > 0 ? '*' * cvvLength : '***';
-
-    return Container(
-      key: const ValueKey('back'),
-      height: 200,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: cardColors,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 30),
-          // Banda magnética
-          Container(
-            height: 45,
-            color: Colors.black,
-          ),
-          const SizedBox(height: 20),
-          // CVV
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      cvvDisplay,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                        fontFamily: 'Courier',
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1567,32 +1494,8 @@ class _AddCardDialogState extends State<_AddCardDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Vista previa de la tarjeta
-                TweenAnimationBuilder<double>(
-                  tween: Tween<double>(
-                    begin: 0.0,
-                    end: _isCardFlipped ? 1.0 : 0.0,
-                  ),
-                  duration: const Duration(milliseconds: 600),
-                  builder: (context, value, child) {
-                    final angle = value * 3.14159;
-                    final showFront = value < 0.5;
-
-                    return Transform(
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.001)
-                        ..rotateY(showFront ? angle : 3.14159 - angle),
-                      alignment: Alignment.center,
-                      child: showFront
-                          ? _buildFrontCardPreview(themeProvider, loc)
-                          : Transform(
-                              transform: Matrix4.identity()..rotateY(3.14159),
-                              alignment: Alignment.center,
-                              child: _buildBackCardPreview(themeProvider, loc),
-                            ),
-                    );
-                  },
-                ),
+                // Vista previa de la tarjeta (solo frente, sin CVV)
+                _buildFrontCardPreview(themeProvider, loc),
                 const SizedBox(height: 24),
 
                 // Número de Tarjeta
@@ -1672,86 +1575,41 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // Fecha de Expiración y CVV
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _expiryDateController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          ExpiryDateFormatter(),
-                        ],
-                        style: TextStyle(color: themeProvider.textColor),
-                        decoration: InputDecoration(
-                          labelText: loc.t('expiry_date'),
-                          labelStyle: TextStyle(
-                              color: themeProvider.secondaryTextColor),
-                          hintText: loc.t('expiry_date_hint'),
-                          prefixIcon: const Icon(Icons.calendar_today,
-                              color: Color(0xFF78BF32)),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: themeProvider.isDarkMode
-                                  ? Colors.grey[600]!
-                                  : Colors.grey[300]!,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: themeProvider.isDarkMode
-                              ? Colors.grey[800]!
-                              : Colors.white,
-                          errorStyle: TextStyle(
-                            fontSize: 10,
-                            color: Colors.red,
-                          ),
-                          errorMaxLines: 2,
-                        ),
-                        validator: _validateExpiryDate,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _cvvController,
-                        focusNode: _cvvFocusNode,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(4),
-                        ],
-                        style: TextStyle(color: themeProvider.textColor),
-                        decoration: InputDecoration(
-                          labelText: loc.t('cvv'),
-                          labelStyle: TextStyle(
-                              color: themeProvider.secondaryTextColor),
-                          hintText: loc.t('cvv_hint'),
-                          prefixIcon: const Icon(Icons.security,
-                              color: Color(0xFF78BF32)),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: themeProvider.isDarkMode
-                                  ? Colors.grey[600]!
-                                  : Colors.grey[300]!,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: themeProvider.isDarkMode
-                              ? Colors.grey[800]!
-                              : Colors.white,
-                          errorStyle: TextStyle(
-                            fontSize: 10,
-                            color: Colors.red,
-                          ),
-                          errorMaxLines: 2,
-                        ),
-                        validator: _validateCvv,
-                      ),
-                    ),
+                // Fecha de Expiración (sin CVV - se solicita al momento de pagar)
+                TextFormField(
+                  controller: _expiryDateController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    ExpiryDateFormatter(),
                   ],
+                  style: TextStyle(color: themeProvider.textColor),
+                  decoration: InputDecoration(
+                    labelText: loc.t('expiry_date'),
+                    labelStyle:
+                        TextStyle(color: themeProvider.secondaryTextColor),
+                    hintText: loc.t('expiry_date_hint'),
+                    prefixIcon: const Icon(Icons.calendar_today,
+                        color: Color(0xFF78BF32)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: themeProvider.isDarkMode
+                            ? Colors.grey[600]!
+                            : Colors.grey[300]!,
+                      ),
+                    ),
+                    filled: true,
+                    fillColor: themeProvider.isDarkMode
+                        ? Colors.grey[800]!
+                        : Colors.white,
+                    errorStyle: TextStyle(
+                      fontSize: 10,
+                      color: Colors.red,
+                    ),
+                    errorMaxLines: 2,
+                  ),
+                  validator: _validateExpiryDate,
                 ),
                 const SizedBox(height: 16),
 
@@ -1921,7 +1779,6 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                               final cardNumber = _cardNumberController.text
                                   .replaceAll(RegExp(r'\s+'), '');
                               final expiryDate = _expiryDateController.text;
-                              final cvv = _cvvController.text;
                               final cardHolder =
                                   _cardHolderController.text.trim();
 
@@ -1932,7 +1789,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                                 cardNumber: _formatCardNumber(cardNumber),
                                 cardHolder: cardHolder,
                                 expiryDate: expiryDate,
-                                cvv: cvv,
+                                // CVV no se almacena por seguridad
                                 isDefault: _isDefault,
                                 cardType: _getCardType(cardNumber),
                                 documentType: _documentType,
@@ -2242,8 +2099,8 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 180,
+                    Expanded(
+                      flex: 3,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
@@ -2257,12 +2114,43 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
                               letterSpacing: 1,
                             ),
                           ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              widget.card.cardHolder.length > 20
+                                  ? widget.card.cardHolder
+                                      .toUpperCase()
+                                      .substring(0, 20)
+                                  : widget.card.cardHolder.toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                           Text(
-                            widget.card.cardHolder.length > 20
-                                ? widget.card.cardHolder
-                                    .toUpperCase()
-                                    .substring(0, 20)
-                                : widget.card.cardHolder.toUpperCase(),
+                            loc.t('expires_label'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          Text(
+                            widget.card.expiryDate,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -2273,97 +2161,12 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
                         ],
                       ),
                     ),
-                    const Spacer(),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          loc.t('expires_label'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        Text(
-                          widget.card.expiryDate,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  // Construir el reverso de la tarjeta (copia exacta del diálogo de agregar)
-  Widget _buildBackCard(ThemeProvider themeProvider) {
-    final cardColors = _getCardColors(widget.card.cardType);
-    final cvvLength = widget.card.cvv.length;
-    final cvvDisplay = cvvLength > 0 ? '*' * cvvLength : '***';
-
-    return Container(
-      key: const ValueKey('back'),
-      height: 200,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: cardColors,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 30),
-          // Banda magnética
-          Container(
-            height: 45,
-            color: Colors.black,
-          ),
-          const SizedBox(height: 20),
-          // CVV
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      cvvDisplay,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                        fontFamily: 'Courier',
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -2374,7 +2177,7 @@ class CreditCard {
   String cardNumber;
   String cardHolder;
   String expiryDate;
-  String cvv;
+  // NOTA: El CVV no se almacena por seguridad (PCI-DSS). Se solicita solo al momento de pagar.
   bool isDefault;
   final CardType cardType;
   String documentType;
@@ -2386,7 +2189,6 @@ class CreditCard {
     required this.cardNumber,
     required this.cardHolder,
     required this.expiryDate,
-    required this.cvv,
     required this.isDefault,
     required this.cardType,
     this.documentType = 'C.C',

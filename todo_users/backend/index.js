@@ -1236,13 +1236,13 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
     });
 
   // Crear tabla de tarjetas de usuarios si no existe
+  // NOTA: El CVV nunca se almacena por seguridad (PCI-DSS). Se solicita solo al momento de pagar.
   usersDb.run(`CREATE TABLE IF NOT EXISTS user_cards (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_email TEXT NOT NULL,
       card_number TEXT NOT NULL,
       card_holder TEXT NOT NULL,
       expiry_date TEXT NOT NULL,
-      cvv TEXT NOT NULL,
       card_type TEXT DEFAULT 'visa',
       document_type TEXT DEFAULT 'C.C',
       document_number TEXT,
@@ -1254,6 +1254,14 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
         console.error('Error creando tabla user_cards:', err.message);
       } else {
         console.log('Tabla user_cards lista');
+        // Eliminar columna cvv si existe (migración de bases de datos existentes)
+        usersDb.run(`ALTER TABLE user_cards DROP COLUMN cvv`, (err) => {
+          if (err && !err.message.includes('no such column') && !err.message.includes('duplicate column')) {
+            console.error('Error eliminando columna cvv:', err.message);
+          } else if (!err) {
+            console.log('Columna cvv eliminada por seguridad (PCI-DSS)');
+          }
+        });
       }
     });
   }
@@ -2086,20 +2094,20 @@ app.get('/users/cards/:userEmail', (req, res) => {
 });
 
 // Endpoint para agregar una tarjeta
+// NOTA: El CVV no se almacena por seguridad (PCI-DSS). Se solicita solo al momento de pagar.
 app.post('/users/cards', (req, res) => {
   const {
     user_email,
     card_number,
     card_holder,
     expiry_date,
-    cvv,
     card_type,
     document_type,
     document_number,
     is_default
   } = req.body;
 
-  if (!user_email || !card_number || !card_holder || !expiry_date || !cvv) {
+  if (!user_email || !card_number || !card_holder || !expiry_date) {
     return res.status(400).json({ error: 'Faltan campos requeridos' });
   }
 
@@ -2137,8 +2145,8 @@ app.post('/users/cards', (req, res) => {
         });
       }
 
-      const query = `INSERT INTO user_cards (user_email, card_number, card_holder, expiry_date, cvv, card_type, document_type, document_number, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-      const params = [user_email, card_number, card_holder, expiry_date, cvv, card_type || 'visa', document_type || 'C.C', document_number, finalIsDefault ? 1 : 0];
+      const query = `INSERT INTO user_cards (user_email, card_number, card_holder, expiry_date, card_type, document_type, document_number, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+      const params = [user_email, card_number, card_holder, expiry_date, card_type || 'visa', document_type || 'C.C', document_number, finalIsDefault ? 1 : 0];
 
       usersDb.run(query, params, function(err) {
         if (err) {
