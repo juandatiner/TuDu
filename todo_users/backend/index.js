@@ -1246,6 +1246,7 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
       card_type TEXT DEFAULT 'visa',
       document_type TEXT DEFAULT 'C.C',
       document_number TEXT,
+      card_mode TEXT DEFAULT 'credit',
       is_default INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_email) REFERENCES users(email)
@@ -1260,6 +1261,14 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
             console.error('Error eliminando columna cvv:', err.message);
           } else if (!err) {
             console.log('Columna cvv eliminada por seguridad (PCI-DSS)');
+          }
+        });
+        // Agregar columna card_mode si no existe (migración de bases de datos existentes)
+        usersDb.run(`ALTER TABLE user_cards ADD COLUMN card_mode TEXT DEFAULT 'credit'`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna card_mode:', err.message);
+          } else if (!err) {
+            console.log('Columna card_mode agregada a user_cards');
           }
         });
       }
@@ -2104,6 +2113,7 @@ app.post('/users/cards', (req, res) => {
     card_type,
     document_type,
     document_number,
+    card_mode,
     is_default
   } = req.body;
 
@@ -2145,8 +2155,8 @@ app.post('/users/cards', (req, res) => {
         });
       }
 
-      const query = `INSERT INTO user_cards (user_email, card_number, card_holder, expiry_date, card_type, document_type, document_number, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-      const params = [user_email, card_number, card_holder, expiry_date, card_type || 'visa', document_type || 'C.C', document_number, finalIsDefault ? 1 : 0];
+      const query = `INSERT INTO user_cards (user_email, card_number, card_holder, expiry_date, card_type, document_type, document_number, card_mode, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const params = [user_email, card_number, card_holder, expiry_date, card_type || 'visa', document_type || 'C.C', document_number, card_mode || 'credit', finalIsDefault ? 1 : 0];
 
       usersDb.run(query, params, function(err) {
         if (err) {

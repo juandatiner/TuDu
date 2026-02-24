@@ -63,6 +63,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                     documentType: card['document_type'] ?? 'C.C',
                     documentNumber: card['document_number'] ?? '',
                     createdAt: card['created_at'] ?? '',
+                    cardMode: card['card_mode'] ?? 'credit',
                   ))
               .toList();
           _isLoading = false;
@@ -118,6 +119,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
           'card_type': card.cardType.toString().split('.').last,
           'document_type': card.documentType,
           'document_number': card.documentNumber,
+          'card_mode': card.cardMode,
         }),
       );
 
@@ -745,6 +747,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     ThemeProvider themeProvider,
     VoidCallback onTap,
   ) {
+    final loc = AppLocalizations.of(context)!;
     final cardColors = _getCardColors(card.cardType);
     final logoPath = _getCardLogoPath(card.cardType);
 
@@ -779,32 +782,65 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // Masked card number
-                      Text(
-                        maskedCardNumber,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                          fontFamily: 'Courier',
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            maskedCardNumber,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                              fontFamily: 'Courier',
+                            ),
+                          ),
                         ),
                       ),
-                      // Card logo - mismo tamaño que la tarjeta favorita
-                      if (logoPath != null)
-                        Container(
-                          height: 30,
-                          width: 50,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
+                      const SizedBox(width: 8),
+                      // Card logo y tipo (crédito/débito)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Badge de crédito/débito
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              card.cardMode == 'credit'
+                                  ? loc.t('credit')
+                                  : loc.t('debit'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                          child: Image.asset(
-                            logoPath,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
+                          const SizedBox(width: 6),
+                          // Card logo
+                          if (logoPath != null)
+                            Container(
+                              height: 25,
+                              width: 40,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Image.asset(
+                                logoPath,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -903,6 +939,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
   final _documentController = TextEditingController();
   late bool _isDefault;
   String _documentType = 'C.C';
+  String _cardMode = 'credit'; // 'credit' o 'debit'
 
   @override
   void initState() {
@@ -1271,6 +1308,119 @@ class _AddCardDialogState extends State<_AddCardDialog> {
     );
   }
 
+  // Mostrar selector de tipo de tarjeta (Crédito/Débito)
+  void _showCardModePicker(ThemeProvider themeProvider, AppLocalizations loc) {
+    final cardModes = [
+      {'value': 'credit', 'label': loc.t('credit'), 'icon': Icons.credit_card},
+      {'value': 'debit', 'label': loc.t('debit'), 'icon': Icons.payment},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            decoration: BoxDecoration(
+              color: themeProvider.cardBgColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: themeProvider.isDarkMode
+                        ? Colors.grey[600]
+                        : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    loc.t('card_type_label'),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: themeProvider.textColor,
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: themeProvider.borderColor),
+                ...cardModes.map((mode) {
+                  final isSelected = _cardMode == mode['value'];
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _cardMode = mode['value'] as String;
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSelected
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: isSelected
+                                ? const Color(0xFF78BF32)
+                                : themeProvider.secondaryTextColor,
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(
+                            mode['icon'] as IconData,
+                            color: isSelected
+                                ? const Color(0xFF78BF32)
+                                : themeProvider.textColor,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                mode['label'] as String,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                  color: isSelected
+                                      ? const Color(0xFF78BF32)
+                                      : themeProvider.textColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // Obtener colores según el tipo de tarjeta
   List<Color> _getCardColors(CardType cardType) {
     switch (cardType) {
@@ -1344,10 +1494,34 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(
-                      Icons.credit_card,
-                      color: Colors.white,
-                      size: 30,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.credit_card,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _cardMode == 'credit'
+                                ? loc.t('credit')
+                                : loc.t('debit'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     // Logo de la tarjeta - tamaño uniforme
                     if (_getCardLogoPath(cardType) != null)
@@ -1545,6 +1719,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                         RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]')),
                     LengthLimitingTextInputFormatter(20),
                     _TrimLeftFormatter(),
+                    _UpperCaseFormatter(),
                   ],
                   decoration: InputDecoration(
                     labelText: loc.t('card_holder'),
@@ -1575,41 +1750,88 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // Fecha de Expiración (sin CVV - se solicita al momento de pagar)
-                TextFormField(
-                  controller: _expiryDateController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    ExpiryDateFormatter(),
-                  ],
-                  style: TextStyle(color: themeProvider.textColor),
-                  decoration: InputDecoration(
-                    labelText: loc.t('expiry_date'),
-                    labelStyle:
-                        TextStyle(color: themeProvider.secondaryTextColor),
-                    hintText: loc.t('expiry_date_hint'),
-                    prefixIcon: const Icon(Icons.calendar_today,
-                        color: Color(0xFF78BF32)),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(
-                        color: themeProvider.isDarkMode
-                            ? Colors.grey[600]!
-                            : Colors.grey[300]!,
+                // Fecha de Expiración y Tipo de Tarjeta (Crédito/Débito)
+                Row(
+                  children: [
+                    // Fecha de Expiración
+                    Expanded(
+                      child: TextFormField(
+                        controller: _expiryDateController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          ExpiryDateFormatter(),
+                        ],
+                        style: TextStyle(color: themeProvider.textColor),
+                        decoration: InputDecoration(
+                          labelText: loc.t('expiry_date'),
+                          labelStyle: TextStyle(
+                              color: themeProvider.secondaryTextColor),
+                          hintText: loc.t('expiry_date_hint'),
+                          prefixIcon: const Icon(Icons.calendar_today,
+                              color: Color(0xFF78BF32)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: themeProvider.isDarkMode
+                                  ? Colors.grey[600]!
+                                  : Colors.grey[300]!,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: themeProvider.isDarkMode
+                              ? Colors.grey[800]!
+                              : Colors.white,
+                          errorStyle: TextStyle(
+                            fontSize: 10,
+                            color: Colors.red,
+                          ),
+                          errorMaxLines: 2,
+                        ),
+                        validator: _validateExpiryDate,
                       ),
                     ),
-                    filled: true,
-                    fillColor: themeProvider.isDarkMode
-                        ? Colors.grey[800]!
-                        : Colors.white,
-                    errorStyle: TextStyle(
-                      fontSize: 10,
-                      color: Colors.red,
+                    const SizedBox(width: 12),
+                    // Dropdown de Crédito/Débito
+                    GestureDetector(
+                      onTap: () => _showCardModePicker(themeProvider, loc),
+                      child: Container(
+                        width: 100,
+                        decoration: BoxDecoration(
+                          color: themeProvider.isDarkMode
+                              ? Colors.grey[800]!
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: themeProvider.isDarkMode
+                                ? Colors.grey[600]!
+                                : Colors.grey[300]!,
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                _cardMode == 'credit'
+                                    ? loc.t('credit')
+                                    : loc.t('debit'),
+                                style: TextStyle(
+                                  color: themeProvider.textColor,
+                                  fontSize: 12,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Icon(Icons.keyboard_arrow_up,
+                                color: Color(0xFF78BF32), size: 20),
+                          ],
+                        ),
+                      ),
                     ),
-                    errorMaxLines: 2,
-                  ),
-                  validator: _validateExpiryDate,
+                  ],
                 ),
                 const SizedBox(height: 16),
 
@@ -1794,6 +2016,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                                 cardType: _getCardType(cardNumber),
                                 documentType: _documentType,
                                 documentNumber: _documentController.text,
+                                cardMode: _cardMode,
                               );
 
                               Navigator.pop(context, card);
@@ -2061,22 +2284,48 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
                         )
                       else
                         const SizedBox.shrink(),
-                      // Logo de la tarjeta - tamaño uniforme
-                      if (_getCardLogoPath(widget.card.cardType) != null)
-                        Container(
-                          height: 30,
-                          width: 50,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
+                      // Logo de la tarjeta y tipo (crédito/débito)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Badge de crédito/débito
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              widget.card.cardMode == 'credit'
+                                  ? loc.t('credit')
+                                  : loc.t('debit'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                          child: Image.asset(
-                            _getCardLogoPath(widget.card.cardType)!,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
+                          const SizedBox(width: 8),
+                          // Logo de la tarjeta
+                          if (_getCardLogoPath(widget.card.cardType) != null)
+                            Container(
+                              height: 30,
+                              width: 50,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Image.asset(
+                                _getCardLogoPath(widget.card.cardType)!,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -2183,6 +2432,7 @@ class CreditCard {
   String documentType;
   String documentNumber;
   String createdAt;
+  String cardMode; // 'credit' o 'debit'
 
   CreditCard({
     required this.id,
@@ -2194,6 +2444,7 @@ class CreditCard {
     this.documentType = 'C.C',
     this.documentNumber = '',
     this.createdAt = '',
+    this.cardMode = 'credit',
   });
 }
 
@@ -2281,6 +2532,26 @@ class _TrimLeftFormatter extends TextInputFormatter {
       return TextEditingValue(
         text: trimmedText,
         selection: TextSelection.collapsed(offset: trimmedText.length),
+        composing: TextRange.empty,
+      );
+    }
+
+    return newValue;
+  }
+}
+
+class _UpperCaseFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    // Convertir a mayúsculas
+    final upperCaseText = newValue.text.toUpperCase();
+
+    // Si el texto es diferente, actualizar
+    if (upperCaseText != newValue.text) {
+      return TextEditingValue(
+        text: upperCaseText,
+        selection: TextSelection.collapsed(offset: upperCaseText.length),
         composing: TextRange.empty,
       );
     }
