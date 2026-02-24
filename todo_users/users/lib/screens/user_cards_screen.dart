@@ -554,87 +554,78 @@ class _MyCardsScreenState extends State<MyCardsScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Contenedor de tarjetas con altura dinámica
-              AnimatedSize(
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.easeInOut,
-                child: SizedBox(
-                  width: 317,
-                  height: 200 +
-                      (_otherCards.length * 60.0) +
-                      (_selectedCardId != null
-                          ? 145.0
-                          : 0.0), // Altura dinámica + espacio para selección
-                  child: Stack(
-                    alignment: Alignment.topCenter,
-                    children: [
-                      // Otras tarjetas (arriba, detrás) - orden invertido
-                      ..._otherCards.reversed
-                          .toList()
-                          .asMap()
-                          .entries
-                          .map((entry) {
-                        final index = entry.key;
-                        final card = entry.value;
-                        final isSelected = _selectedCardId == card.id;
-                        final isExiting = _cardExitAnimations[card.id] == true;
-                        final isEntering = _enteringCardId == card.id;
+              // Contenedor de tarjetas con altura fija suficiente para expandirse
+              SizedBox(
+                width: 317,
+                height: 200 +
+                    (_otherCards.length * 60.0) +
+                    145.0, // Altura fija máxima (siempre con espacio para expansión)
+                child: Stack(
+                  alignment: Alignment.topCenter,
+                  children: [
+                    // Otras tarjetas (arriba, detrás) - orden invertido
+                    ..._otherCards.reversed
+                        .toList()
+                        .asMap()
+                        .entries
+                        .map((entry) {
+                      final index = entry.key;
+                      final card = entry.value;
+                      final isSelected = _selectedCardId == card.id;
+                      final isExiting = _cardExitAnimations[card.id] == true;
+                      final isEntering = _enteringCardId == card.id;
 
-                        // Calcular desplazamiento según si esta tarjeta está seleccionada o si otra está seleccionada
-                        double topPosition = 60.0 * index;
-                        if (_selectedCardId != null) {
-                          final selectedCard = _creditCards
-                              .firstWhere((c) => c.id == _selectedCardId);
-                          final selectedCardIndex = _otherCards.reversed
-                              .toList()
-                              .indexWhere((c) => c.id == _selectedCardId);
+                      // Calcular desplazamiento según si esta tarjeta está seleccionada o si otra está seleccionada
+                      double topPosition = 60.0 * index;
+                      if (_selectedCardId != null) {
+                        final selectedCardIndex = _otherCards.reversed
+                            .toList()
+                            .indexWhere((c) => c.id == _selectedCardId);
 
-                          if (selectedCardIndex != -1) {
-                            if (index < selectedCardIndex) {
-                              // Tarjeta está arriba de la seleccionada - mantener posición
-                              topPosition += 0.0;
-                            } else if (index > selectedCardIndex) {
-                              // Tarjeta está abajo de la seleccionada - mover hacia abajo
-                              topPosition += 145.0;
-                            } else {
-                              // Tarjeta seleccionada - mantener posición estática
-                              topPosition += 0.0;
-                            }
-                          } else {
-                            // Si la tarjeta seleccionada es la favorita
-                            if (_favoriteCard != null &&
-                                _selectedCardId == _favoriteCard!.id) {
-                              // Todas las tarjetas no favoritas se mueven hacia arriba
-                              topPosition += 0.0;
-                            }
+                        if (selectedCardIndex != -1) {
+                          if (index > selectedCardIndex) {
+                            // Tarjeta está abajo de la seleccionada - mover hacia abajo
+                            topPosition += 145.0;
                           }
+                          // Si index < selectedCardIndex o es la seleccionada, mantener posición
                         }
+                      }
 
-                        return Positioned(
-                          top: topPosition,
-                          child: _AnimatedCard(
-                            key: ValueKey(card.id),
-                            isExiting: isExiting,
-                            isEntering: isEntering,
-                            child: _buildWalletCard(
-                              card,
-                              themeProvider,
-                              loc,
-                              isSelected: isSelected,
-                              onTap: () => _onCardTap(card.id),
-                            ),
+                      return AnimatedPositioned(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        top: topPosition,
+                        left: 0,
+                        right: 0,
+                        child: _AnimatedCard(
+                          key: ValueKey(card.id),
+                          isExiting: isExiting,
+                          isEntering: isEntering,
+                          child: _buildWalletCard(
+                            card,
+                            themeProvider,
+                            loc,
+                            isSelected: isSelected,
+                            onTap: () => _onCardTap(card.id),
                           ),
-                        );
-                      }),
-                      // Tarjeta favorita (abajo, al frente) - última para que se renderice encima
-                      if (_favoriteCard != null)
-                        Positioned(
-                          top: (_otherCards.length * 60.0) +
-                              // Si hay una tarjeta seleccionada que NO es la favorita, mover hacia abajo
-                              (_selectedCardId != null &&
-                                      _selectedCardId != _favoriteCard!.id
-                                  ? 145.0
-                                  : 0.0),
+                        ),
+                      );
+                    }),
+                    // Tarjeta favorita (abajo, al frente) - última para que se renderice encima
+                    if (_favoriteCard != null)
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        top: (_otherCards.length * 60.0) +
+                            // Si hay una tarjeta seleccionada que NO es la favorita, mover hacia abajo
+                            (_selectedCardId != null &&
+                                    _selectedCardId != _favoriteCard!.id
+                                ? 145.0
+                                : 0.0),
+                        left: 0,
+                        right: 0,
+                        child: Transform.translate(
+                          offset: const Offset(-10, 0),
                           child: _AnimatedCard(
                             key: ValueKey(_favoriteCard!.id),
                             isExiting:
@@ -649,8 +640,8 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                             ),
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
 
