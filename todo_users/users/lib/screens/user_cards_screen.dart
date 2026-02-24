@@ -27,10 +27,8 @@ class _MyCardsScreenState extends State<MyCardsScreen>
   String? _animatingCardId;
   bool _isMovingUp = false;
 
-  // Controlador para la animación de la tarjeta
-  late AnimationController _controller;
-  late Animation<double> _frontRotation;
-  late Animation<double> _backRotation;
+  // Tarjeta seleccionada para mostrar acciones
+  String? _selectedCardId;
 
   @override
   void initState() {
@@ -329,14 +327,10 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     final cardToMakeFavorite = _creditCards.firstWhere((card) => card.id == id);
     final currentFavoriteCard = _favoriteCard;
 
-    // Iniciar animación - la tarjeta sube
+    // Deseleccionar la tarjeta actual
     setState(() {
-      _animatingCardId = id;
-      _isMovingUp = true;
+      _selectedCardId = null;
     });
-
-    // Esperar un momento para la animación visual inicial
-    await Future.delayed(const Duration(milliseconds: 600));
 
     try {
       // Enviar solicitud a la API para establecer la tarjeta favorita
@@ -349,32 +343,11 @@ class _MyCardsScreenState extends State<MyCardsScreen>
       if (response.statusCode == 200) {
         // Recargar las tarjetas desde la base de datos
         await _loadCreditCards();
-
-        // Mantener la animación de la tarjeta que bajó (la que era favorita)
-        if (currentFavoriteCard != null && currentFavoriteCard.id != id) {
-          setState(() {
-            _animatingCardId = currentFavoriteCard.id;
-            _isMovingUp = false;
-          });
-
-          // Quitar la animación después de que termine
-          await Future.delayed(const Duration(milliseconds: 700));
-        }
-
-        setState(() {
-          _animatingCardId = null;
-        });
       } else {
-        setState(() {
-          _animatingCardId = null;
-        });
         throw Exception('Error al establecer la tarjeta favorita');
       }
     } catch (e) {
       print('Error setting favorite card: $e');
-      setState(() {
-        _animatingCardId = null;
-      });
     }
   }
 
@@ -422,58 +395,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
             ? const Center(child: CircularProgressIndicator())
             : _creditCards.isEmpty
                 ? _buildEmptyState(themeProvider, loc)
-                : SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Sección de Tarjeta Favorita
-                          if (_favoriteCard != null) ...[
-                            Text(
-                              loc.t('favorite_card_title'),
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: themeProvider.textColor,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            _buildCreditCard(
-                              _favoriteCard!,
-                              themeProvider,
-                              loc,
-                              isFavoriteSection: true,
-                            ),
-                            const SizedBox(height: 4),
-                          ],
-
-                          // Sección de Otras Tarjetas
-                          if (_otherCards.isNotEmpty) ...[
-                            Text(
-                              loc.t('other_cards'),
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: themeProvider.textColor,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            ..._otherCards
-                                .map((card) => _buildCreditCard(
-                                      card,
-                                      themeProvider,
-                                      loc,
-                                      isFavoriteSection: false,
-                                    ))
-                                .toList(),
-                          ],
-
-                          const SizedBox(height: 80),
-                        ],
-                      ),
-                    ),
-                  ),
+                : _buildWalletCards(themeProvider, loc),
       ),
       floatingActionButton: _creditCards.isEmpty
           ? null
@@ -570,125 +492,142 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     );
   }
 
-  Widget _buildCreditCard(
+  // Construir las tarjetas en formato billetera (apiladas)
+  Widget _buildWalletCards(ThemeProvider themeProvider, AppLocalizations loc) {
+    // Combinar todas las tarjetas: otras tarjetas primero, favorita al final
+    final allCards = <CreditCard>[];
+    allCards.addAll(_otherCards);
+    if (_favoriteCard != null) {
+      allCards.add(_favoriteCard!);
+    }
+
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Stack de tarjetas tipo billetera
+              SizedBox(
+                height: 350, // Altura aumentada para más espacio entre tarjetas
+                width: 317, // Ancho de las tarjetas
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.topCenter,
+                  children: [
+                    // Primero renderizar las otras tarjetas (estarán detrás en el Stack visualmente arriba)
+                    ..._otherCards.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final card = entry.value;
+                      final positionIndex = index;
+
+                      // Calcular desplazamiento adicional si una tarjeta está seleccionada
+                      double extraOffset = 0;
+                      if (_selectedCardId != null) {
+                        final selectedIndex = _otherCards
+                            .indexWhere((c) => c.id == _selectedCardId);
+                        // Si se seleccionó una tarjeta de arriba, las de abajo se desplazan
+                        if (selectedIndex >= 0 && index > selectedIndex) {
+                          extraOffset = 145; // Desplazar las tarjetas de abajo
+                        }
+                      }
+
+                      final isSelected = _selectedCardId == card.id;
+
+                      return AnimatedPositioned(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOutCubic,
+                        top: (positionIndex * 55.0) + extraOffset,
+                        child: IgnorePointer(
+                          // Ignorar toques si hay otra tarjeta seleccionada
+                          ignoring: _selectedCardId != null && !isSelected,
+                          child: _buildWalletCard(
+                            card,
+                            themeProvider,
+                            loc,
+                            isSelected: isSelected,
+                            onTap: () => _onCardTap(card.id),
+                          ),
+                        ),
+                      );
+                    }),
+                    // Luego renderizar la favorita (estará al frente en el Stack visualmente abajo)
+                    if (_favoriteCard != null)
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOutCubic,
+                        // La favorita también se desplaza si hay una tarjeta seleccionada arriba
+                        top: (_otherCards.length * 55.0) +
+                            (_selectedCardId != null &&
+                                    _selectedCardId != _favoriteCard!.id
+                                ? 145.0
+                                : 0.0),
+                        child: _buildWalletCard(
+                          _favoriteCard!,
+                          themeProvider,
+                          loc,
+                          isSelected: _selectedCardId == _favoriteCard!.id,
+                          onTap: () => _onCardTap(_favoriteCard!.id),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 80),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Manejar el tap en una tarjeta
+  void _onCardTap(String cardId) {
+    setState(() {
+      if (_selectedCardId == cardId) {
+        _selectedCardId = null; // Deseleccionar si ya estaba seleccionada
+      } else {
+        _selectedCardId = cardId; // Seleccionar la nueva tarjeta
+      }
+    });
+  }
+
+  // Construir una tarjeta individual en formato billetera
+  Widget _buildWalletCard(
     CreditCard card,
     ThemeProvider themeProvider,
     AppLocalizations loc, {
-    bool isFavoriteSection = false,
+    required bool isSelected,
+    required VoidCallback onTap,
   }) {
     // Determinar si esta tarjeta está siendo animada
     final isAnimating = _animatingCardId == card.id;
     final isMovingUp = _isMovingUp;
 
-    return AnimatedSize(
+    return AnimatedContainer(
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOutCubic,
-      alignment: Alignment.topCenter,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOutCubic,
-        transform: Matrix4.identity()
-          ..translate(
-            0.0,
-            isAnimating ? (isMovingUp ? -30.0 : 30.0) : 0.0,
-          )
-          ..scale(isAnimating ? 0.95 : 1.0),
-        margin: EdgeInsets.only(
-          bottom: isAnimating ? 40.0 : 24.0,
-          top: isAnimating ? 40.0 : 0.0,
-        ),
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 400),
-          opacity: isAnimating ? 0.6 : 1.0,
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Tarjeta
-                SizedBox(
-                  width: 317, // Ancho proporcional a altura 200 (ratio 1.586:1)
-                  child: _CreditCardWidget(card: card),
-                ),
-                const SizedBox(width: 12),
-                // Iconos a la derecha
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Icono de estrella (favorita)
-                    GestureDetector(
-                      onTap: card.isDefault
-                          ? null
-                          : () => _setFavoriteCard(card.id),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: card.isDefault
-                              ? const Color(0xFF78BF32)
-                              : themeProvider.cardBgColor,
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: card.isDefault
-                                ? const Color(0xFF78BF32)
-                                : themeProvider.borderColor,
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: AnimatedRotation(
-                          duration: const Duration(milliseconds: 400),
-                          turns: card.isDefault ? 0.1 : 0,
-                          child: Icon(
-                            card.isDefault ? Icons.star : Icons.star_border,
-                            color: card.isDefault
-                                ? Colors.white
-                                : const Color(0xFF78BF32),
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Icono de eliminar
-                    GestureDetector(
-                      onTap: () => _deleteCreditCard(card.id),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: themeProvider.cardBgColor,
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: themeProvider.borderColor,
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.red,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+      transform: Matrix4.identity()
+        ..translate(
+          0.0,
+          isAnimating ? (isMovingUp ? -30.0 : 30.0) : 0.0,
+        )
+        ..scale(isAnimating ? 0.95 : 1.0),
+      margin: EdgeInsets.only(bottom: isAnimating ? 40.0 : 0.0),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 400),
+        opacity: isAnimating ? 0.6 : 1.0,
+        child: SizedBox(
+          width: 317, // Ancho proporcional a altura 200 (ratio 1.586:1)
+          child: _CreditCardWidget(
+            card: card,
+            isSelected: isSelected,
+            onTap: onTap,
+            onFavoriteTap:
+                card.isDefault ? null : () => _setFavoriteCard(card.id),
+            onDeleteTap: () => _deleteCreditCard(card.id),
           ),
         ),
       ),
@@ -1852,8 +1791,18 @@ class _AddCardDialogState extends State<_AddCardDialog> {
 
 class _CreditCardWidget extends StatefulWidget {
   final CreditCard card;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback? onFavoriteTap;
+  final VoidCallback? onDeleteTap;
 
-  const _CreditCardWidget({required this.card});
+  const _CreditCardWidget({
+    required this.card,
+    this.isSelected = false,
+    required this.onTap,
+    this.onFavoriteTap,
+    this.onDeleteTap,
+  });
 
   @override
   State<_CreditCardWidget> createState() => _CreditCardWidgetState();
@@ -1940,169 +1889,192 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final loc = AppLocalizations.of(context)!;
 
-    return GestureDetector(
-      onTap: _flipCard,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(
-          begin: 0.0,
-          end: _isFlipped ? 1.0 : 0.0,
-        ),
-        duration: const Duration(milliseconds: 600),
-        builder: (context, value, child) {
-          final angle = value * 3.14159;
-          final showFront = value < 0.5;
-
-          return Transform(
-            transform: Matrix4.identity()
-              ..setEntry(3, 2, 0.001)
-              ..rotateY(showFront ? angle : 3.14159 - angle),
-            alignment: Alignment.center,
-            child: showFront
-                ? _buildFrontCard(themeProvider, loc)
-                : Transform(
-                    transform: Matrix4.identity()..rotateY(3.14159),
-                    alignment: Alignment.center,
-                    child: _buildBackCard(themeProvider),
-                  ),
-          );
-        },
-      ),
-    );
+    return _buildFrontCard(themeProvider, loc);
   }
 
-  // Construir el frente de la tarjeta (copia exacta del diálogo de agregar)
+  // Construir el frente de la tarjeta
   Widget _buildFrontCard(ThemeProvider themeProvider, AppLocalizations loc) {
     final cardColors = _getCardColors(widget.card.cardType);
 
-    return Container(
-      key: const ValueKey('front'),
-      height: 200,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: cardColors,
-        ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onTap,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          SizedBox(
-            height: 35,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Icon(
-                  Icons.credit_card,
-                  color: Colors.white,
-                  size: 30,
-                ),
-                // Logo de la tarjeta
-                if (_getCardLogoPath(widget.card.cardType) != null)
-                  Container(
-                    height: 35,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Image.asset(
-                      _getCardLogoPath(widget.card.cardType)!,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-              ],
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: cardColors,
             ),
-          ),
-          SizedBox(
-            width: double.infinity,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                widget.card.cardNumber,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                  fontFamily: 'Courier',
-                ),
-              ),
-            ),
-          ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 180,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      loc.t('card_holder_label'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    Text(
-                      widget.card.cardHolder.length > 20
-                          ? widget.card.cardHolder
-                              .toUpperCase()
-                              .substring(0, 20)
-                          : widget.card.cardHolder.toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    loc.t('expires_label'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  Text(
-                    widget.card.expiryDate,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ],
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
-        ],
+          child: Container(
+            key: const ValueKey('front'),
+            height: 200,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                SizedBox(
+                  height: 35,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Botones de estrella y basura (solo si está seleccionada o es favorita)
+                      if (widget.isSelected || widget.card.isDefault)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Botón de estrella
+                            // Si es favorita, mostrar estrella dorada
+                            if (widget.card.isDefault)
+                              const Icon(
+                                Icons.star,
+                                color: Color(0xFFFFD700),
+                                size: 24,
+                              ),
+                            // Si NO es favorita pero está seleccionada, mostrar estrella vacía
+                            if (!widget.card.isDefault && widget.isSelected)
+                              GestureDetector(
+                                onTap: widget.onFavoriteTap,
+                                behavior: HitTestBehavior.opaque,
+                                child: const Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: Icon(
+                                    Icons.star_border,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            // Botón de basura (si está seleccionada, sea favorita o no)
+                            if (widget.isSelected)
+                              GestureDetector(
+                                onTap: widget.onDeleteTap,
+                                behavior: HitTestBehavior.opaque,
+                                child: const Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      // Logo de la tarjeta
+                      if (_getCardLogoPath(widget.card.cardType) != null)
+                        Container(
+                          height: 35,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Image.asset(
+                            _getCardLogoPath(widget.card.cardType)!,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      widget.card.cardNumber,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                        fontFamily: 'Courier',
+                      ),
+                    ),
+                  ),
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 180,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            loc.t('card_holder_label'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          Text(
+                            widget.card.cardHolder.length > 20
+                                ? widget.card.cardHolder
+                                    .toUpperCase()
+                                    .substring(0, 20)
+                                : widget.card.cardHolder.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          loc.t('expires_label'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        Text(
+                          widget.card.expiryDate,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
