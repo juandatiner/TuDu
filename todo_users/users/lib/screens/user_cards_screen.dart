@@ -691,6 +691,11 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     });
   }
 
+  // Manejar el long press en una tarjeta (eliminar)
+  void _onCardLongPress(String cardId) {
+    _deleteCreditCard(cardId);
+  }
+
   // Construir una tarjeta individual en formato billetera
   Widget _buildWalletCard(
     CreditCard card,
@@ -727,11 +732,13 @@ class _MyCardsScreenState extends State<MyCardsScreen>
         child: SizedBox(
           width: 317,
           child: showTopOnly
-              ? _buildCardTopSection(card, themeProvider, onTap)
+              ? _buildCardTopSection(
+                  card, themeProvider, onTap, () => _onCardLongPress(card.id))
               : _CreditCardWidget(
                   card: card,
                   isSelected: isSelected,
                   onTap: onTap,
+                  onLongPress: () => _onCardLongPress(card.id),
                   onFavoriteTap:
                       card.isDefault ? null : () => _setFavoriteCard(card.id),
                   onDeleteTap: () => _deleteCreditCard(card.id),
@@ -746,6 +753,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     CreditCard card,
     ThemeProvider themeProvider,
     VoidCallback onTap,
+    VoidCallback? onLongPress,
   ) {
     final loc = AppLocalizations.of(context)!;
     final cardColors = _getCardColors(card.cardType);
@@ -759,6 +767,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(16),
         child: Ink(
           decoration: BoxDecoration(
@@ -2097,6 +2106,7 @@ class _CreditCardWidget extends StatefulWidget {
   final CreditCard card;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final VoidCallback? onFavoriteTap;
   final VoidCallback? onDeleteTap;
 
@@ -2104,6 +2114,7 @@ class _CreditCardWidget extends StatefulWidget {
     required this.card,
     this.isSelected = false,
     required this.onTap,
+    this.onLongPress,
     this.onFavoriteTap,
     this.onDeleteTap,
   });
@@ -2204,6 +2215,7 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
       color: Colors.transparent,
       child: InkWell(
         onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
         borderRadius: BorderRadius.circular(16),
         child: Ink(
           decoration: BoxDecoration(
