@@ -806,7 +806,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                           // Badge de crédito/débito
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 3),
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(10),
@@ -817,12 +817,12 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                                   : loc.t('debit'),
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 10,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           // Card logo
                           if (logoPath != null)
                             Container(
@@ -1494,34 +1494,23 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.credit_card,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _cardMode == 'credit'
+                            ? loc.t('credit')
+                            : loc.t('debit'),
+                        style: const TextStyle(
                           color: Colors.white,
-                          size: 30,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            _cardMode == 'credit'
-                                ? loc.t('credit')
-                                : loc.t('debit'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                     // Logo de la tarjeta - tamaño uniforme
                     if (_getCardLogoPath(cardType) != null)
@@ -2302,7 +2291,7 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
                                   : loc.t('debit'),
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 10,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
