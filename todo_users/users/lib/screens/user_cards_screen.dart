@@ -435,6 +435,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     final isFirstCard = _creditCards.isEmpty;
     final result = await showDialog<CreditCard>(
       context: context,
+      barrierColor: Colors.black87,
       builder: (context) => _AddCardDialog(
         isFirstCard: isFirstCard,
         existingCards: _creditCards,
@@ -1897,57 +1898,6 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 20),
-
-                // Tarjeta Predeterminada
-                Container(
-                  decoration: BoxDecoration(
-                    color: themeProvider.cardBgColor,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: themeProvider.isDarkMode
-                            ? Colors.black.withOpacity(0.2)
-                            : Colors.grey.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 3,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: CheckboxListTile(
-                    value: _isDefault,
-                    onChanged: widget.isFirstCard
-                        ? null // Deshabilitado si es la primera tarjeta
-                        : (value) {
-                            setState(() {
-                              _isDefault = value!;
-                            });
-                          },
-                    title: Text(
-                      loc.t('favorite_card'),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: themeProvider.textColor,
-                      ),
-                    ),
-                    subtitle: Text(
-                      widget.isFirstCard
-                          ? loc.t('first_card_favorite_description')
-                          : loc.t('favorite_card_description'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: themeProvider.secondaryTextColor,
-                      ),
-                    ),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    activeColor: const Color(0xFF78BF32),
-                    checkColor: Colors.white,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  ),
                 ),
                 const SizedBox(height: 24),
 
