@@ -556,26 +556,66 @@ class _MyCardsScreenState extends State<MyCardsScreen>
             children: [
               // Contenedor de tarjetas con altura dinámica
               AnimatedSize(
-                duration: const Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 500),
                 curve: Curves.easeInOut,
                 child: SizedBox(
                   width: 317,
-                  child: Column(
+                  height: 200 +
+                      (_otherCards.length * 60.0) +
+                      (_selectedCardId != null
+                          ? 145.0
+                          : 0.0), // Altura dinámica + espacio para selección
+                  child: Stack(
+                    alignment: Alignment.topCenter,
                     children: [
-                      // Otras tarjetas (arriba)
-                      ..._otherCards.map((card) {
+                      // Otras tarjetas (arriba, detrás) - orden invertido
+                      ..._otherCards.reversed
+                          .toList()
+                          .asMap()
+                          .entries
+                          .map((entry) {
+                        final index = entry.key;
+                        final card = entry.value;
                         final isSelected = _selectedCardId == card.id;
                         final isExiting = _cardExitAnimations[card.id] == true;
                         final isEntering = _enteringCardId == card.id;
 
-                        return _AnimatedCard(
-                          key: ValueKey(card.id),
-                          isExiting: isExiting,
-                          isEntering: isEntering,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              bottom: isSelected ? 145.0 : 0.0,
-                            ),
+                        // Calcular desplazamiento según si esta tarjeta está seleccionada o si otra está seleccionada
+                        double topPosition = 60.0 * index;
+                        if (_selectedCardId != null) {
+                          final selectedCard = _creditCards
+                              .firstWhere((c) => c.id == _selectedCardId);
+                          final selectedCardIndex = _otherCards.reversed
+                              .toList()
+                              .indexWhere((c) => c.id == _selectedCardId);
+
+                          if (selectedCardIndex != -1) {
+                            if (index < selectedCardIndex) {
+                              // Tarjeta está arriba de la seleccionada - mantener posición
+                              topPosition += 0.0;
+                            } else if (index > selectedCardIndex) {
+                              // Tarjeta está abajo de la seleccionada - mover hacia abajo
+                              topPosition += 145.0;
+                            } else {
+                              // Tarjeta seleccionada - mantener posición estática
+                              topPosition += 0.0;
+                            }
+                          } else {
+                            // Si la tarjeta seleccionada es la favorita
+                            if (_favoriteCard != null &&
+                                _selectedCardId == _favoriteCard!.id) {
+                              // Todas las tarjetas no favoritas se mueven hacia arriba
+                              topPosition += 0.0;
+                            }
+                          }
+                        }
+
+                        return Positioned(
+                          top: topPosition,
+                          child: _AnimatedCard(
+                            key: ValueKey(card.id),
+                            isExiting: isExiting,
+                            isEntering: isEntering,
                             child: _buildWalletCard(
                               card,
                               themeProvider,
@@ -586,19 +626,27 @@ class _MyCardsScreenState extends State<MyCardsScreen>
                           ),
                         );
                       }),
-                      // Tarjeta favorita (abajo, al frente)
+                      // Tarjeta favorita (abajo, al frente) - última para que se renderice encima
                       if (_favoriteCard != null)
-                        _AnimatedCard(
-                          key: ValueKey(_favoriteCard!.id),
-                          isExiting:
-                              _cardExitAnimations[_favoriteCard!.id] == true,
-                          isEntering: _enteringCardId == _favoriteCard!.id,
-                          child: _buildWalletCard(
-                            _favoriteCard!,
-                            themeProvider,
-                            loc,
-                            isSelected: _selectedCardId == _favoriteCard!.id,
-                            onTap: () => _onCardTap(_favoriteCard!.id),
+                        Positioned(
+                          top: (_otherCards.length * 60.0) +
+                              // Si hay una tarjeta seleccionada que NO es la favorita, mover hacia abajo
+                              (_selectedCardId != null &&
+                                      _selectedCardId != _favoriteCard!.id
+                                  ? 145.0
+                                  : 0.0),
+                          child: _AnimatedCard(
+                            key: ValueKey(_favoriteCard!.id),
+                            isExiting:
+                                _cardExitAnimations[_favoriteCard!.id] == true,
+                            isEntering: _enteringCardId == _favoriteCard!.id,
+                            child: _buildWalletCard(
+                              _favoriteCard!,
+                              themeProvider,
+                              loc,
+                              isSelected: _selectedCardId == _favoriteCard!.id,
+                              onTap: () => _onCardTap(_favoriteCard!.id),
+                            ),
                           ),
                         ),
                     ],
@@ -637,6 +685,14 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     final isAnimating = _animatingCardId == card.id;
     final isMovingUp = _isMovingUp;
 
+    // Determinar la escala de la tarjeta según si es favorita o no
+    final isFavorite = card.isDefault;
+    final scale =
+        isFavorite ? 1.0 : 0.95; // Tarjetas detrás son un poco más pequeñas
+
+    // Si la tarjeta no está seleccionada y no es favorita, solo mostrar la parte superior
+    final showTopOnly = !isSelected && !isFavorite;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOutCubic,
@@ -645,24 +701,177 @@ class _MyCardsScreenState extends State<MyCardsScreen>
           0.0,
           isAnimating ? (isMovingUp ? -30.0 : 30.0) : 0.0,
         )
-        ..scale(isAnimating ? 0.95 : 1.0),
+        ..scale(isAnimating ? 0.95 : scale),
       margin: EdgeInsets.only(bottom: isAnimating ? 40.0 : 0.0),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 400),
         opacity: isAnimating ? 0.6 : 1.0,
         child: SizedBox(
-          width: 317, // Ancho proporcional a altura 200 (ratio 1.586:1)
-          child: _CreditCardWidget(
-            card: card,
-            isSelected: isSelected,
-            onTap: onTap,
-            onFavoriteTap:
-                card.isDefault ? null : () => _setFavoriteCard(card.id),
-            onDeleteTap: () => _deleteCreditCard(card.id),
+          width: 317,
+          child: showTopOnly
+              ? _buildCardTopSection(card, themeProvider, onTap)
+              : _CreditCardWidget(
+                  card: card,
+                  isSelected: isSelected,
+                  onTap: onTap,
+                  onFavoriteTap:
+                      card.isDefault ? null : () => _setFavoriteCard(card.id),
+                  onDeleteTap: () => _deleteCreditCard(card.id),
+                ),
+        ),
+      ),
+    );
+  }
+
+  // Construir solo la parte superior de la tarjeta (logo) para tarjetas apiladas
+  Widget _buildCardTopSection(
+    CreditCard card,
+    ThemeProvider themeProvider,
+    VoidCallback onTap,
+  ) {
+    final cardColors = _getCardColors(card.cardType);
+    final logoPath = _getCardLogoPath(card.cardType);
+
+    // Mask the card number: show first 4 digits as **** and last 4 digits
+    String maskedCardNumber =
+        '**** **** **** ${card.cardNumber.split(' ').last}';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: cardColors,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Container(
+            height: 200,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                SizedBox(
+                  height: 35,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Masked card number
+                      Text(
+                        maskedCardNumber,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                          fontFamily: 'Courier',
+                        ),
+                      ),
+                      // Card logo - mismo tamaño que la tarjeta favorita
+                      if (logoPath != null)
+                        Container(
+                          height: 30,
+                          width: 50,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Image.asset(
+                            logoPath,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  // Obtener colores según el tipo de tarjeta (copiado desde _CreditCardWidget)
+  List<Color> _getCardColors(CardType cardType) {
+    switch (cardType) {
+      case CardType.visa:
+        return [
+          const Color(0xFF1A1F71),
+          const Color(0xFF0D47A1)
+        ]; // Azul oscuro Visa
+      case CardType.mastercard:
+        return [
+          const Color(0xFFEB001B),
+          const Color(0xFFF79E1B)
+        ]; // Rojo/Naranja Mastercard
+      case CardType.amex:
+        return [
+          const Color(0xFF006FCF),
+          const Color(0xFF00AEFF)
+        ]; // Azul American Express
+      case CardType.discover:
+        return [
+          const Color(0xFFFFB300),
+          const Color(0xFFFFD54F)
+        ]; // Amarillo Discover
+      case CardType.diners:
+        return [
+          const Color(0xFF0079BE),
+          const Color(0xFF004B87)
+        ]; // Azul Diners Club
+      case CardType.jcb:
+        return [const Color(0xFF00875A), const Color(0xFF00B4D8)]; // Verde JCB
+      case CardType.unionpay:
+        return [
+          const Color(0xFFE21836),
+          const Color(0xFF00447C)
+        ]; // Rojo/Azul UnionPay
+      case CardType.unknown:
+      default:
+        return [
+          const Color(0xFF6B7280),
+          const Color(0xFF374151)
+        ]; // Gris para desconocida
+    }
+  }
+
+  // Obtener la ruta del logo según el tipo de tarjeta (copiado desde _CreditCardWidget)
+  String? _getCardLogoPath(CardType cardType) {
+    switch (cardType) {
+      case CardType.visa:
+        return 'assets/images/cards/visa.png';
+      case CardType.mastercard:
+        return 'assets/images/cards/mastercard.png';
+      case CardType.amex:
+        return 'assets/images/cards/amex.png';
+      case CardType.discover:
+        return 'assets/images/cards/discover.png';
+      case CardType.diners:
+        return 'assets/images/cards/diners.png';
+      case CardType.jcb:
+        return 'assets/images/cards/jcb.png';
+      case CardType.unionpay:
+        return 'assets/images/cards/unionpay.png';
+      case CardType.unknown:
+      default:
+        return null; // No mostrar logo si es desconocido
+    }
   }
 }
 
