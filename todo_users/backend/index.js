@@ -96,6 +96,12 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
             console.error('Error agregando columna dark_mode:', err.message);
           }
         });
+        // Agregar columna language si no existe
+        usersDb.run(`ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'es'`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna language:', err.message);
+          }
+        });
       }
     });
 
@@ -2325,7 +2331,7 @@ app.get('/users/profile/:email', (req, res) => {
   }
 
   // Obtener datos del usuario
-  usersDb.get(`SELECT nombre, apellido, avatar_color, avatar_icon, avatar_image, phone, genero, fecha_nacimiento, dark_mode FROM users WHERE email = ?`, [email], (err, userRow) => {
+  usersDb.get(`SELECT nombre, apellido, avatar_color, avatar_icon, avatar_image, phone, genero, fecha_nacimiento, dark_mode, language FROM users WHERE email = ?`, [email], (err, userRow) => {
     if (err) {
       console.error('Error obteniendo perfil:', err);
       return res.status(500).json({ error: 'Error obteniendo perfil' });
@@ -2350,6 +2356,7 @@ app.get('/users/profile/:email', (req, res) => {
         genero: userRow.genero,
         fecha_nacimiento: userRow.fecha_nacimiento,
         dark_mode: userRow.dark_mode === 1,
+        language: userRow.language || 'es',
         country_code: phoneRow ? phoneRow.country_code : null,
         country_name: phoneRow ? phoneRow.country_name : null,
         phone_number: phoneRow ? phoneRow.phone_number : null
@@ -2606,6 +2613,60 @@ app.put('/users/theme', (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
     res.json({ message: 'Modo oscuro actualizado exitosamente', dark_mode: dark_mode });
+  });
+});
+
+// ============================================
+// ENDPOINTS DE PREFERENCIA DE IDIOMA
+// ============================================
+
+// Endpoint para obtener el idioma del usuario
+app.get('/users/language/:email', (req, res) => {
+  const { email } = req.params;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email es requerido' });
+  }
+
+  usersDb.get(`SELECT language FROM users WHERE email = ?`, [email], (err, row) => {
+    if (err) {
+      console.error('Error obteniendo idioma:', err);
+      return res.status(500).json({ error: 'Error obteniendo idioma' });
+    }
+    if (!row) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json({ language: row.language || 'es' });
+  });
+});
+
+// Endpoint para actualizar el idioma del usuario
+app.put('/users/language', (req, res) => {
+  const { email, language } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email es requerido' });
+  }
+
+  if (!language) {
+    return res.status(400).json({ error: 'language es requerido' });
+  }
+
+  // Validar que el idioma sea válido
+  const validLanguages = ['es', 'en'];
+  if (!validLanguages.includes(language)) {
+    return res.status(400).json({ error: 'Idioma no válido. Use "es" o "en"' });
+  }
+
+  usersDb.run(`UPDATE users SET language = ? WHERE email = ?`, [language, email], function(err) {
+    if (err) {
+      console.error('Error actualizando idioma:', err);
+      return res.status(500).json({ error: 'Error actualizando idioma' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json({ message: 'Idioma actualizado exitosamente', language: language });
   });
 });
 

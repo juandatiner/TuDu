@@ -237,6 +237,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     themeProvider.clearUser();
 
+    // Limpiar el usuario del LanguageProvider
+    final languageProvider =
+        Provider.of<LanguageProvider>(context, listen: false);
+    languageProvider.clearUser();
+
     // Navegar a la pantalla de login
     Navigator.pushReplacement(
       context,

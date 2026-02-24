@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/service.dart';
 import '../providers/theme_provider.dart';
+import '../providers/language_provider.dart';
 import '../services/session_service.dart';
 import '../l10n/app_localizations.dart';
 import 'all_services_screen.dart';
@@ -56,11 +57,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _startSessionCheck();
   }
 
-  /// Inicializa el tema del usuario desde el backend
+  /// Inicializa el tema y el idioma del usuario desde el backend
   void _initializeTheme() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
       themeProvider.initializeWithUser(widget.userEmail);
+
+      final languageProvider =
+          Provider.of<LanguageProvider>(context, listen: false);
+      languageProvider.initializeWithUser(widget.userEmail);
     });
   }
 
