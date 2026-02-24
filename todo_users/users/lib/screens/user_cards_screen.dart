@@ -279,16 +279,49 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 
   CardType _getCardType(String cardNumber) {
     final cleaned = cardNumber.replaceAll(RegExp(r'\s+'), '');
+    if (cleaned.isEmpty) return CardType.unknown;
+
+    // Visa: empieza con 4
     if (cleaned.startsWith('4')) {
       return CardType.visa;
-    } else if (cleaned.startsWith('5')) {
+    }
+    // Mastercard: empieza con 51-55 o 2221-2720
+    if (RegExp(r'^5[1-5]').hasMatch(cleaned)) {
       return CardType.mastercard;
-    } else if (cleaned.startsWith('3')) {
+    }
+    if (cleaned.length >= 4 && cleaned.startsWith('2')) {
+      final firstFour = int.tryParse(cleaned.substring(0, 4));
+      if (firstFour != null && firstFour >= 2221 && firstFour <= 2720) {
+        return CardType.mastercard;
+      }
+    }
+    // American Express: empieza con 34 o 37
+    if (cleaned.startsWith('34') || cleaned.startsWith('37')) {
       return CardType.amex;
-    } else if (cleaned.startsWith('6')) {
+    }
+    // Discover: empieza con 6011, 644-649, o 65
+    if (cleaned.startsWith('6011') || cleaned.startsWith('65')) {
       return CardType.discover;
     }
-    return CardType.visa; // Default to Visa
+    if (cleaned.startsWith('64') && cleaned.length >= 3) {
+      final thirdDigit = int.tryParse(cleaned.substring(2, 3));
+      if (thirdDigit != null && thirdDigit >= 4 && thirdDigit <= 9) {
+        return CardType.discover;
+      }
+    }
+    // Diners Club: empieza con 300-305, 36, 38
+    if (RegExp(r'^(30[0-5]|36|38)').hasMatch(cleaned)) {
+      return CardType.diners;
+    }
+    // JCB: empieza con 35
+    if (cleaned.startsWith('35')) {
+      return CardType.jcb;
+    }
+    // UnionPay: empieza con 62
+    if (cleaned.startsWith('62')) {
+      return CardType.unionpay;
+    }
+    return CardType.unknown;
   }
 
   Future<void> _setFavoriteCard(String id) async {
@@ -1770,12 +1803,50 @@ class _AddCardDialogState extends State<_AddCardDialog> {
   }
 
   CardType _getCardType(String number) {
-    if (number.startsWith('4')) {
+    final cleaned = number.replaceAll(RegExp(r'\s+'), '');
+    if (cleaned.isEmpty) return CardType.unknown;
+
+    // Visa: empieza con 4
+    if (cleaned.startsWith('4')) {
       return CardType.visa;
-    } else if (number.startsWith('5')) {
+    }
+    // Mastercard: empieza con 51-55 o 2221-2720
+    if (RegExp(r'^5[1-5]').hasMatch(cleaned)) {
       return CardType.mastercard;
     }
-    return CardType.visa; // Default to Visa
+    if (cleaned.length >= 4 && cleaned.startsWith('2')) {
+      final firstFour = int.tryParse(cleaned.substring(0, 4));
+      if (firstFour != null && firstFour >= 2221 && firstFour <= 2720) {
+        return CardType.mastercard;
+      }
+    }
+    // American Express: empieza con 34 o 37
+    if (cleaned.startsWith('34') || cleaned.startsWith('37')) {
+      return CardType.amex;
+    }
+    // Discover: empieza con 6011, 644-649, o 65
+    if (cleaned.startsWith('6011') || cleaned.startsWith('65')) {
+      return CardType.discover;
+    }
+    if (cleaned.startsWith('64') && cleaned.length >= 3) {
+      final thirdDigit = int.tryParse(cleaned.substring(2, 3));
+      if (thirdDigit != null && thirdDigit >= 4 && thirdDigit <= 9) {
+        return CardType.discover;
+      }
+    }
+    // Diners Club: empieza con 300-305, 36, 38
+    if (RegExp(r'^(30[0-5]|36|38)').hasMatch(cleaned)) {
+      return CardType.diners;
+    }
+    // JCB: empieza con 35
+    if (cleaned.startsWith('35')) {
+      return CardType.jcb;
+    }
+    // UnionPay: empieza con 62
+    if (cleaned.startsWith('62')) {
+      return CardType.unionpay;
+    }
+    return CardType.unknown;
   }
 }
 
