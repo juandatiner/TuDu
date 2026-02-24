@@ -405,6 +405,20 @@ class _MyCardsScreenState extends State<MyCardsScreen>
   }
 
   Future<void> _showAddCardDialog() async {
+    final loc = AppLocalizations.of(context)!;
+
+    // Verificar si ya tiene 7 tarjetas
+    if (_creditCards.length >= 7) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc.t('max_cards_reached')),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     final isFirstCard = _creditCards.isEmpty;
     final result = await showDialog<CreditCard>(
       context: context,

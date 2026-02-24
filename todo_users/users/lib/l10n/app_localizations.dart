@@ -348,6 +348,8 @@ class AppLocalizations {
       'card_holder_label': 'Titular',
       'expires_label': 'Vence',
       'card_already_exists': 'Ya existe una tarjeta con este número',
+      'max_cards_reached':
+          'Has alcanzado el límite máximo de 7 tarjetas. Para agregar una nueva, primero elimina una existente.',
 
       // Pantalla Mis Servicios
       'what_service_looking_for': '¿Qué servicio buscas?',
@@ -802,6 +804,8 @@ class AppLocalizations {
       'card_holder_label': 'Card Holder',
       'expires_label': 'Expires',
       'card_already_exists': 'A card with this number already exists',
+      'max_cards_reached':
+          'You have reached the maximum limit of 7 cards. To add a new one, please delete an existing card first.',
 
       // My Services Screen
       'what_service_looking_for': 'Search service...',
