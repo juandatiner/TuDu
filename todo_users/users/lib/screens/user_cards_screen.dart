@@ -178,6 +178,10 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     final loc = AppLocalizations.of(context)!;
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
+    // Verificar si la tarjeta a eliminar es la favorita
+    final cardToDelete = _creditCards.firstWhere((card) => card.id == id);
+    final wasFavorite = cardToDelete.isDefault;
+
     // Primero cerrar la tarjeta seleccionada
     setState(() {
       _selectedCardId = null;
@@ -296,6 +300,12 @@ class _MyCardsScreenState extends State<MyCardsScreen>
             _creditCards.removeWhere((card) => card.id == id);
             _cardExitAnimations.remove(id);
           });
+
+          // Si la tarjeta eliminada era la favorita y quedan tarjetas, asignar nueva favorita
+          if (wasFavorite && _creditCards.isNotEmpty) {
+            final newFavoriteCard = _creditCards.first;
+            await _setFavoriteCard(newFavoriteCard.id);
+          }
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
