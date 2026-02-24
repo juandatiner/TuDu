@@ -795,6 +795,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     showDialog(
       context: context,
+      barrierColor: Colors.black87,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
           shape: RoundedRectangleBorder(
@@ -1607,6 +1608,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     showDialog(
       context: context,
+      barrierColor: Colors.black87,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
           shape: RoundedRectangleBorder(
@@ -2392,6 +2394,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     showDialog(
       context: context,
+      barrierColor: Colors.black87,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -2539,6 +2542,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     showDialog(
       context: context,
+      barrierColor: Colors.black87,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),

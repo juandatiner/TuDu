@@ -192,7 +192,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 
     final confirmed = await showDialog<bool>(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: Colors.black87,
       builder: (dialogContext) => Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
