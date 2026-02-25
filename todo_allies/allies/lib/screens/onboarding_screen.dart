@@ -11,10 +11,9 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen>
     with TickerProviderStateMixin {
-  late AnimationController _scaleController;
+  late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  late Animation<Color?> _backgroundAnimation;
-  late Animation<Color?> _textAnimation;
+  late Animation<double> _fadeAnimation;
 
   final Color _backgroundColor = Color(0xFFF4F2F2);
   final Color _textColor = Color(0xFF78BF32);
@@ -23,30 +22,35 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   void initState() {
     super.initState();
 
-    // Configurar controlador de escala
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+    // Controlador optimizado para animación rápida y fluida
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    // Animación de escala suave con fade in
+    // Animación de escala suave (Netflix style)
     _scaleAnimation = Tween<double>(
-      begin: 0.3,
+      begin: 0.8,
       end: 1.0,
     ).animate(CurvedAnimation(
-      parent: _scaleController,
-      curve: Curves.easeOutQuart,
+      parent: _controller,
+      curve: Curves.easeOutExpo,
     ));
 
-    // Configurar animaciones estáticas de color
-    _backgroundAnimation = AlwaysStoppedAnimation<Color>(_backgroundColor);
-    _textAnimation = AlwaysStoppedAnimation<Color>(_textColor);
+    // Animación de fade in para un efecto más profesional
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
 
-    // Iniciar animación de escala
-    _scaleController.forward();
+    // Iniciar animación
+    _controller.forward();
 
-    // Navegar automáticamente después de 2 segundos
-    Timer(const Duration(seconds: 2), () {
+    // Navegación optimizada - tiempo justo para la animación
+    Timer(const Duration(milliseconds: 1500), () {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -56,66 +60,61 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   @override
   void dispose() {
-    _scaleController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Fuente responsiva optimizada para rendimiento
+    final todoFontSize = (screenWidth * 0.5).clamp(80.0, 350.0);
+    final alliesFontSize = (screenWidth * 0.15).clamp(40.0, 80.0);
+
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _backgroundAnimation,
-        builder: (context, child) {
-          return Container(
-            color: _backgroundAnimation.value ?? Colors.blue,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 100.0),
-              child: Center(
-                child: AnimatedBuilder(
-                  animation: _scaleAnimation,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: _scaleAnimation.value,
-                      child: AnimatedBuilder(
-                        animation: _textAnimation,
-                        builder: (context, child) {
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'To Do',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'TitanOne',
-                                  fontSize: 300,
-                                  fontWeight: FontWeight.bold,
-                                  color: _textAnimation.value ?? Colors.white,
-                                  height: 1.0, // Espacio normal entre líneas
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              const Text(
-                                'Aliados',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'TitanOne',
-                                  fontSize: 60,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black54,
-                                  height: 1.0,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
+      body: Container(
+        color: _backgroundColor,
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Opacity(
+                opacity: _fadeAnimation.value,
+                child: Transform.scale(
+                  scale: _scaleAnimation.value,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'To Do',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'TitanOne',
+                          fontSize: todoFontSize,
+                          fontWeight: FontWeight.bold,
+                          color: _textColor,
+                          height: 1.0,
+                        ),
                       ),
-                    );
-                  },
+                      const SizedBox(height: 20),
+                      Text(
+                        'Aliados',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'TitanOne',
+                          fontSize: alliesFontSize,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black54,
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ),
       ),
     );
   }

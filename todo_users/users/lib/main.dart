@@ -11,11 +11,13 @@ import 'l10n/app_localizations.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializar el provider de idioma
+  // Inicialización optimizada - cargar solo lo necesario para la splash
   final languageProvider = LanguageProvider();
   await languageProvider.loadLanguage();
 
+  // Reproducir sonido de forma asíncrona sin bloquear la UI
   _playSound();
+
   runApp(
     MultiProvider(
       providers: [
@@ -29,8 +31,13 @@ void main() async {
 }
 
 Future<void> _playSound() async {
-  final player = AudioPlayer();
-  await player.play(AssetSource('sounds/entrada.mp3'));
+  try {
+    final player = AudioPlayer();
+    await player.play(AssetSource('sounds/entrada.mp3'));
+  } catch (e) {
+    // Manejar errores de audio sin bloquear la app
+    debugPrint('Error al reproducir sonido: $e');
+  }
 }
 
 class MyApp extends StatelessWidget {

@@ -11,10 +11,9 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen>
     with TickerProviderStateMixin {
-  late AnimationController _scaleController;
+  late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  late Animation<Color?> _backgroundAnimation;
-  late Animation<Color?> _textAnimation;
+  late Animation<double> _fadeAnimation;
 
   final Color _backgroundColor = Color(0xFFF4F2F2);
   final Color _textColor = Color(0xFF78BF32);
@@ -23,30 +22,35 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   void initState() {
     super.initState();
 
-    // Configurar controlador de escala
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+    // Controlador optimizado para animación rápida y fluida
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    // Animación de escala suave con fade in
+    // Animación de escala suave (Netflix style)
     _scaleAnimation = Tween<double>(
-      begin: 0.3,
+      begin: 0.8,
       end: 1.0,
     ).animate(CurvedAnimation(
-      parent: _scaleController,
-      curve: Curves.easeOutQuart,
+      parent: _controller,
+      curve: Curves.easeOutExpo,
     ));
 
-    // Configurar animaciones estáticas de color
-    _backgroundAnimation = AlwaysStoppedAnimation<Color>(_backgroundColor);
-    _textAnimation = AlwaysStoppedAnimation<Color>(_textColor);
+    // Animación de fade in para un efecto más profesional
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
 
-    // Iniciar animación de escala
-    _scaleController.forward();
+    // Iniciar animación
+    _controller.forward();
 
-    // Navegar automáticamente después de 2 segundos
-    Timer(const Duration(seconds: 2), () {
+    // Navegación optimizada - tiempo justo para la animación
+    Timer(const Duration(milliseconds: 1500), () {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -56,72 +60,46 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   @override
   void dispose() {
-    _scaleController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Calcular tamaño de fuente responsivo basado en el tamaño de la pantalla
-    final screenSize = MediaQuery.of(context).size;
-    final screenWidth = screenSize.width;
-    final screenHeight = screenSize.height;
-
-    // El texto "To\nDo" (dos líneas) debe caber en la pantalla con márgenes seguros
-    // Calculamos el tamaño basado en el ancho para que cada letra quepa
-    // y consideramos que son 2 líneas con espacio entre ellas
-    // El factor 0.7 para el ancho permite que "To" o "Do" quepan con margen
-    // y el texto se vea grande y prominente
-    final responsiveFontSize = (screenWidth * 0.7).clamp(100.0, 500.0);
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Fuente responsiva optimizada para rendimiento
+    final responsiveFontSize = (screenWidth * 0.6).clamp(80.0, 400.0);
 
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _backgroundAnimation,
-        builder: (context, child) {
-          return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _backgroundAnimation.value ?? Colors.blue,
-                  (_backgroundAnimation.value ?? Colors.blue).withOpacity(0.7),
-                ],
-              ),
-            ),
-            child: SafeArea(
-              child: Center(
-                child: AnimatedBuilder(
-                  animation: _scaleAnimation,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: _scaleAnimation.value,
-                      child: AnimatedBuilder(
-                        animation: _textAnimation,
-                        builder: (context, child) {
-                          return FittedBox(
-                            fit: BoxFit.contain,
-                            child: Text(
-                              'To\nDo',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'TitanOne',
-                                fontSize: responsiveFontSize,
-                                fontWeight: FontWeight.bold,
-                                color: _textAnimation.value ?? Colors.white,
-                                height: 0.9,
-                              ),
-                            ),
-                          );
-                        },
+      body: Container(
+        color: _backgroundColor,
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Opacity(
+                opacity: _fadeAnimation.value,
+                child: Transform.scale(
+                  scale: _scaleAnimation.value,
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: Text(
+                      'To\nDo',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'TitanOne',
+                        fontSize: responsiveFontSize,
+                        fontWeight: FontWeight.bold,
+                        color: _textColor,
+                        height: 0.9,
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ),
       ),
     );
   }
