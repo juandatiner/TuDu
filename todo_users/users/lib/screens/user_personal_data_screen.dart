@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:intl_phone_field/country_picker_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../config.dart';
@@ -1302,6 +1303,12 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           showDropdownIcon: true,
                           initialCountryCode: _initialCountryCode,
                           languageCode: loc.locale.languageCode,
+                          pickerDialogStyle: PickerDialogStyle(
+                            searchFieldInputDecoration: InputDecoration(
+                              labelText: loc.t('search_country'),
+                              suffixIcon: const Icon(Icons.search),
+                            ),
+                          ),
                           onChanged: (phone) {
                             setState(() {
                               _completePhone = phone.completeNumber;

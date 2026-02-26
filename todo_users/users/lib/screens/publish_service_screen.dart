@@ -263,11 +263,23 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
       return;
     }
 
+    // Si se seleccionaron horas, mostrar horas directamente
+    if (_selectedUnitIndex == 0) {
+      setState(() {
+        _summary =
+            '${loc?.translate('summary') ?? 'Resumen'}: $_selectedQuantity ${_selectedQuantity == 1 ? (loc?.translate('hour') ?? 'hora') : (loc?.translate('hours') ?? 'horas')}';
+        _showMaxYearWarning =
+            _selectedQuantity > 24 * 365; // Más de un año en horas
+        if (_showMaxYearWarning) {
+          _summary =
+              '${loc?.translate('summary') ?? 'Resumen'}: ${loc?.translate('max_time_exceeded_summary') ?? 'Tiempo máximo excedido'}';
+        }
+      });
+      return;
+    }
+
     int totalDays = 0;
     switch (_selectedUnitIndex) {
-      case 0: // horas
-        totalDays = (_selectedQuantity / 24).ceil();
-        break;
       case 1: // dias
         totalDays = _selectedQuantity;
         break;

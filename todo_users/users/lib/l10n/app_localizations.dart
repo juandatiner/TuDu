@@ -477,6 +477,8 @@ class AppLocalizations {
       'week': 'Semana',
       'month': 'Mes',
       'year': 'Año',
+      // Buscador de países
+      'search_country': 'Buscar país',
     },
     'en': {
       // Navigation and general
@@ -933,6 +935,8 @@ class AppLocalizations {
       'week': 'Week',
       'month': 'Month',
       'year': 'Year',
+      // Country search
+      'search_country': 'Search country',
     },
   };
 

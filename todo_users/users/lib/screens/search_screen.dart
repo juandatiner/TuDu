@@ -672,9 +672,11 @@ class _SearchScreenState extends State<SearchScreen> {
                               .withOpacity(0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.history,
-                          color: Color.fromARGB(255, 0, 24, 162),
+                          color: themeProvider.isDarkMode
+                              ? const Color(0xFFE91E63)
+                              : const Color(0xFFE91E63),
                           size: 22,
                         ),
                       ),
