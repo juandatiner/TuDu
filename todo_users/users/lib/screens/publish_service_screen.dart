@@ -263,16 +263,36 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
       return;
     }
 
-    // Si se seleccionaron horas, mostrar horas directamente
+    // Si se seleccionaron horas, convertir a días y horas si es mayor a 24
     if (_selectedUnitIndex == 0) {
       setState(() {
-        _summary =
-            '${loc?.translate('summary') ?? 'Resumen'}: $_selectedQuantity ${_selectedQuantity == 1 ? (loc?.translate('hour') ?? 'hora') : (loc?.translate('hours') ?? 'horas')}';
         _showMaxYearWarning =
             _selectedQuantity > 24 * 365; // Más de un año en horas
         if (_showMaxYearWarning) {
           _summary =
               '${loc?.translate('summary') ?? 'Resumen'}: ${loc?.translate('max_time_exceeded_summary') ?? 'Tiempo máximo excedido'}';
+        } else if (_selectedQuantity < 24) {
+          // Menos de 24 horas, mostrar solo horas
+          _summary =
+              '${loc?.translate('summary') ?? 'Resumen'}: $_selectedQuantity ${_selectedQuantity == 1 ? (loc?.translate('hour') ?? 'hora') : (loc?.translate('hours') ?? 'horas')}';
+        } else {
+          // Más de 24 horas, convertir a días y horas
+          final days = _selectedQuantity ~/ 24;
+          final hours = _selectedQuantity % 24;
+          final parts = <String>[];
+
+          if (days > 0) {
+            parts.add(
+                '$days ${days == 1 ? (loc?.translate('day') ?? 'día') : (loc?.translate('days') ?? 'días')}');
+          }
+
+          if (hours > 0) {
+            parts.add(
+                '$hours ${hours == 1 ? (loc?.translate('hour') ?? 'hora') : (loc?.translate('hours') ?? 'horas')}');
+          }
+
+          _summary =
+              '${loc?.translate('summary') ?? 'Resumen'}: ${parts.join(' y ')}';
         }
       });
       return;
