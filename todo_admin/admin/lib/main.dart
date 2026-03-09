@@ -4,7 +4,6 @@ import 'config.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,64 +67,11 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       debugShowCheckedModeBanner: false,
-      home: const SplashScreen(),
+      home: const OnboardingScreen(),
       routes: {
-        '/onboarding': (context) => const OnboardingScreen(),
         '/login': (context) => const LoginScreen(),
         '/dashboard': (context) => const DashboardScreen(),
       },
-    );
-  }
-}
-
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
-
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> {
-  @override
-  void initState() {
-    super.initState();
-    _navigateToNextScreen();
-  }
-
-  Future<void> _navigateToNextScreen() async {
-    await Future.delayed(const Duration(seconds: 2));
-    final hasCompletedOnboarding = await hasOnboardingCompleted();
-
-    if (hasCompletedOnboarding) {
-      Navigator.pushReplacementNamed(context, '/login');
-    } else {
-      Navigator.pushReplacementNamed(context, '/onboarding');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final responsiveFontSize = (screenWidth * 0.6).clamp(80.0, 400.0);
-
-    return Scaffold(
-      backgroundColor: Config.backgroundColor,
-      body: Center(
-        child: FittedBox(
-          fit: BoxFit.contain,
-          child: Text(
-            'To\nDo',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'TitanOne',
-              fontSize: responsiveFontSize,
-              fontWeight: FontWeight.bold,
-              color: Config.textColor,
-              height: 0.9,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
