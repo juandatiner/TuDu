@@ -113,10 +113,10 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } catch (e) {
         if (mounted) {
+          debugPrint('Error de conexión detallado: $e');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content:
-                  Text('Error de conexión. Verifica tu conexión a internet.'),
+            SnackBar(
+              content: Text('Error de conexión: $e'),
               backgroundColor: Colors.red,
             ),
           );

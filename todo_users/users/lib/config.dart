@@ -7,7 +7,7 @@ class Config {
   // Para obtener tu IP local en Mac: ipconfig getifaddr en0
   // Para obtener tu IP local en Windows: ipconfig
   static const String localIpAddress =
-      '10.150.103.90'; // ← CAMBIAR POR TU IP LOCAL
+      '10.150.102.86'; // ← CAMBIAR POR TU IP LOCAL
 
   static final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
   static bool? _isEmulator;

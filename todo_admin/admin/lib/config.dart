@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class Config {
   // IMPORTANTE: Cambia esta IP a la de tu computadora en la red local
   static const String localIpAddress =
-      '10.150.103.90'; // ← CAMBIAR POR TU IP LOCAL
+      '10.150.102.86'; // ← CAMBIAR POR TU IP LOCAL
 
   static final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
   static bool? _isEmulator;
