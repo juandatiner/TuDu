@@ -62,7 +62,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final responsiveFontSize = (screenWidth * 0.6).clamp(80.0, 400.0);
+    final todoFontSize = (screenWidth * 0.5).clamp(80.0, 350.0);
+    final adminFontSize = (screenWidth * 0.15).clamp(40.0, 80.0);
 
     return Scaffold(
       body: Container(
@@ -75,19 +76,33 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 opacity: _fadeAnimation.value,
                 child: Transform.scale(
                   scale: _scaleAnimation.value,
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: Text(
-                      'To\nDo',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'TitanOne',
-                        fontSize: responsiveFontSize,
-                        fontWeight: FontWeight.bold,
-                        color: _textColor,
-                        height: 0.9,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'To Do',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'TitanOne',
+                          fontSize: todoFontSize,
+                          fontWeight: FontWeight.bold,
+                          color: _textColor,
+                          height: 1.0,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Admin',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'TitanOne',
+                          fontSize: adminFontSize,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black54,
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
