@@ -12,38 +12,16 @@
             "type": "dart"
         },
         {
-            "name": "users (profile mode)",
-            "cwd": "todo_users/users",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "users (release mode)",
-            "cwd": "todo_users/users",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "release"
-        },
-        {
             "name": "allies",
             "cwd": "todo_allies/allies",
             "request": "launch",
             "type": "dart"
         },
         {
-            "name": "allies (profile mode)",
-            "cwd": "todo_allies/allies",
+            "name": "admin",
+            "cwd": "todo_admin/admin",
             "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "allies (release mode)",
-            "cwd": "todo_allies/allies",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "release"
+            "type": "dart"
         }
     ]
 }
