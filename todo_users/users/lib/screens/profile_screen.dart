@@ -43,6 +43,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserProfile();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recargar datos cada vez que la pantalla se muestra (incluso al regresar de otras pantallas)
+    _loadUserProfile();
+  }
+
   Future<void> _loadUserProfile() async {
     try {
       final response = await http.get(

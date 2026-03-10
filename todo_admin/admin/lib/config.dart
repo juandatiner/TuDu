@@ -38,28 +38,28 @@ class Config {
 
     if (Platform.isAndroid) {
       if (emulator) {
-        return 'http://10.0.2.2:3003'; // Emulador Android
+        return 'http://10.0.2.2:3000'; // Emulador Android
       } else {
-        return 'http://$localIpAddress:3003'; // Dispositivo físico Android
+        return 'http://$localIpAddress:3000'; // Dispositivo físico Android
       }
     } else if (Platform.isIOS) {
       if (emulator) {
-        return 'http://localhost:3003'; // Simulador iOS
+        return 'http://localhost:3000'; // Simulador iOS
       } else {
-        return 'http://$localIpAddress:3003'; // Dispositivo físico iOS
+        return 'http://$localIpAddress:3000'; // Dispositivo físico iOS
       }
     } else {
-      return 'http://localhost:3003'; // Web, Desktop
+      return 'http://localhost:3000'; // Web, Desktop
     }
   }
 
   static String get baseUrl {
     if (Platform.isAndroid) {
-      return 'http://$localIpAddress:3003'; // Por defecto para dispositivo físico
+      return 'http://$localIpAddress:3000'; // Por defecto para dispositivo físico
     } else if (Platform.isIOS) {
-      return 'http://$localIpAddress:3003'; // Por defecto para dispositivo físico
+      return 'http://$localIpAddress:3000'; // Por defecto para dispositivo físico
     } else {
-      return 'http://localhost:3003';
+      return 'http://localhost:3000';
     }
   }
 

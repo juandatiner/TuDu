@@ -40,6 +40,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _hasPendingPhotoRequest = false;
   String _avatarColor = '#78BF32';
   XFile? _selectedImage;
   String _selectedIcon = 'person'; // Icono por defecto
@@ -86,6 +87,13 @@ class _MyDataScreenState extends State<MyDataScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recargar datos cada vez que la pantalla se muestra (incluso al regresar de otras pantallas)
+    _loadUserData();
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _lastNameController.dispose();
@@ -114,6 +122,19 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   Future<void> _loadUserData() async {
     try {
+      // Verificar si hay solicitud pendiente de cambio de foto
+      final pendingRequestResponse = await http.get(
+        Uri.parse(
+            '${Config.baseUrl}/api/user/photo-change-request/pending?user_email=${widget.userEmail}'),
+      );
+
+      if (pendingRequestResponse.statusCode == 200) {
+        final pendingData = json.decode(pendingRequestResponse.body);
+        setState(() {
+          _hasPendingPhotoRequest = pendingData['data'] != null;
+        });
+      }
+
       final response = await http.get(
         Uri.parse('${Config.baseUrl}/users/profile/${widget.userEmail}'),
       );
@@ -254,22 +275,24 @@ class _MyDataScreenState extends State<MyDataScreen> {
         }),
       );
 
-      // Subir imagen de perfil o actualizar avatar
-      final avatarResponse = await http.put(
-        Uri.parse('${Config.baseUrl}/users/profile/avatar'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': widget.userEmail,
-          'avatar_image': _usePhoto ? _avatarImage : null,
-          // Solo enviar color y icono si no se usa foto
-          if (!_usePhoto) ...{
-            'avatar_color': _avatarColor,
-            'avatar_icon': _selectedIcon,
-          },
-        }),
-      );
-      if (avatarResponse.statusCode != 200) {
-        print('Error updating avatar: ${avatarResponse.statusCode}');
+      // Si no hay una solicitud pendiente y se cambió el avatar, actualizar directamente
+      if (!_hasPendingPhotoRequest) {
+        final avatarResponse = await http.put(
+          Uri.parse('${Config.baseUrl}/users/profile/avatar'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'email': widget.userEmail,
+            'avatar_image': _usePhoto ? _avatarImage : null,
+            // Solo enviar color y icono si no se usa foto
+            if (!_usePhoto) ...{
+              'avatar_color': _avatarColor,
+              'avatar_icon': _selectedIcon,
+            },
+          }),
+        );
+        if (avatarResponse.statusCode != 200) {
+          print('Error updating avatar: ${avatarResponse.statusCode}');
+        }
       }
 
       setState(() {
@@ -320,93 +343,145 @@ class _MyDataScreenState extends State<MyDataScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (_hasPendingPhotoRequest)
+                ListTile(
+                  leading: const Icon(Icons.pending, color: Colors.orange),
+                  title: Text(
+                    'Para poder cambiar de nuevo, debes esperar el cambio que solicitaste',
+                    style: TextStyle(color: themeProvider.textColor),
+                  ),
+                ),
               if (!_usePhoto)
                 ListTile(
-                  leading: const Icon(Icons.person, color: Color(0xFF78BF32)),
+                  leading: Icon(Icons.person,
+                      color: _hasPendingPhotoRequest
+                          ? Colors.grey
+                          : const Color(0xFF78BF32)),
                   title: Text(loc.t('change_avatar'),
-                      style: TextStyle(color: themeProvider.textColor)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showAvatarOptionsDialog();
-                  },
+                      style: TextStyle(
+                          color: _hasPendingPhotoRequest
+                              ? Colors.grey
+                              : themeProvider.textColor)),
+                  onTap: _hasPendingPhotoRequest
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          _showAvatarOptionsDialog();
+                        },
+                  enabled: !_hasPendingPhotoRequest,
                 ),
               if (!_usePhoto)
                 ListTile(
-                  leading: const Icon(Icons.photo, color: Color(0xFF78BF32)),
+                  leading: Icon(Icons.photo,
+                      color: _hasPendingPhotoRequest
+                          ? Colors.grey
+                          : const Color(0xFF78BF32)),
                   title: Text(loc.t('upload_photo'),
-                      style: TextStyle(color: themeProvider.textColor)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _pickAndUploadImage();
-                  },
+                      style: TextStyle(
+                          color: _hasPendingPhotoRequest
+                              ? Colors.grey
+                              : themeProvider.textColor)),
+                  onTap: _hasPendingPhotoRequest
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          _pickAndUploadImage();
+                        },
+                  enabled: !_hasPendingPhotoRequest,
                 ),
               if (_usePhoto)
                 ListTile(
-                  leading: const Icon(Icons.person, color: Color(0xFF78BF32)),
+                  leading: Icon(Icons.person,
+                      color: _hasPendingPhotoRequest
+                          ? Colors.grey
+                          : const Color(0xFF78BF32)),
                   title: Text(loc.t('set_avatar'),
-                      style: TextStyle(color: themeProvider.textColor)),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    final randomIcon = [
-                      'mood_happy',
-                      'man',
-                      'woman',
-                      'sports_esports',
-                      'music_note',
-                      'restaurant',
-                      'store',
-                      'home',
-                      'work',
-                      'school'
-                    ][DateTime.now().millisecondsSinceEpoch % 10];
-                    setState(() {
-                      _usePhoto = false;
-                      _selectedImage = null;
-                      _avatarImage = null;
-                      _selectedIcon = randomIcon;
-                    });
-                    // Actualizar backend con el nuevo avatar
-                    await _updateAvatar(_avatarColor, randomIcon);
-                  },
+                      style: TextStyle(
+                          color: _hasPendingPhotoRequest
+                              ? Colors.grey
+                              : themeProvider.textColor)),
+                  onTap: _hasPendingPhotoRequest
+                      ? null
+                      : () async {
+                          Navigator.pop(context);
+                          final randomIcon = [
+                            'mood_happy',
+                            'man',
+                            'woman',
+                            'sports_esports',
+                            'music_note',
+                            'restaurant',
+                            'store',
+                            'home',
+                            'work',
+                            'school'
+                          ][DateTime.now().millisecondsSinceEpoch % 10];
+                          setState(() {
+                            _usePhoto = false;
+                            _selectedImage = null;
+                            _avatarImage = null;
+                            _selectedIcon = randomIcon;
+                          });
+                          // Actualizar backend con el nuevo avatar
+                          await _updateAvatar(_avatarColor, randomIcon);
+                        },
+                  enabled: !_hasPendingPhotoRequest,
                 ),
               if (_usePhoto)
                 ListTile(
-                  leading: const Icon(Icons.photo, color: Color(0xFF78BF32)),
+                  leading: Icon(Icons.photo,
+                      color: _hasPendingPhotoRequest
+                          ? Colors.grey
+                          : const Color(0xFF78BF32)),
                   title: Text(loc.t('change_photo'),
-                      style: TextStyle(color: themeProvider.textColor)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _pickAndUploadImage();
-                  },
+                      style: TextStyle(
+                          color: _hasPendingPhotoRequest
+                              ? Colors.grey
+                              : themeProvider.textColor)),
+                  onTap: _hasPendingPhotoRequest
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          _pickAndUploadImage();
+                        },
+                  enabled: !_hasPendingPhotoRequest,
                 ),
               if (_usePhoto)
                 ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
+                  leading: Icon(Icons.delete,
+                      color:
+                          _hasPendingPhotoRequest ? Colors.grey : Colors.red),
                   title: Text(loc.t('delete_photo'),
-                      style: TextStyle(color: themeProvider.textColor)),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    final randomIcon = [
-                      'mood_happy',
-                      'man',
-                      'woman',
-                      'sports_esports',
-                      'music_note',
-                      'restaurant',
-                      'store',
-                      'home',
-                      'work',
-                      'school'
-                    ][DateTime.now().millisecondsSinceEpoch % 10];
-                    setState(() {
-                      _usePhoto = false;
-                      _selectedImage = null;
-                      _avatarImage = null;
-                      _selectedIcon = randomIcon;
-                    });
-                    // Actualizar backend con el nuevo avatar
-                    await _updateAvatar(_avatarColor, randomIcon);
-                  },
+                      style: TextStyle(
+                          color: _hasPendingPhotoRequest
+                              ? Colors.grey
+                              : themeProvider.textColor)),
+                  onTap: _hasPendingPhotoRequest
+                      ? null
+                      : () async {
+                          Navigator.pop(context);
+                          final randomIcon = [
+                            'mood_happy',
+                            'man',
+                            'woman',
+                            'sports_esports',
+                            'music_note',
+                            'restaurant',
+                            'store',
+                            'home',
+                            'work',
+                            'school'
+                          ][DateTime.now().millisecondsSinceEpoch % 10];
+                          setState(() {
+                            _usePhoto = false;
+                            _selectedImage = null;
+                            _avatarImage = null;
+                            _selectedIcon = randomIcon;
+                          });
+                          // Actualizar backend con el nuevo avatar
+                          await _updateAvatar(_avatarColor, randomIcon);
+                        },
+                  enabled: !_hasPendingPhotoRequest,
                 ),
             ],
           ),
@@ -713,12 +788,46 @@ class _MyDataScreenState extends State<MyDataScreen> {
       // Convertir imagen a base64
       final bytes = await file.readAsBytes();
       final base64Image = base64Encode(bytes);
-      setState(() {
-        _selectedImage = XFile(image.path);
-        _usePhoto = true;
-        _avatarImage = 'data:image/jpeg;base64,$base64Image';
-        _avatarColor = '#78BF32'; // Restablecer color por defecto al subir foto
-      });
+
+      // Enviar solicitud de cambio de foto
+      try {
+        final response = await http.post(
+          Uri.parse('${Config.baseUrl}/api/user/photo-change-request'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'user_email': widget.userEmail,
+            'new_avatar_image': 'data:image/jpeg;base64,$base64Image',
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          setState(() {
+            _hasPendingPhotoRequest = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Solicitud de cambio de foto enviada. Esperando aprobación'),
+              backgroundColor: const Color(0xFF78BF32),
+            ),
+          );
+        } else {
+          final error = json.decode(response.body);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error['error'] ?? 'Error al enviar solicitud'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error de conexión'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

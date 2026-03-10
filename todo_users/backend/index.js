@@ -7,6 +7,14 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
+// Configurar Firebase Admin (comentado temporalmente)
+// const admin = require('firebase-admin');
+// const serviceAccount = require('./firebase-admin.json');
+// 
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount),
+// });
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -120,6 +128,23 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
         console.error('Error creando tabla user_phones:', err.message);
       } else {
         console.log('Tabla user_phones lista');
+      }
+    });
+
+  // Crear tabla de solicitudes de cambio de foto de perfil
+  usersDb.run(`CREATE TABLE IF NOT EXISTS photo_change_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_email TEXT NOT NULL,
+      new_avatar_image TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_email) REFERENCES users(email)
+    )`, (err) => {
+      if (err) {
+        console.error('Error creando tabla photo_change_requests:', err.message);
+      } else {
+        console.log('Tabla photo_change_requests lista');
       }
     });
 
@@ -2926,6 +2951,205 @@ app.post('/device-session/close-others', (req, res) => {
       });
     }
   );
+});
+
+// Función para enviar notificación push (comentada temporalmente)
+// const sendPushNotification = async (title, body, token) => {
+//   try {
+//     const message = {
+//       notification: {
+//         title,
+//         body,
+//       },
+//       token,
+//     };
+// 
+//     const response = await admin.messaging().send(message);
+//     console.log('Notificación push enviada:', response);
+//   } catch (error) {
+//     console.error('Error al enviar notificación push:', error);
+//   }
+// };
+
+// Endpoint para crear una solicitud de cambio de foto de perfil
+app.post('/api/user/photo-change-request', (req, res) => {
+  const { user_email, new_avatar_image } = req.body;
+
+  if (!user_email || !new_avatar_image) {
+    return res.status(400).json({ error: 'user_email and new_avatar_image are required' });
+  }
+
+  // Verificar si el usuario existe
+  const checkUserQuery = `SELECT id FROM users WHERE email = ?`;
+  usersDb.get(checkUserQuery, [user_email], (err, user) => {
+    if (err) {
+      console.error('Error al verificar usuario:', err.message);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verificar si ya existe una solicitud pendiente
+    const checkPendingQuery = `SELECT id FROM photo_change_requests WHERE user_email = ? AND status = 'pending'`;
+    usersDb.get(checkPendingQuery, [user_email], (err, pendingRequest) => {
+      if (err) {
+        console.error('Error al verificar solicitud pendiente:', err.message);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+
+      if (pendingRequest) {
+        return res.status(400).json({ error: 'Ya existe una solicitud pendiente' });
+      }
+
+      // Crear la solicitud
+      const insertQuery = `INSERT INTO photo_change_requests (user_email, new_avatar_image) VALUES (?, ?)`;
+      usersDb.run(insertQuery, [user_email, new_avatar_image], function(err) {
+        if (err) {
+          console.error('Error al crear solicitud:', err.message);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+
+        // Enviar notificación push al admin (si hay tokens registrados)
+        const adminTokens = [
+          // Aquí deberías obtener los tokens de los admins desde la base de datos
+          // Por ejemplo: 'YOUR_ADMIN_FCM_TOKEN'
+        ];
+
+        adminTokens.forEach(token => {
+          sendPushNotification(
+            'Nueva solicitud de cambio de foto',
+            `El usuario ${user_email} ha solicitado cambiar su foto de perfil`,
+            token
+          );
+        });
+
+        res.json({
+          success: true,
+          data: {
+            id: this.lastID,
+            user_email,
+            new_avatar_image,
+            status: 'pending',
+            created_at: new Date().toISOString()
+          },
+          message: 'Solicitud de cambio de foto creada exitosamente'
+        });
+      });
+    });
+  });
+});
+
+// Endpoint para obtener todas las solicitudes de cambio de foto (admin)
+app.get('/api/admin/photo-change-requests', (req, res) => {
+  const query = `SELECT pcr.*, u.nombre, u.apellido, u.avatar_image 
+                 FROM photo_change_requests pcr
+                 JOIN users u ON pcr.user_email = u.email
+                 ORDER BY pcr.created_at DESC`;
+  
+  usersDb.all(query, [], (err, rows) => {
+    if (err) {
+      console.error('Error al obtener solicitudes:', err.message);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+
+    res.json({
+      success: true,
+      data: rows
+    });
+  });
+});
+
+// Endpoint para aprobar/rechazar una solicitud de cambio de foto (admin)
+app.put('/api/admin/photo-change-requests/:id', (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'Status must be approved or rejected' });
+  }
+
+  // Obtener la solicitud
+  const getRequestQuery = `SELECT * FROM photo_change_requests WHERE id = ?`;
+  usersDb.get(getRequestQuery, [id], (err, request) => {
+    if (err) {
+      console.error('Error al obtener solicitud:', err.message);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+
+    if (!request) {
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+
+    if (request.status !== 'pending') {
+      return res.status(400).json({ error: 'La solicitud ya ha sido procesada' });
+    }
+
+    // Actualizar el estado de la solicitud
+    const updateQuery = `UPDATE photo_change_requests SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    usersDb.run(updateQuery, [status, id], function(err) {
+      if (err) {
+        console.error('Error al actualizar solicitud:', err.message);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+
+      // Si la solicitud es aprobada, actualizar la foto de perfil del usuario
+      if (status === 'approved') {
+        const updateUserQuery = `UPDATE users SET avatar_image = ? WHERE email = ?`;
+        usersDb.run(updateUserQuery, [request.new_avatar_image, request.user_email], (err) => {
+          if (err) {
+            console.error('Error al actualizar foto de perfil:', err.message);
+            return res.status(500).json({ error: 'Internal server error' });
+          }
+
+          res.json({
+            success: true,
+            data: {
+              id: parseInt(id),
+              user_email: request.user_email,
+              status,
+              updated_at: new Date().toISOString()
+            },
+            message: 'Solicitud aprobada y foto de perfil actualizada'
+          });
+        });
+      } else {
+        res.json({
+          success: true,
+          data: {
+            id: parseInt(id),
+            user_email: request.user_email,
+            status,
+            updated_at: new Date().toISOString()
+          },
+          message: 'Solicitud rechazada'
+        });
+      }
+    });
+  });
+});
+
+// Endpoint para obtener la solicitud pendiente de un usuario
+app.get('/api/user/photo-change-request/pending', (req, res) => {
+  const { user_email } = req.query;
+
+  if (!user_email) {
+    return res.status(400).json({ error: 'user_email is required' });
+  }
+
+  const query = `SELECT * FROM photo_change_requests WHERE user_email = ? AND status = 'pending'`;
+  usersDb.get(query, [user_email], (err, row) => {
+    if (err) {
+      console.error('Error al obtener solicitud pendiente:', err.message);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+
+    res.json({
+      success: true,
+      data: row || null
+    });
+  });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
