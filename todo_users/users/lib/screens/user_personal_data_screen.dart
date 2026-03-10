@@ -789,6 +789,22 @@ class _MyDataScreenState extends State<MyDataScreen> {
       final bytes = await file.readAsBytes();
       final base64Image = base64Encode(bytes);
 
+      // Verificar si la foto es la misma que la actual
+      if (_avatarImage != null && _avatarImage!.startsWith('data:image')) {
+        final currentBase64 = _avatarImage!.split(',')[1];
+        if (base64Image == currentBase64) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('La foto seleccionada es la misma que la actual'),
+              backgroundColor: Colors.yellow,
+              duration: const Duration(seconds: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+          );
+          return;
+        }
+      }
+
       // Enviar solicitud de cambio de foto
       try {
         final response = await http.post(
@@ -809,6 +825,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
               content: Text(
                   'Solicitud de cambio de foto enviada. Esperando aprobación'),
               backgroundColor: const Color(0xFF78BF32),
+              duration: const Duration(seconds: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           );
         } else {
