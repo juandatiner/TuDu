@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config.dart';
 import 'photo_change_requests_screen.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -15,11 +16,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
   int _pendingRequestsCount = 0;
   bool _isLoading = true;
+  late IO.Socket _socket;
 
   @override
   void initState() {
     super.initState();
     _loadPendingRequestsCount();
+    _connectSocket();
+  }
+
+  void _connectSocket() {
+    // Conectar al servidor Socket.io
+    _socket = IO.io(
+        Config.baseUrl
+            .replaceAll('http://', 'ws://')
+            .replaceAll('https://', 'wss://'),
+        {
+          'transports': ['websocket'],
+          'autoConnect': true,
+        });
+
+    _socket.onConnect((_) {
+      print('Conectado al servidor Socket.io');
+    });
+
+    _socket.onConnectError((error) {
+      print('Error de conexión Socket.io: $error');
+    });
+
+    _socket.onDisconnect((_) {
+      print('Desconectado del servidor Socket.io');
+    });
+
+    // Escuchar evento de nueva solicitud
+    _socket.on('newPhotoChangeRequest', (data) {
+      print('Nueva solicitud recibida en dashboard: $data');
+      // Actualizar el contador de solicitudes pendientes
+      _loadPendingRequestsCount();
+    });
+  }
+
+  @override
+  void dispose() {
+    _socket.disconnect();
+    super.dispose();
   }
 
   @override

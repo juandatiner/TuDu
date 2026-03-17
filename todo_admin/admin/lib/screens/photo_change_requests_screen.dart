@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 class PhotoChangeRequestsScreen extends StatefulWidget {
   const PhotoChangeRequestsScreen({super.key});
@@ -14,11 +15,58 @@ class PhotoChangeRequestsScreen extends StatefulWidget {
 class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
   List<dynamic> _requests = [];
   bool _isLoading = true;
+  late IO.Socket _socket;
 
   @override
   void initState() {
     super.initState();
     _loadRequests();
+    _connectSocket();
+  }
+
+  void _connectSocket() {
+    // Conectar al servidor Socket.io
+    _socket = IO.io(
+        Config.baseUrl
+            .replaceAll('http://', 'ws://')
+            .replaceAll('https://', 'wss://'),
+        {
+          'transports': ['websocket'],
+          'autoConnect': true,
+        });
+
+    _socket.onConnect((_) {
+      print('Conectado al servidor Socket.io');
+    });
+
+    _socket.onConnectError((error) {
+      print('Error de conexión Socket.io: $error');
+    });
+
+    _socket.onDisconnect((_) {
+      print('Desconectado del servidor Socket.io');
+    });
+
+    // Escuchar evento de nueva solicitud
+    _socket.on('newPhotoChangeRequest', (data) {
+      print('Nueva solicitud recibida: $data');
+      // Actualizar la lista de solicitudes
+      _loadRequests();
+      // Mostrar notificación en la app
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Nueva solicitud de cambio de foto'),
+          backgroundColor: Config.primaryColor,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _socket.disconnect();
+    super.dispose();
   }
 
   Future<void> _loadRequests() async {

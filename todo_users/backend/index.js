@@ -6,6 +6,8 @@ const path = require('path');
 // const multer = require('multer');
 const fs = require('fs');
 require('dotenv').config();
+const http = require('http');
+const { Server } = require('socket.io');
 
 // Configurar Firebase Admin (comentado temporalmente)
 // const admin = require('firebase-admin');
@@ -17,6 +19,22 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"]
+  }
+});
+
+// Socket.io connection handler
+io.on('connection', (socket) => {
+  console.log('Usuario conectado:', socket.id);
+  
+  socket.on('disconnect', () => {
+    console.log('Usuario desconectado:', socket.id);
+  });
+});
 
 // Configurar Mailgun solo si las credenciales están configuradas
 let mg = null;
@@ -3011,18 +3029,13 @@ app.post('/api/user/photo-change-request', (req, res) => {
           return res.status(500).json({ error: 'Internal server error' });
         }
 
-        // Enviar notificación push al admin (si hay tokens registrados)
-        const adminTokens = [
-          // Aquí deberías obtener los tokens de los admins desde la base de datos
-          // Por ejemplo: 'YOUR_ADMIN_FCM_TOKEN'
-        ];
-
-        adminTokens.forEach(token => {
-          sendPushNotification(
-            'Nueva solicitud de cambio de foto',
-            `El usuario ${user_email} ha solicitado cambiar su foto de perfil`,
-            token
-          );
+        // Emitir evento Socket.io a todos los admins conectados
+        io.emit('newPhotoChangeRequest', {
+          id: this.lastID,
+          user_email,
+          new_avatar_image,
+          status: 'pending',
+          created_at: new Date().toISOString()
         });
 
         res.json({
@@ -3152,7 +3165,7 @@ app.get('/api/user/photo-change-request/pending', (req, res) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor corriendo en puerto ${PORT} (accesible desde red)`);
   console.log(`Bases de datos conectadas:`);
   console.log(`  - users.db (usuarios)`);
