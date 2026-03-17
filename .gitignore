@@ -1,7 +1,7 @@
 # Archivos con claves privadas
 .env
 *.env
-todo_users/backend/.env
+tudu_users/backend/.env
 
 # Archivos temporales de SQLite (WAL mode)
 *.db-wal

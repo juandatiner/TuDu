@@ -2,13 +2,13 @@
 
 ## Backends disponibles:
 
-### 1. Backend Users (todo_users/backend/index.js)
+### 1. Backend Users (tudu_users/backend/index.js)
 - Puerto: 3002
-- App Flutter: todo_users/users/
+- App Flutter: tudu_users/users/
 
-### 2. Backend Allies (todo_allies/backend/index.js)
+### 2. Backend Allies (tudu_allies/backend/index.js)
 - Puerto: 3002
-- App Flutter: todo_allies/allies/
+- App Flutter: tudu_allies/allies/
 
 == Bases de Datos SQLite ===
 Rutas de las bases de datos (carpeta databases/):
@@ -31,7 +31,7 @@ Rutas de las bases de datos (carpeta databases/):
 
 == Endpoints por App ===
 
-### App Users (todo_users/users/):
+### App Users (tudu_users/users/):
 - POST /send-otp - Enviar código OTP
 - POST /verify-otp - Verificar código OTP
 - POST /check-user - Verificar si usuario existe (users.db)
@@ -44,7 +44,7 @@ Rutas de las bases de datos (carpeta databases/):
 - DELETE /search-history/:id - Eliminar búsqueda (search.db)
 - GET /search-services - Buscar servicios (services.db)
 
-### App Allies (todo_allies/allies/):
+### App Allies (tudu_allies/allies/):
 - POST /send-otp - Enviar código OTP
 - POST /verify-otp - Verificar código OTP
 - POST /check-ally - Verificar si aliado existe (allies.db)

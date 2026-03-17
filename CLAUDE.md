@@ -1,11 +1,11 @@
-# CLAUDE.md — ToDo Ecosystem
+# CLAUDE.md — tudu Ecosystem
 > Última revisión: 2026-03-17 — generado leyendo código fuente real, no el blueprint.
 
 ---
 
 ## 1. PROJECT IDENTITY
 
-**ToDo** es un marketplace de servicios locales (Colombia) que conecta usuarios (clientes) con aliados (prestadores de servicios), gestionado por un panel de administración.
+**tudu** es un marketplace de servicios locales (Colombia) que conecta usuarios (clientes) con aliados (prestadores de servicios), gestionado por un panel de administración.
 Stack: Flutter/Dart (frontend multi-plataforma) + Node.js/Express (backends) + SQLite3 (5 bases de datos separadas) + Socket.io (tiempo real en users backend) + Mailgun (OTP por email).
 Contexto geográfico: los datos de departamentos y ciudades están pre-cargados para Colombia (33 departamentos, ~1000+ ciudades).
 
@@ -15,9 +15,9 @@ Contexto geográfico: los datos de departamentos y ciudades están pre-cargados 
 
 | App | Frontend | Backend | Archivo principal | Puerto real |
 |-----|----------|---------|-------------------|-------------|
-| Users | `todo_users/users/` | `todo_users/backend/` | `index.js` | **3000** |
-| Allies | `todo_allies/allies/` | `todo_allies/backend/` | `index.js` | **3002** |
-| Admin | `todo_admin/admin/` | `todo_admin/backend/` | `server.js` | **3003** |
+| Users | `tudu_users/users/` | `tudu_users/backend/` | `index.js` | **3000** |
+| Allies | `tudu_allies/allies/` | `tudu_allies/backend/` | `index.js` | **3002** |
+| Admin | `tudu_admin/admin/` | `tudu_admin/backend/` | `server.js` | **3003** |
 
 > **El blueprint dice que Users usa 3002 — eso es incorrecto.** El `index.js` de users usa `PORT || 3000`, `config.dart` del admin apunta a 3000. Aliases y admin no comparten puerto.
 
@@ -41,7 +41,7 @@ Contexto geográfico: los datos de departamentos y ciudades están pre-cargados 
 
 ## 3. DATABASES
 
-**Ruta absoluta base:** `/Users/juanda/ToDo/databases/`
+**Ruta absoluta base:** `/Users/juanda/tudu/databases/`
 Los backends usan `path.join(__dirname, '../../databases')` — nunca rutas hardcodeadas.
 
 ---
@@ -288,7 +288,7 @@ CREATE TABLE IF NOT EXISTS admins (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
--- Default admin: username='admin', password='123', email='admin@todoapp.com'
+-- Default admin: username='admin', password='123', email='admin@tuduapp.com'
 ```
 
 ---
@@ -304,7 +304,7 @@ CREATE TABLE IF NOT EXISTS admins (
 
 ## 4. API ENDPOINTS
 
-### Users Backend — port 3000 (`todo_users/backend/index.js`)
+### Users Backend — port 3000 (`tudu_users/backend/index.js`)
 
 **Autenticación**
 ```
@@ -397,7 +397,7 @@ PUT  /api/admin/photo-change-requests/:id    { status: 'approved'|'rejected' }
 
 ---
 
-### Allies Backend — port 3002 (`todo_allies/backend/index.js`)
+### Allies Backend — port 3002 (`tudu_allies/backend/index.js`)
 
 > Endpoints confirmados leyendo el código real (no el blueprint).
 
@@ -418,7 +418,7 @@ GET  /my-services                       query: ?ally_email=
 
 ---
 
-### Admin Backend — port 3003 (`todo_admin/backend/server.js`)
+### Admin Backend — port 3003 (`tudu_admin/backend/server.js`)
 
 ```
 POST /api/admin/login                   { username, password } → plain text compare
@@ -503,8 +503,8 @@ lib/
 ├── screens/         # Un archivo por pantalla; StatefulWidget por defecto
 ├── models/          # Data classes simples (sin ChangeNotifier)
 ├── providers/       # ChangeNotifier para estado global (theme, language)
-├── services/        # Lógica de negocio, sesiones (solo en todo_users)
-└── l10n/            # Localizaciones (solo en todo_users)
+├── services/        # Lógica de negocio, sesiones (solo en tudu_users)
+└── l10n/            # Localizaciones (solo en tudu_users)
 ```
 
 ### Patrones de código observados
@@ -520,7 +520,7 @@ lib/
 
 ### Colores (siempre vía `Config`, nunca hex hardcodeado en widgets)
 ```dart
-Config.primaryColor    // Color(0xFF78BF32) — verde ToDo
+Config.primaryColor    // Color(0xFF78BF32) — verde tudu
 Config.secondaryColor  // Color(0xFF595959) — gris
 Config.backgroundColor // Color(0xFFF4F2F2) — fondo claro
 Config.whiteColor      // Color(0xFFFFFFFF)
@@ -533,7 +533,7 @@ Config.textColor       // Color(0xFF78BF32) — igual que primary
 
 ## 7. ENVIRONMENT
 
-### Users Backend — `todo_users/backend/.env`
+### Users Backend — `tudu_users/backend/.env`
 ```env
 PORT=3000
 MAILGUN_API_KEY=          # vacío o 'tu_api_key_de_mailgun' → Mailgun deshabilitado, modo desarrollo
@@ -541,7 +541,7 @@ MAILGUN_DOMAIN=           # dominio verificado en Mailgun
 DEV_MODE=true             # true = OTP en consola, verify-otp acepta cualquier código
 ```
 
-### Allies Backend — `todo_allies/backend/.env`
+### Allies Backend — `tudu_allies/backend/.env`
 ```env
 PORT=3002
 MAILGUN_API_KEY=          # REQUERIDO — el backend crashea en arranque si está vacío
@@ -551,7 +551,7 @@ DEV_MODE=true             # true = verify-otp acepta cualquier código
 
 > **Diferencia crítica:** el users backend verifica si MAILGUN_API_KEY está configurado antes de inicializar Mailgun. El allies backend inicializa Mailgun incondicionalmente — sin credenciales, el proceso crashea al arrancar.
 
-### Admin Backend — `todo_admin/backend/.env`
+### Admin Backend — `tudu_admin/backend/.env`
 ```env
 PORT=3003
 ```
@@ -575,11 +575,11 @@ static const String localIpAddress = '10.150.102.86'; // ← CAMBIAR POR TU IP L
 
 2. **Rutas absolutas de las 5 DBs:**
    ```
-   /Users/juanda/ToDo/databases/users.db
-   /Users/juanda/ToDo/databases/allies.db
-   /Users/juanda/ToDo/databases/services.db
-   /Users/juanda/ToDo/databases/search.db
-   /Users/juanda/ToDo/databases/admins.db
+   /Users/juanda/tudu/databases/users.db
+   /Users/juanda/tudu/databases/allies.db
+   /Users/juanda/tudu/databases/services.db
+   /Users/juanda/tudu/databases/search.db
+   /Users/juanda/tudu/databases/admins.db
    ```
 
 3. **Roles en BD — strings exactos:** `'user'`, `'ally'`, `'admin'` (minúsculas, en inglés). Cualquier variación rompe la lógica.

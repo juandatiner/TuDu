@@ -1,20 +1,20 @@
-# ToDo Application Ecosystem - Complete Technical Blueprint
+# tudu Application Ecosystem - Complete Technical Blueprint
 
 ## 1. PROJECT OVERVIEW
 
-The ToDo ecosystem is a multi-platform, multi-role application designed to connect users (clients) with service providers (allies) through a seamless, location-based service marketplace. The system supports three primary applications:
+The tudu ecosystem is a multi-platform, multi-role application designed to connect users (clients) with service providers (allies) through a seamless, location-based service marketplace. The system supports three primary applications:
 
 ### 1.1 Application Architecture
-- **App Users** (todo_users/): Main user-facing application for clients
-- **App Allies** (todo_allies/): Provider-facing application for service providers
-- **App Admin** (todo_admin/): Administrative dashboard for platform management
+- **App Users** (tudu_users/): Main user-facing application for clients
+- **App Allies** (tudu_allies/): Provider-facing application for service providers
+- **App Admin** (tudu_admin/): Administrative dashboard for platform management
 
 ## 2. SYSTEM ARCHITECTURE
 
 ### 2.1 High-Level Architecture
 ```
 ┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐
-│   ToDo Users App     │    │   ToDo Allies App    │    │   ToDo Admin App     │
+│   tudu Users App     │    │   tudu Allies App    │    │   tudu Admin App     │
 │  (Flutter - Multi)   │    │  (Flutter - Multi)   │    │  (Flutter - Multi)   │
 └────────┬─────────────┘    └────────┬─────────────┘    └────────┬─────────────┘
          │                           │                           │
@@ -42,7 +42,7 @@ The ToDo ecosystem is a multi-platform, multi-role application designed to conne
 ## 3. DATABASE SCHEMAS
 
 ### 3.1 Database Structure Overview
-All databases are SQLite3 files located in the `/Users/juanda/ToDo/databases/` directory.
+All databases are SQLite3 files located in the `/Users/juanda/tudu/databases/` directory.
 
 ---
 
@@ -281,7 +281,7 @@ CREATE TABLE IF NOT EXISTS admins (
 **Default Admin**:
 - Username: admin
 - Password: 123
-- Email: admin@todoapp.com
+- Email: admin@tuduapp.com
 - Name: Administrador Principal
 
 ---
@@ -290,7 +290,7 @@ CREATE TABLE IF NOT EXISTS admins (
 
 ### 4.1 Backend Structure
 
-#### 4.1.1 Users Backend (todo_users/backend/)
+#### 4.1.1 Users Backend (tudu_users/backend/)
 **File**: `index.js`
 **Port**: 3002
 **Dependencies**:
@@ -315,7 +315,7 @@ CREATE TABLE IF NOT EXISTS admins (
 
 ---
 
-#### 4.1.2 Allies Backend (todo_allies/backend/)
+#### 4.1.2 Allies Backend (tudu_allies/backend/)
 **File**: `index.js`
 **Port**: 3002
 **Dependencies**:
@@ -338,7 +338,7 @@ CREATE TABLE IF NOT EXISTS admins (
 
 ---
 
-#### 4.1.3 Admin Backend (todo_admin/backend/)
+#### 4.1.3 Admin Backend (tudu_admin/backend/)
 **File**: `server.js`
 **Port**: 3003
 **Dependencies**:
@@ -401,7 +401,7 @@ PUT /api/admins/:id/change-password - Change admin password
 
 ## 5. FRONTEND APPLICATIONS
 
-### 5.1 App Users (todo_users/users/)
+### 5.1 App Users (tudu_users/users/)
 
 #### 5.1.1 Main Features
 - **Onboarding**: Initial app introduction
@@ -456,7 +456,7 @@ PUT /api/admins/:id/change-password - Change admin password
 
 ---
 
-### 5.2 App Allies (todo_allies/allies/)
+### 5.2 App Allies (tudu_allies/allies/)
 
 #### 5.2.1 Main Features
 - **Onboarding**: Initial app introduction
@@ -491,7 +491,7 @@ PUT /api/admins/:id/change-password - Change admin password
 
 ---
 
-### 5.3 App Admin (todo_admin/admin/)
+### 5.3 App Admin (tudu_admin/admin/)
 
 #### 5.3.1 Main Features
 - **Onboarding**: Initial app introduction
@@ -626,7 +626,7 @@ PORT=3003
 
 #### Users Backend
 ```bash
-cd todo_users/backend
+cd tudu_users/backend
 npm install
 npm run init-db  # (if exists)
 npm start
@@ -634,14 +634,14 @@ npm start
 
 #### Allies Backend
 ```bash
-cd todo_allies/backend
+cd tudu_allies/backend
 npm install
 npm start
 ```
 
 #### Admin Backend
 ```bash
-cd todo_admin/backend
+cd tudu_admin/backend
 npm install
 npm run init-db  # Creates admins table and default admin
 npm start
@@ -659,14 +659,14 @@ static const String localIpAddress = '10.150.102.86';  // Change to your local I
 ## 9. PROJECT STRUCTURE
 
 ```
-/Users/juanda/ToDo/
+/Users/juanda/tudu/
 ├── databases/
 │   ├── users.db
 │   ├── allies.db
 │   ├── services.db
 │   ├── search.db
 │   └── admins.db
-├── todo_users/
+├── tudu_users/
 │   ├── backend/
 │   │   ├── index.js
 │   │   ├── package.json
@@ -681,7 +681,7 @@ static const String localIpAddress = '10.150.102.86';  // Change to your local I
 │       │   └── services/
 │       ├── pubspec.yaml
 │       └── assets/
-├── todo_allies/
+├── tudu_allies/
 │   ├── backend/
 │   │   ├── index.js
 │   │   ├── package.json
@@ -694,7 +694,7 @@ static const String localIpAddress = '10.150.102.86';  // Change to your local I
 │       │   └── screens/
 │       ├── pubspec.yaml
 │       └── assets/
-└── todo_admin/
+└── tudu_admin/
     ├── backend/
     │   ├── server.js
     │   ├── init-db.js

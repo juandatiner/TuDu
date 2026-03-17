@@ -1,7 +1,7 @@
 # Informe de Normalización de Bases de Datos
 
 ## Descripción del Proyecto
-Este informe documenta el proceso de normalización de las bases de datos para la aplicación Todo Allies, separando cada tipo de datos en bases de datos dedicadas según la funcionalidad.
+Este informe documenta el proceso de normalización de las bases de datos para la aplicación tudu Allies, separando cada tipo de datos en bases de datos dedicadas según la funcionalidad.
 
 ## Resultado Final
 Las bases de datos se han estructurado de forma normalizada para separar claramente las responsabilidades de cada entidad:
@@ -131,7 +131,7 @@ Las bases de datos se han estructurado de forma normalizada para separar clarame
 2. **Actualización de tablas existentes:** `update_existing_tables.js` para agregar columnas faltantes
 3. **Migración de datos:** Transferencia de datos de la base de datos original a las nuevas bases de datos
 4. **Verificación:** Ejecución de `examine_db_structures.js` para confirmar la estructura
-5. **Eliminación de la base de datos original:** La base de datos todo.db se ha eliminado ya que no es necesaria
+5. **Eliminación de la base de datos original:** La base de datos tudu.db se ha eliminado ya que no es necesaria
 
 ## Notas Importantes
 - La normalización separa claramente responsabilidades entre bases de datos

@@ -7,19 +7,19 @@
         
         {
             "name": "users",
-            "cwd": "todo_users/users",
+            "cwd": "tudu_users/users",
             "request": "launch",
             "type": "dart"
         },
         {
             "name": "allies",
-            "cwd": "todo_allies/allies",
+            "cwd": "tudu_allies/allies",
             "request": "launch",
             "type": "dart"
         },
         {
             "name": "admin",
-            "cwd": "todo_admin/admin",
+            "cwd": "tudu_admin/admin",
             "request": "launch",
             "type": "dart"
         }

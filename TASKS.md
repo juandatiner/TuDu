@@ -1,4 +1,4 @@
-# TASKS.md — ToDo Ecosystem
+# TASKS.md — tudu Ecosystem
 > Última actualización: 2026-03-17
 > Generado leyendo código fuente real. Ordenado por riesgo.
 > Ver CLAUDE.md para contexto completo del proyecto.
@@ -13,7 +13,7 @@
 - **Estimado**: 30min
 - **Depende de**: ninguna
 - **Estado**: PENDIENTE
-- **Qué hacer**: En `todo_users/backend/index.js` línea 1499, eliminar el bloque `if (otp === '123456') { return res.json(...) }`. Este código hace que cualquier persona con acceso a la red pueda autenticarse con cualquier email usando el código fijo, sin necesidad de acceso al correo.
+- **Qué hacer**: En `tudu_users/backend/index.js` línea 1499, eliminar el bloque `if (otp === '123456') { return res.json(...) }`. Este código hace que cualquier persona con acceso a la red pueda autenticarse con cualquier email usando el código fijo, sin necesidad de acceso al correo.
 
 ---
 
@@ -23,17 +23,17 @@
 - **Estimado**: 3h
 - **Depende de**: ninguna
 - **Estado**: PENDIENTE
-- **Qué hacer**: Instalar `bcrypt` en `todo_admin/backend`. Reemplazar comparación plain text en `POST /api/admin/login` por `bcrypt.compare()`. En `POST /api/admins` y `PUT /api/admins/:id/change-password` hashear con `bcrypt.hash(password, 10)` antes de insertar. Migrar admin por defecto en `init-db.js` para que su password se guarde hasheado.
+- **Qué hacer**: Instalar `bcrypt` en `tudu_admin/backend`. Reemplazar comparación plain text en `POST /api/admin/login` por `bcrypt.compare()`. En `POST /api/admins` y `PUT /api/admins/:id/change-password` hashear con `bcrypt.hash(password, 10)` antes de insertar. Migrar admin por defecto en `init-db.js` para que su password se guarde hasheado.
 
 ---
 
-### TASK-003: Implementar JWT en todos los endpoints protegidos
+### TASK-003: Implementar JWT en tudus los endpoints protegidos
 - **App**: users, allies, admin
 - **Prioridad**: CRÍTICA
 - **Estimado**: 6h
 - **Depende de**: TASK-002
 - **Estado**: PENDIENTE
-- **Qué hacer**: Instalar `jsonwebtoken`. Emitir JWT al finalizar `/verify-otp` (users/allies) y `/api/admin/login`. Crear middleware `authenticateToken(req, res, next)` y aplicarlo a todos los endpoints que operan datos de usuario específico (perfil, direcciones, tarjetas, servicios propios). El cliente Flutter almacena el token en SharedPreferences y lo envía en `Authorization: Bearer`.
+- **Qué hacer**: Instalar `jsonwebtoken`. Emitir JWT al finalizar `/verify-otp` (users/allies) y `/api/admin/login`. Crear middleware `authenticateToken(req, res, next)` y aplicarlo a tudus los endpoints que operan datos de usuario específico (perfil, direcciones, tarjetas, servicios propios). El cliente Flutter almacena el token en SharedPreferences y lo envía en `Authorization: Bearer`.
 
 ---
 
@@ -63,7 +63,7 @@
 - **Estimado**: 2h
 - **Depende de**: ninguna
 - **Estado**: PENDIENTE
-- **Qué hacer**: Crear tabla `otp_codes (email TEXT PRIMARY KEY, code TEXT NOT NULL, expires_at DATETIME NOT NULL)` en `users.db` y en `allies.db`. Reemplazar el `const otpStore = new Map()` por INSERT/SELECT en esa tabla. Agregar limpieza de expirados en cada `/send-otp`. Sin esto, cada reinicio del servidor invalida todos los OTPs activos silenciosamente.
+- **Qué hacer**: Crear tabla `otp_codes (email TEXT PRIMARY KEY, code TEXT NOT NULL, expires_at DATETIME NOT NULL)` en `users.db` y en `allies.db`. Reemplazar el `const otpStore = new Map()` por INSERT/SELECT en esa tabla. Agregar limpieza de expirados en cada `/send-otp`. Sin esto, cada reinicio del servidor invalida tudus los OTPs activos silenciosamente.
 
 ---
 
@@ -115,7 +115,7 @@
 - **Estimado**: 1h
 - **Depende de**: ninguna
 - **Estado**: PENDIENTE
-- **Qué hacer**: Crear `package.json` raíz con `"dev": "concurrently \"cd todo_users/backend && node index.js\" \"cd todo_allies/backend && node index.js\" \"cd todo_admin/backend && node server.js\""`. Instalar `concurrently` como devDependency raíz. Actualmente no hay forma de iniciar el ecosistema completo con un comando.
+- **Qué hacer**: Crear `package.json` raíz con `"dev": "concurrently \"cd tudu_users/backend && node index.js\" \"cd tudu_allies/backend && node index.js\" \"cd tudu_admin/backend && node server.js\""`. Instalar `concurrently` como devDependency raíz. Actualmente no hay forma de iniciar el ecosistema completo con un comando.
 
 ---
 
@@ -125,7 +125,7 @@
 - **Estimado**: 30min
 - **Depende de**: ninguna
 - **Estado**: PENDIENTE
-- **Qué hacer**: En `todo_allies/backend/index.js` líneas 12-15, `mailgun({...})` se llama incondicionalmente aunque no haya credenciales. Replicar el guard del users backend: inicializar Mailgun solo si `MAILGUN_API_KEY` existe y no es el valor placeholder. Sin esto, el proceso crashea al arrancar en cualquier entorno sin `.env` configurado.
+- **Qué hacer**: En `tudu_allies/backend/index.js` líneas 12-15, `mailgun({...})` se llama incondicionalmente aunque no haya credenciales. Replicar el guard del users backend: inicializar Mailgun solo si `MAILGUN_API_KEY` existe y no es el valor placeholder. Sin esto, el proceso crashea al arrancar en cualquier entorno sin `.env` configurado.
 
 ---
 
@@ -177,7 +177,7 @@
 - **Estimado**: 6h
 - **Depende de**: ninguna
 - **Estado**: PENDIENTE
-- **Qué hacer**: La mayoría de screens en `todo_users/users/lib/screens/` hacen `http.get/post` directamente en `initState`. La excepción es `session_service.dart` que ya es un servicio correcto. Crear `lib/services/api_service.dart` con métodos tipados. Migrar al menos `profile_screen.dart`, `user_addresses_screen.dart` y `user_services_screen.dart` como punto de partida.
+- **Qué hacer**: La mayoría de screens en `tudu_users/users/lib/screens/` hacen `http.get/post` directamente en `initState`. La excepción es `session_service.dart` que ya es un servicio correcto. Crear `lib/services/api_service.dart` con métudus tipados. Migrar al menos `profile_screen.dart`, `user_addresses_screen.dart` y `user_services_screen.dart` como punto de partida.
 
 ---
 
@@ -187,7 +187,7 @@
 - **Estimado**: 2h
 - **Depende de**: ninguna
 - **Estado**: PENDIENTE
-- **Qué hacer**: En `todo_users/backend/index.js`, en el seed de cities, corregir: 'Cali' está bajo 'Antioquia' (debe estar en 'Valle del Cauca'), 'Barranquilla' está bajo 'Bolívar' (debe estar en 'Atlántico'), 'Luruaco' está bajo 'Bolívar' (debe estar en 'Atlántico'). Agregar un script de corrección de datos que actualice department_id para estas ciudades en la DB existente.
+- **Qué hacer**: En `tudu_users/backend/index.js`, en el seed de cities, corregir: 'Cali' está bajo 'Antioquia' (debe estar en 'Valle del Cauca'), 'Barranquilla' está bajo 'Bolívar' (debe estar en 'Atlántico'), 'Luruaco' está bajo 'Bolívar' (debe estar en 'Atlántico'). Agregar un script de corrección de datos que actualice department_id para estas ciudades en la DB existente.
 
 ---
 
@@ -197,7 +197,7 @@
 - **Estimado**: 30min
 - **Depende de**: ninguna
 - **Estado**: PENDIENTE
-- **Qué hacer**: En `todo_users/backend/index.js` línea 1725, cambiar `status = 'En Proceso'` por `status = 'EN PROCESO'`. El allies backend ya usa `'EN PROCESO'` correctamente. Este bug hace que servicios asignados desde el users backend no coincidan con filtros que buscan `'EN PROCESO'` en mayúsculas.
+- **Qué hacer**: En `tudu_users/backend/index.js` línea 1725, cambiar `status = 'En Proceso'` por `status = 'EN PROCESO'`. El allies backend ya usa `'EN PROCESO'` correctamente. Este bug hace que servicios asignados desde el users backend no coincidan con filtros que buscan `'EN PROCESO'` en mayúsculas.
 
 ---
 
@@ -323,7 +323,7 @@
 - **Estimado**: 4h
 - **Depende de**: TASK-006
 - **Estado**: PENDIENTE
-- **Qué hacer**: Crear `todo_users/backend/tests/auth.test.js` con `jest` + `supertest`. Casos: (1) `/send-otp` con email válido devuelve 200, (2) `/verify-otp` con código correcto devuelve 200, (3) código expirado (+10min) devuelve 400, (4) código `'123456'` NO funciona (depende de TASK-001), (5) `/check-user` devuelve `exists: false` para email nuevo. Usar DB de test separada.
+- **Qué hacer**: Crear `tudu_users/backend/tests/auth.test.js` con `jest` + `supertest`. Casos: (1) `/send-otp` con email válido devuelve 200, (2) `/verify-otp` con código correcto devuelve 200, (3) código expirado (+10min) devuelve 400, (4) código `'123456'` NO funciona (depende de TASK-001), (5) `/check-user` devuelve `exists: false` para email nuevo. Usar DB de test separada.
 
 ---
 
@@ -343,7 +343,7 @@
 - **Estimado**: 3h
 - **Depende de**: TASK-002
 - **Estado**: PENDIENTE
-- **Qué hacer**: Crear `todo_admin/backend/tests/admin.test.js`. Casos: (1) login con credenciales correctas devuelve 200 sin password en respuesta, (2) login incorrecto devuelve 401, (3) `POST /api/admins` guarda password hasheado (verificar que plain text !== stored), (4) `DELETE /api/admins/:id` no devuelve 200 cuando se intenta borrar el último admin existente.
+- **Qué hacer**: Crear `tudu_admin/backend/tests/admin.test.js`. Casos: (1) login con credenciales correctas devuelve 200 sin password en respuesta, (2) login incorrecto devuelve 401, (3) `POST /api/admins` guarda password hasheado (verificar que plain text !== stored), (4) `DELETE /api/admins/:id` no devuelve 200 cuando se intenta borrar el último admin existente.
 
 ---
 
@@ -355,7 +355,7 @@
 - **Estimado**: 20min
 - **Depende de**: ninguna
 - **Estado**: PENDIENTE
-- **Qué hacer**: Crear `/Users/juanda/ToDo/.gitignore` con: `*/backend/.env`, `*/backend/node_modules/`, `databases/*.db`, `*/backend/uploads/`, `**/firebase-admin.json`, `**/.dart_tool/`, `**/build/`, `**/.flutter-plugins`, `**/.flutter-plugins-dependencies`. Sin este archivo, credenciales Mailgun y bases de datos con datos reales pueden ser commiteadas.
+- **Qué hacer**: Crear `/Users/juanda/tudu/.gitignore` con: `*/backend/.env`, `*/backend/node_modules/`, `databases/*.db`, `*/backend/uploads/`, `**/firebase-admin.json`, `**/.dart_tool/`, `**/build/`, `**/.flutter-plugins`, `**/.flutter-plugins-dependencies`. Sin este archivo, credenciales Mailgun y bases de datos con datos reales pueden ser commiteadas.
 
 ---
 
@@ -365,7 +365,7 @@
 - **Estimado**: 30min
 - **Depende de**: TASK-034
 - **Estado**: PENDIENTE
-- **Qué hacer**: Crear `todo_users/backend/.env.example`, `todo_allies/backend/.env.example`, `todo_admin/backend/.env.example` documentando cada variable con valores de ejemplo seguros. Nota especial: allies backend requiere `MAILGUN_API_KEY` real para arrancar (a diferencia de users), documentar esta diferencia explícitamente.
+- **Qué hacer**: Crear `tudu_users/backend/.env.example`, `tudu_allies/backend/.env.example`, `tudu_admin/backend/.env.example` documentando cada variable con valores de ejemplo seguros. Nota especial: allies backend requiere `MAILGUN_API_KEY` real para arrancar (a diferencia de users), documentar esta diferencia explícitamente.
 
 ---
 
