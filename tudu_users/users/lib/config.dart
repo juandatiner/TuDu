@@ -7,7 +7,7 @@ class Config {
   // Para obtener tu IP local en Mac: ipconfig getifaddr en0
   // Para obtener tu IP local en Windows: ipconfig
   static const String localIpAddress =
-      '10.150.102.86'; // ← CAMBIAR POR TU IP LOCAL
+      '10.150.100.231'; // ← CAMBIAR POR TU IP LOCAL
 
   static final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
   static bool? _isEmulator;
@@ -54,13 +54,19 @@ class Config {
     }
   }
 
+  // Detecta simulador iOS de forma síncrona via variable de entorno
+  static bool get _isIosSimulator =>
+      Platform.isIOS &&
+      Platform.environment.containsKey('SIMULATOR_MODEL_IDENTIFIER');
+
   // URL base síncrona (para compatibilidad hacia atrás)
-  // NOTA: Usar getBaseUrl() cuando sea posible para detección automática
   static String get baseUrl {
     if (Platform.isAndroid) {
-      return 'http://$localIpAddress:3000'; // Por defecto para dispositivo físico
+      return 'http://10.0.2.2:3000'; // Emulador Android
+    } else if (_isIosSimulator) {
+      return 'http://localhost:3000'; // Simulador iOS
     } else if (Platform.isIOS) {
-      return 'http://$localIpAddress:3000'; // Por defecto para dispositivo físico
+      return 'http://$localIpAddress:3000'; // Dispositivo físico iOS
     } else {
       return 'http://localhost:3000';
     }

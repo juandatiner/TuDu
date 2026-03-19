@@ -3116,6 +3116,12 @@ app.put('/api/admin/photo-change-requests/:id', (req, res) => {
             return res.status(500).json({ error: 'Internal server error' });
           }
 
+          io.emit('photoRequestUpdated', {
+            id: parseInt(id),
+            user_email: request.user_email,
+            status: 'approved'
+          });
+
           res.json({
             success: true,
             data: {
@@ -3128,6 +3134,12 @@ app.put('/api/admin/photo-change-requests/:id', (req, res) => {
           });
         });
       } else {
+        io.emit('photoRequestUpdated', {
+          id: parseInt(id),
+          user_email: request.user_email,
+          status: 'rejected'
+        });
+
         res.json({
           success: true,
           data: {

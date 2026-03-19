@@ -47,17 +47,14 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
       print('Desconectado del servidor Socket.io');
     });
 
-    // Escuchar evento de nueva solicitud
     _socket.on('newPhotoChangeRequest', (data) {
-      print('Nueva solicitud recibida: $data');
-      // Actualizar la lista de solicitudes
+      if (!mounted) return;
       _loadRequests();
-      // Mostrar notificación en la app
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Nueva solicitud de cambio de foto'),
+          content: const Text('Nueva solicitud de cambio de foto'),
           backgroundColor: Config.primaryColor,
-          duration: Duration(seconds: 3),
+          duration: const Duration(seconds: 3),
         ),
       );
     });

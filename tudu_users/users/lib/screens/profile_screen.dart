@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../config.dart';
 import '../providers/theme_provider.dart';
 import '../providers/language_provider.dart';
@@ -36,18 +37,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _phoneNumber = '';
   bool _isLoading = true;
   int _selectedIndex = 3; // Perfil está seleccionado
+  late IO.Socket _socket;
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
+    _connectSocket();
+  }
+
+  void _connectSocket() {
+    _socket = IO.io(
+      Config.baseUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://'),
+      {'transports': ['websocket'], 'autoConnect': true},
+    );
+    _socket.on('photoRequestUpdated', (data) {
+      if (data['user_email'] == widget.userEmail && mounted) {
+        if (data['status'] == 'approved') {
+          _loadUserProfile();
+        }
+      }
+    });
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Recargar datos cada vez que la pantalla se muestra (incluso al regresar de otras pantallas)
-    _loadUserProfile();
+  void dispose() {
+    _socket.disconnect();
+    super.dispose();
   }
 
   Future<void> _loadUserProfile() async {
@@ -374,6 +390,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                   _avatarImage!.split(',')[1]),
                                               fit: BoxFit.cover,
                                               gaplessPlayback: true,
+                                              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                                                if (frame != null) return child;
+                                                return Container(color: Colors.transparent);
+                                              },
                                               errorBuilder:
                                                   (context, error, stackTrace) {
                                                 return _getIconWidget();
@@ -386,7 +406,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                   (context, url, error) =>
                                                       _getIconWidget(),
                                               placeholder: (context, url) =>
-                                                  const CircularProgressIndicator(),
+                                                  const SizedBox.shrink(),
                                             ),
                                     )
                                   : _getIconWidget(),

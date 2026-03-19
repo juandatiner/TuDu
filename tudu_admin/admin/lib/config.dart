@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class Config {
   // IMPORTANTE: Cambia esta IP a la de tu computadora en la red local
   static const String localIpAddress =
-      '10.150.102.86'; // ← CAMBIAR POR TU IP LOCAL
+      '10.150.100.231'; // ← CAMBIAR POR TU IP LOCAL
 
   static final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
   static bool? _isEmulator;
@@ -53,11 +53,17 @@ class Config {
     }
   }
 
+  static bool get _isIosSimulator =>
+      Platform.isIOS &&
+      Platform.environment.containsKey('SIMULATOR_MODEL_IDENTIFIER');
+
   static String get baseUrl {
     if (Platform.isAndroid) {
-      return 'http://$localIpAddress:3000'; // Por defecto para dispositivo físico
+      return 'http://10.0.2.2:3000'; // Emulador Android
+    } else if (_isIosSimulator) {
+      return 'http://localhost:3000'; // Simulador iOS
     } else if (Platform.isIOS) {
-      return 'http://$localIpAddress:3000'; // Por defecto para dispositivo físico
+      return 'http://$localIpAddress:3000'; // Dispositivo físico iOS
     } else {
       return 'http://localhost:3000';
     }

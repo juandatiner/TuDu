@@ -9,6 +9,7 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:intl_phone_field/country_picker_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../config.dart';
 import '../providers/theme_provider.dart';
 import '../providers/language_provider.dart';
@@ -41,6 +42,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _hasPendingPhotoRequest = false;
+  late IO.Socket _socket;
   String _avatarColor = '#78BF32';
   XFile? _selectedImage;
   String _selectedIcon = 'person'; // Icono por defecto
@@ -84,17 +86,47 @@ class _MyDataScreenState extends State<MyDataScreen> {
     _lastNameController.addListener(() => setState(() {}));
 
     _loadUserData();
+    _connectSocket();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Recargar datos cada vez que la pantalla se muestra (incluso al regresar de otras pantallas)
-    _loadUserData();
+  void _connectSocket() {
+    _socket = IO.io(
+      Config.baseUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://'),
+      {'transports': ['websocket'], 'autoConnect': true},
+    );
+
+    _socket.on('photoRequestUpdated', (data) {
+      if (data['user_email'] == widget.userEmail && mounted) {
+        final status = data['status'];
+        setState(() {
+          _hasPendingPhotoRequest = false;
+        });
+        if (status == 'approved') {
+          _loadUserData();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tu foto de perfil fue aprobada'),
+              backgroundColor: Color(0xFF78BF32),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        } else if (status == 'rejected') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tu solicitud de cambio de foto fue rechazada'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    });
   }
+
 
   @override
   void dispose() {
+    _socket.disconnect();
     _nameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
@@ -1233,6 +1265,10 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                                   _avatarImage!.split(',')[1]),
                                               fit: BoxFit.cover,
                                               gaplessPlayback: true,
+                                              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                                                if (frame != null) return child;
+                                                return Container(color: Colors.transparent);
+                                              },
                                               errorBuilder:
                                                   (context, error, stackTrace) {
                                                 return _getIconWidget();

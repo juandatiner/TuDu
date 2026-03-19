@@ -48,10 +48,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       print('Desconectado del servidor Socket.io');
     });
 
-    // Escuchar evento de nueva solicitud
-    _socket.on('newPhotoChangeRequest', (data) {
-      print('Nueva solicitud recibida en dashboard: $data');
-      // Actualizar el contador de solicitudes pendientes
+    _socket.on('newPhotoChangeRequest', (_) {
+      _loadPendingRequestsCount();
+    });
+
+    _socket.on('photoRequestUpdated', (_) {
       _loadPendingRequestsCount();
     });
   }
@@ -147,37 +148,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.blue.withOpacity(0.3),
+                  if (_pendingRequestsCount > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.red.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.notifications_active,
+                            size: 20,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$_pendingRequestsCount',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.notifications,
-                          size: 20,
-                          color: Colors.blue,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$_pendingRequestsCount',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
               const SizedBox(height: 8),
