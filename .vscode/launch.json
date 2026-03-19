@@ -1,27 +1,50 @@
 {
-    // Use IntelliSense para saber los atributos posibles.
-    // Mantenga el puntero para ver las descripciones de los existentes atributos.
-    // Para más información, visite: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        
-        {
-            "name": "users",
-            "cwd": "tudu_users/users",
-            "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "allies",
-            "cwd": "tudu_allies/allies",
-            "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "admin",
-            "cwd": "tudu_admin/admin",
-            "request": "launch",
-            "type": "dart"
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Users · Dispositivo físico",
+      "type": "dart",
+      "request": "launch",
+      "program": "tudu_users/users/lib/main.dart",
+      "args": [
+        "--dart-define=LOCAL_IP=${env:LOCAL_IP}"
+      ]
+    },
+    {
+      "name": "Users · Emulador / Simulador iOS",
+      "type": "dart",
+      "request": "launch",
+      "program": "tudu_users/users/lib/main.dart"
+    },
+    {
+      "name": "Allies · Dispositivo físico",
+      "type": "dart",
+      "request": "launch",
+      "program": "tudu_allies/allies/lib/main.dart",
+      "args": [
+        "--dart-define=LOCAL_IP=${env:LOCAL_IP}"
+      ]
+    },
+    {
+      "name": "Allies · Emulador / Simulador iOS",
+      "type": "dart",
+      "request": "launch",
+      "program": "tudu_allies/allies/lib/main.dart"
+    },
+    {
+      "name": "Admin · Dispositivo físico",
+      "type": "dart",
+      "request": "launch",
+      "program": "tudu_admin/admin/lib/main.dart",
+      "args": [
+        "--dart-define=LOCAL_IP=${env:LOCAL_IP}"
+      ]
+    },
+    {
+      "name": "Admin · Emulador / Simulador iOS",
+      "type": "dart",
+      "request": "launch",
+      "program": "tudu_admin/admin/lib/main.dart"
+    }
+  ]
 }

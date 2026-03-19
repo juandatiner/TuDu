@@ -6,67 +6,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Configuración de la aplicación
 class Config {
-  // IMPORTANTE: Cambia esta IP a la de tu computadora en la red local
-  static const String localIpAddress =
-      '10.150.100.231'; // ← CAMBIAR POR TU IP LOCAL
+  // IP inyectada en compilación via --dart-define=LOCAL_IP
+  static const String _dartDefineIp = String.fromEnvironment('LOCAL_IP');
 
-  static final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
-  static bool? _isEmulator;
+  /// El backend está actualmente expuesto a través de tudu_users en el puerto 3000
+  static const int port = 3000;
 
-  static Future<bool> get isEmulator async {
-    if (_isEmulator != null) return _isEmulator!;
-
-    try {
-      if (Platform.isAndroid) {
-        final androidInfo = await _deviceInfo.androidInfo;
-        _isEmulator = androidInfo.isPhysicalDevice == false;
-      } else if (Platform.isIOS) {
-        final iosInfo = await _deviceInfo.iosInfo;
-        _isEmulator = iosInfo.isPhysicalDevice == false;
-      } else {
-        _isEmulator = false;
-      }
-    } catch (e) {
-      _isEmulator = false;
+  // URL base síncrona que funciona en todas las plataformas de forma confiable.
+  static String get baseUrl {
+    if (_dartDefineIp.isNotEmpty) {
+      return 'http://$_dartDefineIp:$port';
     }
-
-    return _isEmulator!;
+    if (Platform.isAndroid) {
+      return 'http://10.0.2.2:$port'; // Emulador Android
+    } else {
+      return 'http://localhost:$port'; // Simulador iOS, Web, Desktop
+    }
   }
 
   static Future<String> getBaseUrl() async {
-    final emulator = await isEmulator;
-
-    if (Platform.isAndroid) {
-      if (emulator) {
-        return 'http://10.0.2.2:3000'; // Emulador Android
-      } else {
-        return 'http://$localIpAddress:3000'; // Dispositivo físico Android
-      }
-    } else if (Platform.isIOS) {
-      if (emulator) {
-        return 'http://localhost:3000'; // Simulador iOS
-      } else {
-        return 'http://$localIpAddress:3000'; // Dispositivo físico iOS
-      }
-    } else {
-      return 'http://localhost:3000'; // Web, Desktop
-    }
-  }
-
-  static bool get _isIosSimulator =>
-      Platform.isIOS &&
-      Platform.environment.containsKey('SIMULATOR_MODEL_IDENTIFIER');
-
-  static String get baseUrl {
-    if (Platform.isAndroid) {
-      return 'http://10.0.2.2:3000'; // Emulador Android
-    } else if (_isIosSimulator) {
-      return 'http://localhost:3000'; // Simulador iOS
-    } else if (Platform.isIOS) {
-      return 'http://$localIpAddress:3000'; // Dispositivo físico iOS
-    } else {
-      return 'http://localhost:3000';
-    }
+    return baseUrl;
   }
 
   // Colores de la aplicación (identidad de TuDu)
