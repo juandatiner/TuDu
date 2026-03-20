@@ -4,6 +4,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:provider/provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/language_provider.dart';
+import 'providers/user_avatar_provider.dart';
 import 'services/session_service.dart';
 import 'screens/onboarding_screen.dart';
 import 'l10n/app_localizations.dart';
@@ -24,6 +25,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider.value(value: languageProvider),
         ChangeNotifierProvider(create: (_) => SessionService()),
+        ChangeNotifierProvider(create: (_) => UserAvatarProvider()),
       ],
       child: const MyApp(),
     ),

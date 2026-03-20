@@ -178,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Column(
                     children: [
                       Text(
-                        'To',
+                        'Tu',
                         style: TextStyle(
                           fontFamily: 'TitanOne',
                           fontSize: 90,
@@ -190,7 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Do',
+                        'Du',
                         style: TextStyle(
                           fontFamily: 'TitanOne',
                           fontSize: 90,

@@ -112,7 +112,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 Column(
                   children: [
                     Text(
-                      'To',
+                      'Tu',
                       style: TextStyle(
                         fontFamily: 'TitanOne',
                         fontSize: 60,
@@ -124,7 +124,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Do',
+                      'Du',
                       style: TextStyle(
                         fontFamily: 'TitanOne',
                         fontSize: 60,

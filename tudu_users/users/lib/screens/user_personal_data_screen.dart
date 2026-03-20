@@ -9,9 +9,11 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:intl_phone_field/country_picker_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
 import '../providers/theme_provider.dart';
 import '../providers/language_provider.dart';
+import '../providers/user_avatar_provider.dart';
 import '../l10n/app_localizations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -83,6 +85,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
     _nameController.addListener(() => setState(() {}));
     _lastNameController.addListener(() => setState(() {}));
 
+    _loadCachedAvatar();
     _loadUserData();
   }
 
@@ -96,6 +99,30 @@ class _MyDataScreenState extends State<MyDataScreen> {
   }
 
   String? _avatarImage; // URL de la imagen de perfil existente
+
+  /// Carga el avatar desde el cache local (SharedPreferences) para mostrarlo
+  /// de inmediato sin esperar la respuesta de red.
+  Future<void> _loadCachedAvatar() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keyPrefix = 'profile_${widget.userEmail}_';
+      if (prefs.containsKey('${keyPrefix}image')) {
+        final cachedImage = prefs.getString('${keyPrefix}image');
+        final cachedColor = prefs.getString('${keyPrefix}color') ?? '#78BF32';
+        final cachedIcon = prefs.getString('${keyPrefix}icon') ?? 'person';
+        if (mounted) {
+          setState(() {
+            _avatarImage = cachedImage;
+            _avatarColor = cachedColor;
+            _selectedIcon = cachedIcon;
+            _usePhoto = cachedImage != null;
+          });
+        }
+      }
+    } catch (e) {
+      // Silencioso: el avatar de red se cargará igual
+    }
+  }
 
   /// Obtiene el código ISO del país desde el código de marcación usando la API
   Future<String> _getCountryCodeFromDialCode(String dialCode) async {
@@ -200,6 +227,15 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
           _isLoading = false;
         });
+
+        // Sync the shared avatar provider so live socket updates work
+        if (mounted) {
+          Provider.of<UserAvatarProvider>(context, listen: false).syncFromNetwork(
+            avatarImage: data['avatar_image'] as String?,
+            avatarColor: data['avatar_color'] ?? '#78BF32',
+            avatarIcon: data['avatar_icon'] ?? 'person',
+          );
+        }
 
         // Si hay código de país, obtener el código ISO desde la API
         if (_countryCode.isNotEmpty) {
@@ -1155,7 +1191,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final loc = AppLocalizations.of(context)!;
-
+    // Listen for live avatar updates (e.g. photo approved while on this screen)
+    final avatarProvider = Provider.of<UserAvatarProvider>(context);
+    final liveAvatarImage = avatarProvider.avatarImage ?? _avatarImage;
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
       appBar: AppBar(
@@ -1194,7 +1232,13 @@ class _MyDataScreenState extends State<MyDataScreen> {
                             width: 100,
                             height: 100,
                             decoration: BoxDecoration(
-                              color: _parseColor(_avatarColor),
+                              // Transparent when photo is shown; avoids icon
+                              // bleeding through behind the image.
+                              color: _usePhoto &&
+                                      (_selectedImage != null ||
+                                          liveAvatarImage != null)
+                                  ? Colors.transparent
+                                  : _parseColor(_avatarColor),
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: themeProvider.isDarkMode
@@ -1219,26 +1263,47 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                           fit: BoxFit.cover,
                                         ),
                                       )
-                                    : _avatarImage != null
+                                    : liveAvatarImage != null
                                         ? ClipOval(
-                                            child: Image.memory(
-                                              base64Decode(
-                                                  _avatarImage!.split(',')[1]),
-                                              fit: BoxFit.cover,
-                                              gaplessPlayback: true,
-                                              frameBuilder: (context,
-                                                  child,
-                                                  frame,
-                                                  wasSynchronouslyLoaded) {
-                                                if (frame != null) return child;
-                                                return Container(
-                                                    color: Colors.transparent);
-                                              },
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                return _getIconWidget();
-                                              },
-                                            ),
+                                            child: liveAvatarImage
+                                                    .startsWith('data:image')
+                                                ? Image.memory(
+                                                    base64Decode(
+                                                        liveAvatarImage
+                                                            .split(',')[1]),
+                                                    fit: BoxFit.cover,
+                                                    gaplessPlayback: true,
+                                                    frameBuilder: (context,
+                                                        child,
+                                                        frame,
+                                                        wasSynchronouslyLoaded)
+                                                        => child,
+                                                    errorBuilder: (context,
+                                                        error,
+                                                        stackTrace) =>
+                                                        Container(
+                                                          color: _parseColor(
+                                                              _avatarColor),
+                                                          child:
+                                                              _getIconWidget(),
+                                                        ),
+                                                  )
+                                                : CachedNetworkImage(
+                                                    imageUrl: liveAvatarImage,
+                                                    fit: BoxFit.cover,
+                                                    fadeInDuration:
+                                                        const Duration(
+                                                            milliseconds: 200),
+                                                    errorWidget: (context,
+                                                        url,
+                                                        error) =>
+                                                        Container(
+                                                          color: _parseColor(
+                                                              _avatarColor),
+                                                          child:
+                                                              _getIconWidget(),
+                                                        ),
+                                                  ),
                                           )
                                         : _getIconWidget())
                                 : _getIconWidget(),

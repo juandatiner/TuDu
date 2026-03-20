@@ -8,6 +8,7 @@ import '../config.dart';
 import '../models/service.dart';
 import '../providers/theme_provider.dart';
 import '../providers/language_provider.dart';
+import '../providers/user_avatar_provider.dart';
 import '../services/session_service.dart';
 import '../l10n/app_localizations.dart';
 import 'all_services_screen.dart';
@@ -71,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _socket.off('photoRequestUpdated'); // Prevent duplicate listeners
     _socket.on('photoRequestUpdated', (data) async {
       if (data != null && data['user_email'] == widget.userEmail && mounted) {
-        // Enviar petición para marcarla como vista y que no vuelva a aparecer al reabrir la app
+        // Mark as notified so it won't re-appear on next app open
         if (data['id'] != null) {
           try {
             await http.put(Uri.parse(
@@ -79,6 +80,19 @@ class _HomeScreenState extends State<HomeScreen> {
           } catch (e) {
             debugPrint('Error marcando notificación en vivo como leída: $e');
           }
+        }
+
+        // If approved, push the new avatar image into the shared provider
+        // so profile_screen and user_personal_data_screen update instantly.
+        if (data['status'] == 'approved' &&
+            data['new_avatar_image'] != null &&
+            mounted) {
+          final avatarProvider =
+              Provider.of<UserAvatarProvider>(context, listen: false);
+          await avatarProvider.applyApprovedPhoto(
+            userEmail: widget.userEmail,
+            newAvatarImage: data['new_avatar_image'] as String,
+          );
         }
 
         _showPhotoRequestStatusDialog(
@@ -275,11 +289,11 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Logo To Do
+              // Logo Tu Du
               Column(
                 children: [
                   Text(
-                    'To',
+                    'Tu',
                     style: TextStyle(
                       fontFamily: 'TitanOne',
                       fontSize: 50,
@@ -291,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Do',
+                    'Du',
                     style: TextStyle(
                       fontFamily: 'TitanOne',
                       fontSize: 50,

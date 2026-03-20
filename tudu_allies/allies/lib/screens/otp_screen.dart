@@ -245,7 +245,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 Column(
                   children: [
                     Text(
-                      'To',
+                      'Tu',
                       style: TextStyle(
                         fontFamily: 'TitanOne',
                         fontSize: 60,
@@ -257,7 +257,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Do',
+                      'Du',
                       style: TextStyle(
                         fontFamily: 'TitanOne',
                         fontSize: 60,

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../providers/theme_provider.dart';
 import '../providers/language_provider.dart';
+import '../providers/user_avatar_provider.dart';
 import '../services/session_service.dart';
 import '../l10n/app_localizations.dart';
 import 'user_services_screen.dart';
@@ -34,6 +36,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _avatarIcon = 'person'; // Icono por defecto
   String? _avatarImage; // URL de imagen si existe
   String _phoneNumber = '';
+  bool _avatarLoaded = false; // true cuando ya tenemos datos (cache o red)
   int _selectedIndex = 3; // Perfil está seleccionado
 
   @override
@@ -49,15 +52,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final keyPrefix = 'profile_${widget.userEmail}_';
 
       if (prefs.containsKey('${keyPrefix}name')) {
-        setState(() {
-          _userName = prefs.getString('${keyPrefix}name') ?? 'Usuario';
-          _avatarColor = prefs.getString('${keyPrefix}color') ?? '#78BF32';
-          _avatarIcon = prefs.getString('${keyPrefix}icon') ?? 'person';
-          _avatarImage = prefs.getString('${keyPrefix}image');
-        });
+        if (mounted) {
+          setState(() {
+            _userName = prefs.getString('${keyPrefix}name') ?? 'Usuario';
+            _avatarColor = prefs.getString('${keyPrefix}color') ?? '#78BF32';
+            _avatarIcon = prefs.getString('${keyPrefix}icon') ?? 'person';
+            _avatarImage = prefs.getString('${keyPrefix}image');
+            _avatarLoaded = true;
+          });
+        }
+      } else {
+        // No cache, mark as loaded so we wait for network
+        if (mounted) setState(() => _avatarLoaded = true);
       }
     } catch (e) {
       print('Error loading cached profile: $e');
+      if (mounted) setState(() => _avatarLoaded = true);
     }
   }
 
@@ -67,20 +77,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Uri.parse('${Config.baseUrl}/users/profile/${widget.userEmail}'),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && mounted) {
         final data = json.decode(response.body);
-        setState(() {
-          _userName =
-              '${data['nombre'] ?? ''} ${data['apellido'] ?? ''}'.trim() != ''
-                  ? '${data['nombre'] ?? ''} ${data['apellido'] ?? ''}'.trim()
-                  : 'Usuario';
-          _avatarColor = data['avatar_color'] ?? '#78BF32';
-          _avatarIcon = data['avatar_icon'] ?? 'person';
-          _avatarImage = data['avatar_image'];
-          _phoneNumber = data['phone'] ?? '';
+        final newName =
+            '${data['nombre'] ?? ''} ${data['apellido'] ?? ''}'.trim() != ''
+                ? '${data['nombre'] ?? ''} ${data['apellido'] ?? ''}'.trim()
+                : 'Usuario';
+        final newColor = data['avatar_color'] ?? '#78BF32';
+        final newIcon = data['avatar_icon'] ?? 'person';
+        final newImage = data['avatar_image'] as String?;
+        final newPhone = data['phone'] ?? '';
 
+        // Sync the shared avatar provider (enables live socket updates)
+        if (mounted) {
+          Provider.of<UserAvatarProvider>(context, listen: false).syncFromNetwork(
+            avatarImage: newImage,
+            avatarColor: newColor,
+            avatarIcon: newIcon,
+          );
+        }
+
+        // Solo actualizar estado local si algo cambió realmente
+        if (newName != _userName ||
+            newColor != _avatarColor ||
+            newIcon != _avatarIcon ||
+            newImage != _avatarImage ||
+            newPhone != _phoneNumber) {
+          setState(() {
+            _userName = newName;
+            _avatarColor = newColor;
+            _avatarIcon = newIcon;
+            _avatarImage = newImage;
+            _phoneNumber = newPhone;
+            _avatarLoaded = true;
+          });
           _saveCachedProfile();
-        });
+        } else {
+          // Data matches cache, ensure avatar flag is set
+          if (!_avatarLoaded && mounted) setState(() => _avatarLoaded = true);
+        }
       }
     } catch (e) {
       print('Error loading profile: $e');
@@ -321,6 +356,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final loc = AppLocalizations.of(context)!;
+    // Listen to live avatar updates pushed by the socket via home_screen
+    final avatarProvider = Provider.of<UserAvatarProvider>(context);
+    // Provider value takes priority; fall back to local state if provider
+    // hasn't been populated yet (e.g. very first cold start)
+    final liveAvatarImage = avatarProvider.avatarImage ?? _avatarImage;
+    final liveAvatarColor = _avatarColor; // color stays local
+    final liveAvatarIcon  = _avatarIcon;  // icon stays local
 
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
@@ -356,10 +398,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          color:
-                              (_avatarImage != null && _avatarImage!.isNotEmpty)
-                                  ? Colors.transparent
-                                  : _parseColor(_avatarColor),
+                          color: (liveAvatarImage != null &&
+                                  liveAvatarImage.isNotEmpty)
+                              ? Colors.transparent
+                              : _parseColor(liveAvatarColor),
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: themeProvider.isDarkMode
@@ -376,38 +418,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
-                        child: (_avatarImage != null &&
-                                _avatarImage!.isNotEmpty)
+                        child: (liveAvatarImage != null &&
+                                liveAvatarImage.isNotEmpty)
                             ? ClipOval(
-                                child: _avatarImage!.startsWith('data:image')
+                                child: liveAvatarImage.startsWith('data:image')
                                     ? Image.memory(
                                         base64Decode(
-                                            _avatarImage!.split(',')[1]),
+                                            liveAvatarImage.split(',')[1]),
                                         fit: BoxFit.cover,
                                         gaplessPlayback: true,
                                         frameBuilder: (context, child, frame,
-                                            wasSynchronouslyLoaded) {
-                                          if (wasSynchronouslyLoaded ||
-                                              frame != null) return child;
-                                          return const Center(
-                                              child: CircularProgressIndicator(
-                                                  strokeWidth: 2));
-                                        },
+                                            wasSynchronouslyLoaded) =>
+                                            child,
                                         errorBuilder:
-                                            (context, error, stackTrace) {
-                                          return _getIconWidget();
-                                        },
+                                            (context, error, stackTrace) =>
+                                                Container(
+                                                  color: _parseColor(
+                                                      liveAvatarColor),
+                                                  child: _getIconWidget(),
+                                                ),
                                       )
                                     : CachedNetworkImage(
-                                        imageUrl: _avatarImage!,
+                                        imageUrl: liveAvatarImage,
                                         fit: BoxFit.cover,
+                                        fadeInDuration:
+                                            const Duration(milliseconds: 200),
                                         errorWidget: (context, url, error) =>
-                                            _getIconWidget(),
-                                        placeholder: (context, url) =>
-                                            const Center(
-                                                child:
-                                                    CircularProgressIndicator(
-                                                        strokeWidth: 2)),
+                                            Container(
+                                              color: _parseColor(
+                                                  liveAvatarColor),
+                                              child: _getIconWidget(),
+                                            ),
                                       ),
                               )
                             : _getIconWidget(),

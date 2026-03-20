@@ -95,7 +95,7 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
-                  'To',
+                  'Tu',
                   style: TextStyle(
                     fontFamily: 'TitanOne',
                     fontSize: 80,
@@ -106,7 +106,7 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Do',
+                  'Du',
                   style: TextStyle(
                     fontFamily: 'TitanOne',
                     fontSize: 80,
