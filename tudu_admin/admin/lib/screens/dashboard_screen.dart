@@ -14,7 +14,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
-  int _pendingRequestsCount = 0;
+  int _pendingRequestsCount = 0; // solicitudes pendientes totales (leídas o no)
+  int _unreadRequestsCount = 0;   // solicitudes pendientes NO leídas
   bool _isLoading = true;
   late IO.Socket _socket;
 
@@ -34,6 +35,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         {
           'transports': ['websocket'],
           'autoConnect': true,
+          'forceNew': true,
         });
 
     _socket.onConnect((_) {
@@ -78,10 +80,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final pendingRequests =
-            data['data'].where((request) => request['status'] == 'pending');
+        final allPending = (data['data'] as List)
+            .where((r) => r['status'] == 'pending')
+            .toList();
+        final unread = allPending
+            .where((r) => r['read_at'] == null)
+            .toList();
         setState(() {
-          _pendingRequestsCount = pendingRequests.length;
+          _pendingRequestsCount = allPending.length;
+          _unreadRequestsCount = unread.length;
           _isLoading = false;
         });
       } else {
@@ -155,26 +162,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
+                        color: (_unreadRequestsCount > 0
+                                ? Colors.red
+                                : Colors.orange)
+                            .withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.red.withOpacity(0.3),
+                          color: (_unreadRequestsCount > 0
+                                  ? Colors.red
+                                  : Colors.orange)
+                              .withOpacity(0.3),
                         ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
-                            Icons.notifications_active,
+                          Icon(
+                            _unreadRequestsCount > 0
+                                ? Icons.notifications_active
+                                : Icons.pending_actions,
                             size: 20,
-                            color: Colors.red,
+                            color: _unreadRequestsCount > 0
+                                ? Colors.red
+                                : Colors.orange,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '$_pendingRequestsCount',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: Colors.red,
+                              color: _unreadRequestsCount > 0
+                                  ? Colors.red
+                                  : Colors.orange,
                             ),
                           ),
                         ],
@@ -281,16 +300,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Inicio',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.people),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.people),
+                if (_pendingRequestsCount > 0)
+                  Positioned(
+                    top: -4,
+                    right: -6,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: _unreadRequestsCount > 0
+                            ? Colors.red
+                            : Colors.orange,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             label: 'Usuarios',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.business),
             label: 'Aliados',
           ),
@@ -319,7 +359,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => screen),
-        );
+        ).then((_) => _loadPendingRequestsCount());
       },
       child: Card(
         elevation: 4,

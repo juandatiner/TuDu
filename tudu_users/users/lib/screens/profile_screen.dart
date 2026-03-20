@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../config.dart';
 import '../providers/theme_provider.dart';
 import '../providers/language_provider.dart';
 import '../services/session_service.dart';
 import '../l10n/app_localizations.dart';
-import 'home_screen.dart';
 import 'user_services_screen.dart';
 import 'user_personal_data_screen.dart';
 import 'user_addresses_screen.dart';
@@ -19,6 +17,7 @@ import 'login_screen.dart';
 import 'appearance_screen.dart';
 import 'language_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userEmail;
@@ -35,35 +34,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _avatarIcon = 'person'; // Icono por defecto
   String? _avatarImage; // URL de imagen si existe
   String _phoneNumber = '';
-  bool _isLoading = true;
   int _selectedIndex = 3; // Perfil está seleccionado
-  late IO.Socket _socket;
 
   @override
   void initState() {
     super.initState();
+    _loadCachedProfile();
     _loadUserProfile();
-    _connectSocket();
   }
 
-  void _connectSocket() {
-    _socket = IO.io(
-      Config.baseUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://'),
-      {'transports': ['websocket'], 'autoConnect': true},
-    );
-    _socket.on('photoRequestUpdated', (data) {
-      if (data['user_email'] == widget.userEmail && mounted) {
-        if (data['status'] == 'approved') {
-          _loadUserProfile();
-        }
+  Future<void> _loadCachedProfile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keyPrefix = 'profile_${widget.userEmail}_';
+
+      if (prefs.containsKey('${keyPrefix}name')) {
+        setState(() {
+          _userName = prefs.getString('${keyPrefix}name') ?? 'Usuario';
+          _avatarColor = prefs.getString('${keyPrefix}color') ?? '#78BF32';
+          _avatarIcon = prefs.getString('${keyPrefix}icon') ?? 'person';
+          _avatarImage = prefs.getString('${keyPrefix}image');
+        });
       }
-    });
-  }
-
-  @override
-  void dispose() {
-    _socket.disconnect();
-    super.dispose();
+    } catch (e) {
+      print('Error loading cached profile: $e');
+    }
   }
 
   Future<void> _loadUserProfile() async {
@@ -83,18 +78,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _avatarIcon = data['avatar_icon'] ?? 'person';
           _avatarImage = data['avatar_image'];
           _phoneNumber = data['phone'] ?? '';
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
+
+          _saveCachedProfile();
         });
       }
     } catch (e) {
       print('Error loading profile: $e');
-      setState(() {
-        _isLoading = false;
-      });
+    }
+  }
+
+  Future<void> _saveCachedProfile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keyPrefix = 'profile_${widget.userEmail}_';
+
+      await prefs.setString('${keyPrefix}name', _userName);
+      await prefs.setString('${keyPrefix}color', _avatarColor);
+      await prefs.setString('${keyPrefix}icon', _avatarIcon);
+      if (_avatarImage != null) {
+        await prefs.setString('${keyPrefix}image', _avatarImage!);
+      } else {
+        await prefs.remove('${keyPrefix}image');
+      }
+    } catch (e) {
+      print('Error saving cached profile: $e');
     }
   }
 
@@ -265,12 +272,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Provider.of<LanguageProvider>(context, listen: false);
     languageProvider.clearUser();
 
-    // Navegar a la pantalla de login
-    Navigator.pushReplacement(
+    // Navegar a la pantalla de login limpiando todo el historial de navegación
+    Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
         builder: (context) => const LoginScreen(),
       ),
+      (route) => false,
     );
   }
 
@@ -278,21 +286,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (index == _selectedIndex) return;
 
     if (index == 0) {
-      // Inicio
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              HomeScreen(userEmail: widget.userEmail),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 300),
-        ),
-      );
+      // Inicio: Volver a la pantalla principal sin apilar múltiples instancias
+      Navigator.popUntil(context, (route) => route.isFirst);
     } else if (index == 1) {
       // Mensajes - por implementar
       setState(() {
@@ -330,242 +325,246 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
       body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 20),
-                      // Sección del perfil: Nombre y Avatar
-                      Row(
-                        children: [
-                          // Nombre del usuario - a la izquierda
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 16.0),
-                              child: Text(
-                                _userName,
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: themeProvider.textColor,
-                                ),
-                              ),
-                            ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+                // Sección del perfil: Nombre y Avatar
+                Row(
+                  children: [
+                    // Nombre del usuario - a la izquierda
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 16.0),
+                        child: Text(
+                          _userName,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: themeProvider.textColor,
                           ),
-                          // Avatar - más a la derecha
-                          Padding(
-                            padding: const EdgeInsets.only(right: 16.0),
-                            child: Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                color: _parseColor(_avatarColor),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: themeProvider.isDarkMode
-                                      ? themeProvider.cardBgColor
-                                      : Colors.white,
-                                  width: 3,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: themeProvider.shadowColor,
-                                    spreadRadius: 2,
-                                    blurRadius: 5,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: (_avatarImage != null &&
-                                      _avatarImage!.isNotEmpty)
-                                  ? ClipOval(
-                                      child: _avatarImage!
-                                              .startsWith('data:image')
-                                          ? Image.memory(
-                                              base64Decode(
-                                                  _avatarImage!.split(',')[1]),
-                                              fit: BoxFit.cover,
-                                              gaplessPlayback: true,
-                                              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                                                if (frame != null) return child;
-                                                return Container(color: Colors.transparent);
-                                              },
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                return _getIconWidget();
-                                              },
-                                            )
-                                          : CachedNetworkImage(
-                                              imageUrl: _avatarImage!,
-                                              fit: BoxFit.cover,
-                                              errorWidget:
-                                                  (context, url, error) =>
-                                                      _getIconWidget(),
-                                              placeholder: (context, url) =>
-                                                  const SizedBox.shrink(),
-                                            ),
-                                    )
-                                  : _getIconWidget(),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 30),
-                      // Tres botones horizontales
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildActionButton(
-                            context: context,
-                            icon: Icons.support_agent,
-                            label: loc.translate('support'),
-                            onTap: () {
-                              // Sin funcionalidad por ahora
-                            },
-                          ),
-                          _buildActionButton(
-                            context: context,
-                            icon: Icons.badge_outlined,
-                            label: loc.translate('my_data'),
-                            onTap: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      MyDataScreen(userEmail: widget.userEmail),
-                                ),
-                              );
-                              // Si hubo cambios, recargar el perfil
-                              if (result == true) {
-                                _loadUserProfile();
-                              }
-                            },
-                          ),
-                          _buildActionButton(
-                            context: context,
-                            icon: Icons.credit_card,
-                            label: loc.translate('my_cards'),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MyCardsScreen(
-                                      userEmail: widget.userEmail),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 40),
-                      // Sección Ajustes
-                      Text(
-                        loc.translate('settings'),
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: themeProvider.textColor,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      _buildSettingsItem(
-                        context: context,
-                        icon: Icons.location_on_outlined,
-                        title: loc.translate('my_addresses'),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => UserAddressesScreen(
-                                  userEmail: widget.userEmail),
+                    ),
+                    // Avatar - más a la derecha
+                    Padding(
+                      padding: const EdgeInsets.only(right: 16.0),
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color:
+                              (_avatarImage != null && _avatarImage!.isNotEmpty)
+                                  ? Colors.transparent
+                                  : _parseColor(_avatarColor),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: themeProvider.isDarkMode
+                                ? themeProvider.cardBgColor
+                                : Colors.white,
+                            width: 3,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: themeProvider.shadowColor,
+                              spreadRadius: 2,
+                              blurRadius: 5,
+                              offset: const Offset(0, 3),
                             ),
-                          );
-                        },
-                      ),
-
-                      _buildSettingsItem(
-                        context: context,
-                        icon: Icons.light_mode,
-                        title: loc.translate('appearance'),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AppearanceScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildSettingsItem(
-                        context: context,
-                        icon: Icons.language,
-                        title: loc.translate('language'),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const LanguageScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 30),
-                      // Sección Otros
-                      Text(
-                        loc.translate('other'),
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: themeProvider.textColor,
+                          ],
                         ),
+                        child: (_avatarImage != null &&
+                                _avatarImage!.isNotEmpty)
+                            ? ClipOval(
+                                child: _avatarImage!.startsWith('data:image')
+                                    ? Image.memory(
+                                        base64Decode(
+                                            _avatarImage!.split(',')[1]),
+                                        fit: BoxFit.cover,
+                                        gaplessPlayback: true,
+                                        frameBuilder: (context, child, frame,
+                                            wasSynchronouslyLoaded) {
+                                          if (wasSynchronouslyLoaded ||
+                                              frame != null) return child;
+                                          return const Center(
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2));
+                                        },
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                          return _getIconWidget();
+                                        },
+                                      )
+                                    : CachedNetworkImage(
+                                        imageUrl: _avatarImage!,
+                                        fit: BoxFit.cover,
+                                        errorWidget: (context, url, error) =>
+                                            _getIconWidget(),
+                                        placeholder: (context, url) =>
+                                            const Center(
+                                                child:
+                                                    CircularProgressIndicator(
+                                                        strokeWidth: 2)),
+                                      ),
+                              )
+                            : _getIconWidget(),
                       ),
-                      const SizedBox(height: 16),
-                      _buildSettingsItem(
-                        context: context,
-                        icon: Icons.security_outlined,
-                        title: loc.translate('data_protection'),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const DataProtectionScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildSettingsItem(
-                        context: context,
-                        icon: Icons.description_outlined,
-                        title: loc.translate('terms_and_conditions'),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const TermsAndConditionsScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildSettingsItem(
-                        context: context,
-                        icon: Icons.logout,
-                        title: loc.translate('logout'),
-                        isDestructive: true,
-                        onTap: () {
-                          _showLogoutDialog();
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 30),
+                // Tres botones horizontales
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildActionButton(
+                      context: context,
+                      icon: Icons.support_agent,
+                      label: loc.translate('support'),
+                      onTap: () {
+                        // Sin funcionalidad por ahora
+                      },
+                    ),
+                    _buildActionButton(
+                      context: context,
+                      icon: Icons.badge_outlined,
+                      label: loc.translate('my_data'),
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                MyDataScreen(userEmail: widget.userEmail),
+                          ),
+                        );
+                        // Si hubo cambios, recargar el perfil
+                        if (result == true) {
+                          _loadUserProfile();
+                        }
+                      },
+                    ),
+                    _buildActionButton(
+                      context: context,
+                      icon: Icons.credit_card,
+                      label: loc.translate('my_cards'),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                MyCardsScreen(userEmail: widget.userEmail),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 40),
+                // Sección Ajustes
+                Text(
+                  loc.translate('settings'),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: themeProvider.textColor,
                   ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                _buildSettingsItem(
+                  context: context,
+                  icon: Icons.location_on_outlined,
+                  title: loc.translate('my_addresses'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            UserAddressesScreen(userEmail: widget.userEmail),
+                      ),
+                    );
+                  },
+                ),
+
+                _buildSettingsItem(
+                  context: context,
+                  icon: Icons.light_mode,
+                  title: loc.translate('appearance'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AppearanceScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildSettingsItem(
+                  context: context,
+                  icon: Icons.language,
+                  title: loc.translate('language'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LanguageScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 30),
+                // Sección Otros
+                Text(
+                  loc.translate('other'),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: themeProvider.textColor,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildSettingsItem(
+                  context: context,
+                  icon: Icons.security_outlined,
+                  title: loc.translate('data_protection'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DataProtectionScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildSettingsItem(
+                  context: context,
+                  icon: Icons.description_outlined,
+                  title: loc.translate('terms_and_conditions'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TermsAndConditionsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildSettingsItem(
+                  context: context,
+                  icon: Icons.logout,
+                  title: loc.translate('logout'),
+                  isDestructive: true,
+                  onTap: () {
+                    _showLogoutDialog();
+                  },
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
       ),
       bottomNavigationBar: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {

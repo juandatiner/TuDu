@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'package:provider/provider.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../config.dart';
 import '../models/service.dart';
 import '../providers/theme_provider.dart';
@@ -38,6 +39,8 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Service> _newServices = [];
   Timer? _sessionCheckTimer;
   bool _isCheckingSession = false;
+  late IO.Socket _socket;
+  bool _isDialogShowing = false;
 
   @override
   void initState() {
@@ -55,6 +58,159 @@ class _HomeScreenState extends State<HomeScreen> {
     _fetchServices();
     _initializeTheme();
     _startSessionCheck();
+    _connectSocket();
+    _checkUnnotifiedPhotoRequests();
+  }
+
+  void _connectSocket() {
+    _socket = IO.io(
+      Config.baseUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://'),
+      {'transports': ['websocket'], 'autoConnect': true, 'forceNew': true},
+    );
+
+    _socket.off('photoRequestUpdated'); // Prevent duplicate listeners
+    _socket.on('photoRequestUpdated', (data) async {
+      if (data != null && data['user_email'] == widget.userEmail && mounted) {
+        // Enviar petición para marcarla como vista y que no vuelva a aparecer al reabrir la app
+        if (data['id'] != null) {
+          try {
+            await http.put(Uri.parse(
+                '${Config.baseUrl}/api/user/photo-change-request/mark-notified/${data['id']}'));
+          } catch (e) {
+            debugPrint('Error marcando notificación en vivo como leída: $e');
+          }
+        }
+
+        _showPhotoRequestStatusDialog(
+          status: data['status'] ?? '',
+          reason: data['rejection_reason'],
+        );
+      }
+    });
+  }
+
+  Future<void> _checkUnnotifiedPhotoRequests() async {
+    try {
+      final response = await http.get(Uri.parse(
+          '${Config.baseUrl}/api/user/photo-change-request/unnotified?user_email=${widget.userEmail}'));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> body = json.decode(response.body);
+        final data = body['data'];
+        
+        if (body['success'] == true && data != null) {
+          // Marcar como notificada inmediatamente para que no salte de nuevo
+          await http.put(Uri.parse(
+              '${Config.baseUrl}/api/user/photo-change-request/mark-notified/${data['id']}'));
+
+          _showPhotoRequestStatusDialog(
+            status: data['status'],
+            reason: data['rejection_reason'],
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error comprobando notificaciones pendientes: $e');
+    }
+  }
+
+  void _showPhotoRequestStatusDialog({required String status, String? reason}) {
+    if (_isDialogShowing) return; // Prevent multiple dialogs
+    _isDialogShowing = true;
+
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final loc = AppLocalizations.of(context)!;
+    final isApproved = status == 'approved';
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: themeProvider.cardBgColor,
+          elevation: 8,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Animated icon container
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isApproved
+                        ? Colors.green.withOpacity(0.1)
+                        : Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isApproved ? Icons.check_circle : Icons.cancel,
+                    color: isApproved ? Colors.green : Colors.red,
+                    size: 60,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Title
+                Text(
+                  isApproved 
+                      ? loc.translate('photo_approved_title')
+                      : loc.translate('photo_rejected_title'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: themeProvider.textColor,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Detailed reason or success msg
+                Text(
+                  isApproved
+                      ? loc.translate('photo_approved_desc')
+                      : (reason != null && reason.isNotEmpty
+                          ? '${loc.translate('photo_rejected_prefix')}${loc.translate(reason) == reason ? reason : loc.translate(reason)}${loc.translate('photo_rejected_suffix')}'
+                          : '${loc.translate('photo_rejected_prefix')}${loc.translate('reason_other')}${loc.translate('photo_rejected_suffix')}'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.5,
+                    color: themeProvider.secondaryTextColor,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Close button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isApproved ? Colors.green : Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      loc.translate('understood'),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ).then((_) {
+      _isDialogShowing = false;
+    });
   }
 
   /// Inicializa el tema y el idioma del usuario desde el backend
@@ -241,6 +397,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _socket.disconnect();
     _suggestionsController.dispose();
     _newServicesController.dispose();
     _searchController.dispose();

@@ -361,21 +361,8 @@ class _UserServicesScreenState extends State<UserServicesScreen>
     if (index == _selectedIndex) return;
 
     if (index == 0) {
-      // Inicio
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              HomeScreen(userEmail: widget.userEmail),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 300),
-        ),
-      );
+      // Inicio: Volver a la pantalla principal sin apilar múltiples instancias
+      Navigator.popUntil(context, (route) => route.isFirst);
     } else if (index == 1) {
       // Mensajes - por implementar
       setState(() {

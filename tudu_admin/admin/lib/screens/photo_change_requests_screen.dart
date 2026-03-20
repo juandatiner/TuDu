@@ -33,6 +33,7 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
         {
           'transports': ['websocket'],
           'autoConnect': true,
+          'forceNew': true,
         });
 
     _socket.onConnect((_) {
@@ -75,8 +76,9 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
-          _requests = data['data']
-              .where((request) => request['status'] == 'pending')
+          // Mostrar todas las solicitudes pendientes (leídas o no)
+          _requests = (data['data'] as List)
+              .where((r) => r['status'] == 'pending')
               .toList();
           _isLoading = false;
         });
@@ -93,12 +95,35 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
     }
   }
 
-  Future<void> _handleRequest(int id, String status) async {
+  Future<void> _markAsRead(int id) async {
     try {
+      await http.put(
+        Uri.parse('${Config.baseUrl}/api/admin/photo-change-requests/$id/read'),
+        headers: {'Content-Type': 'application/json'},
+      );
+      // Actualizar localmente para reflejar el cambio
+      setState(() {
+        final idx = _requests.indexWhere((r) => r['id'] == id);
+        if (idx != -1) {
+          _requests[idx] = Map.from(_requests[idx])
+            ..['read_at'] = DateTime.now().toIso8601String();
+        }
+      });
+    } catch (e) {
+      // Silencioso: no es crítico
+    }
+  }
+
+  Future<void> _handleRequest(int id, String status, {String? rejectionReason}) async {
+    try {
+      final body = {'status': status};
+      if (rejectionReason != null && rejectionReason.isNotEmpty) {
+        body['rejection_reason'] = rejectionReason;
+      }
       final response = await http.put(
         Uri.parse('${Config.baseUrl}/api/admin/photo-change-requests/$id'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'status': status}),
+        body: json.encode(body),
       );
 
       if (response.statusCode == 200) {
@@ -110,7 +135,7 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
             backgroundColor: status == 'approved' ? Colors.green : Colors.red,
           ),
         );
-        _loadRequests(); // Refresh the list
+        _loadRequests();
       } else {
         final error = json.decode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -122,12 +147,121 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Error de conexión'),
           backgroundColor: Colors.red,
         ),
       );
     }
+  }
+
+  Future<String?> _showRejectionReasonDialog(BuildContext ctx) async {
+    final controller = TextEditingController();
+    String? selectedReason = 'Contenido Sexual';
+    final options = [
+      'Contenido Sexual',
+      'Violencia / Ofensivo',
+      'Identidad Falsa',
+      'Baja Calidad',
+      'Otro'
+    ];
+
+    return showDialog<String>(
+      context: ctx,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.cancel_outlined, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Razón del rechazo', style: TextStyle(fontSize: 18)),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Wrap(
+                    spacing: 8.0,
+                    runSpacing: 4.0,
+                    alignment: WrapAlignment.center,
+                    children: options.map((option) {
+                      final isSelected = selectedReason == option;
+                      return ChoiceChip(
+                        label: Text(
+                          option,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        selected: isSelected,
+                        selectedColor: Colors.red.shade400,
+                        backgroundColor: Colors.grey.shade200,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              selectedReason = option;
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  if (selectedReason == 'Otro') ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: controller,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        hintText: 'Especifica la razón...',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.red, width: 2),
+                        ),
+                      ),
+                    ),
+                  ]
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx, null),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  String finalReason = selectedReason!;
+                  if (selectedReason == 'Contenido Sexual') finalReason = 'reason_sexual';
+                  if (selectedReason == 'Violencia / Ofensivo') finalReason = 'reason_offensive';
+                  if (selectedReason == 'Identidad Falsa') finalReason = 'reason_fake';
+                  if (selectedReason == 'Baja Calidad') finalReason = 'reason_quality';
+
+                  if (selectedReason == 'Otro') {
+                    finalReason = controller.text.trim();
+                    if (finalReason.isEmpty) finalReason = 'reason_other';
+                  }
+
+                  Navigator.pop(dialogCtx, finalReason);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: const Text('Confirmar Rechazo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -150,14 +284,37 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
                   itemBuilder: (context, index) {
                     final request = _requests[index];
                     return GestureDetector(
-                      onTap: () => _showRequestDetail(context, request),
+                      onTap: () {
+                        _markAsRead(request['id']);
+                        _showRequestDetail(context, request);
+                      },
                       child: Card(
                         elevation: 2,
                         margin: const EdgeInsets.only(bottom: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: request['read_at'] == null
+                                ? Colors.red.withOpacity(0.6)
+                                : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
+                              // Indicador NO leído
+                              if (request['read_at'] == null)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.only(right: 10),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
                               // User info
                               Expanded(
                                 child: Column(
@@ -165,9 +322,11 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
                                   children: [
                                     Text(
                                       '${request['nombre']} ${request['apellido']}',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 18,
-                                        fontWeight: FontWeight.bold,
+                                        fontWeight: request['read_at'] == null
+                                            ? FontWeight.bold
+                                            : FontWeight.w500,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -312,34 +471,43 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  ElevatedButton(
+                  ElevatedButton.icon(
                     onPressed: () async {
-                      await _handleRequest(request['id'], 'rejected');
-                      Navigator.pop(context);
+                      final reason =
+                          await _showRejectionReasonDialog(context);
+                      if (reason != null) {
+                        await _handleRequest(request['id'], 'rejected',
+                            rejectionReason: reason);
+                        if (context.mounted) Navigator.pop(context);
+                      }
                     },
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    label: const Text('Rechazar',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
                       minimumSize: const Size(150, 50),
-                    ),
-                    child: const Text(
-                      'Rechazar',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-                  ElevatedButton(
+                  ElevatedButton.icon(
                     onPressed: () async {
                       await _handleRequest(request['id'], 'approved');
-                      Navigator.pop(context);
+                      if (context.mounted) Navigator.pop(context);
                     },
+                    icon: const Icon(Icons.check, color: Colors.white),
+                    label: const Text('Aprobar',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
                       minimumSize: const Size(150, 50),
-                    ),
-                    child: const Text(
-                      'Aprobar',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ],

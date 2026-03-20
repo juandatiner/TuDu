@@ -155,6 +155,9 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
       user_email TEXT NOT NULL,
       new_avatar_image TEXT NOT NULL,
       status TEXT DEFAULT 'pending',
+      read_at DATETIME DEFAULT NULL,
+      rejection_reason TEXT DEFAULT NULL,
+      user_notified BOOLEAN DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_email) REFERENCES users(email)
@@ -163,6 +166,21 @@ const usersDb = new sqlite3.Database(path.join(DB_PATH, 'users.db'), (err) => {
         console.error('Error creando tabla photo_change_requests:', err.message);
       } else {
         console.log('Tabla photo_change_requests lista');
+        usersDb.run(`ALTER TABLE photo_change_requests ADD COLUMN read_at DATETIME DEFAULT NULL`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna read_at:', err.message);
+          }
+        });
+        usersDb.run(`ALTER TABLE photo_change_requests ADD COLUMN rejection_reason TEXT DEFAULT NULL`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna rejection_reason:', err.message);
+          }
+        });
+        usersDb.run(`ALTER TABLE photo_change_requests ADD COLUMN user_notified BOOLEAN DEFAULT 0`, (err) => {
+          if (err && !err.message.includes('duplicate column')) {
+            console.error('Error agregando columna user_notified:', err.message);
+          }
+        });
       }
     });
 
@@ -3058,7 +3076,7 @@ app.post('/api/user/photo-change-request', (req, res) => {
 app.get('/api/admin/photo-change-requests', (req, res) => {
   const query = `SELECT pcr.*, u.nombre, u.apellido, u.avatar_image 
                  FROM photo_change_requests pcr
-                 JOIN users u ON pcr.user_email = u.email
+                 LEFT JOIN users u ON pcr.user_email = u.email
                  ORDER BY pcr.created_at DESC`;
   
   usersDb.all(query, [], (err, rows) => {
@@ -3077,7 +3095,7 @@ app.get('/api/admin/photo-change-requests', (req, res) => {
 // Endpoint para aprobar/rechazar una solicitud de cambio de foto (admin)
 app.put('/api/admin/photo-change-requests/:id', (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, rejection_reason } = req.body;
 
   if (!['approved', 'rejected'].includes(status)) {
     return res.status(400).json({ error: 'Status must be approved or rejected' });
@@ -3100,8 +3118,8 @@ app.put('/api/admin/photo-change-requests/:id', (req, res) => {
     }
 
     // Actualizar el estado de la solicitud
-    const updateQuery = `UPDATE photo_change_requests SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-    usersDb.run(updateQuery, [status, id], function(err) {
+    const updateQuery = `UPDATE photo_change_requests SET status = ?, rejection_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    usersDb.run(updateQuery, [status, rejection_reason || null, id], function(err) {
       if (err) {
         console.error('Error al actualizar solicitud:', err.message);
         return res.status(500).json({ error: 'Internal server error' });
@@ -3119,17 +3137,13 @@ app.put('/api/admin/photo-change-requests/:id', (req, res) => {
           io.emit('photoRequestUpdated', {
             id: parseInt(id),
             user_email: request.user_email,
-            status: 'approved'
+            status: 'approved',
+            new_avatar_image: request.new_avatar_image
           });
 
           res.json({
             success: true,
-            data: {
-              id: parseInt(id),
-              user_email: request.user_email,
-              status,
-              updated_at: new Date().toISOString()
-            },
+            data: { id: parseInt(id), user_email: request.user_email, status, updated_at: new Date().toISOString() },
             message: 'Solicitud aprobada y foto de perfil actualizada'
           });
         });
@@ -3137,21 +3151,31 @@ app.put('/api/admin/photo-change-requests/:id', (req, res) => {
         io.emit('photoRequestUpdated', {
           id: parseInt(id),
           user_email: request.user_email,
-          status: 'rejected'
+          status: 'rejected',
+          rejection_reason: rejection_reason || null
         });
 
         res.json({
           success: true,
-          data: {
-            id: parseInt(id),
-            user_email: request.user_email,
-            status,
-            updated_at: new Date().toISOString()
-          },
+          data: { id: parseInt(id), user_email: request.user_email, status, updated_at: new Date().toISOString() },
           message: 'Solicitud rechazada'
         });
       }
     });
+  });
+});
+
+// Endpoint para marcar una solicitud como leída (admin la vio pero aún no la resuelve)
+app.put('/api/admin/photo-change-requests/:id/read', (req, res) => {
+  const { id } = req.params;
+
+  const query = `UPDATE photo_change_requests SET read_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'pending' AND read_at IS NULL`;
+  usersDb.run(query, [id], function(err) {
+    if (err) {
+      console.error('Error marcando solicitud como leída:', err.message);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    res.json({ success: true, message: 'Solicitud marcada como leída' });
   });
 });
 
@@ -3174,6 +3198,42 @@ app.get('/api/user/photo-change-request/pending', (req, res) => {
       success: true,
       data: row || null
     });
+  });
+});
+
+// Endpoint para obtener notificaciones de solicitudes de cambio de foto no vistas por el usuario
+app.get('/api/user/photo-change-request/unnotified', (req, res) => {
+  const { user_email } = req.query;
+
+  if (!user_email) {
+    return res.status(400).json({ error: 'user_email is required' });
+  }
+
+  const query = `SELECT * FROM photo_change_requests WHERE user_email = ? AND status != 'pending' AND user_notified = 0 LIMIT 1`;
+  usersDb.get(query, [user_email], (err, row) => {
+    if (err) {
+      console.error('Error al obtener solicitud no notificada:', err.message);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+
+    res.json({
+      success: true,
+      data: row || null
+    });
+  });
+});
+
+// Endpoint para marcar una solicitud de cambio de foto como notificada por el usuario
+app.put('/api/user/photo-change-request/mark-notified/:id', (req, res) => {
+  const { id } = req.params;
+
+  const query = `UPDATE photo_change_requests SET user_notified = 1 WHERE id = ?`;
+  usersDb.run(query, [id], function(err) {
+    if (err) {
+      console.error('Error marcando solicitud como notificada:', err.message);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    res.json({ success: true, message: 'Solicitud marcada como notificada al usuario' });
   });
 });
 

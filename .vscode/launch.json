@@ -3,48 +3,54 @@
   "configurations": [
     {
       "name": "Users · Dispositivo físico",
+      "cwd": "tudu_users/users",
       "type": "dart",
       "request": "launch",
-      "program": "tudu_users/users/lib/main.dart",
+      "program": "lib/main.dart",
       "args": [
         "--dart-define=LOCAL_IP=${env:LOCAL_IP}"
       ]
     },
     {
       "name": "Users · Emulador / Simulador iOS",
+      "cwd": "tudu_users/users",
       "type": "dart",
       "request": "launch",
-      "program": "tudu_users/users/lib/main.dart"
+      "program": "lib/main.dart"
     },
     {
       "name": "Allies · Dispositivo físico",
+      "cwd": "tudu_allies/allies",
       "type": "dart",
       "request": "launch",
-      "program": "tudu_allies/allies/lib/main.dart",
+      "program": "lib/main.dart",
       "args": [
         "--dart-define=LOCAL_IP=${env:LOCAL_IP}"
       ]
     },
     {
       "name": "Allies · Emulador / Simulador iOS",
+      "cwd": "tudu_allies/allies",
       "type": "dart",
       "request": "launch",
-      "program": "tudu_allies/allies/lib/main.dart"
+      "program": "lib/main.dart"
     },
     {
       "name": "Admin · Dispositivo físico",
+      "cwd": "tudu_admin/admin",
       "type": "dart",
       "request": "launch",
-      "program": "tudu_admin/admin/lib/main.dart",
+      "program": "lib/main.dart",
       "args": [
         "--dart-define=LOCAL_IP=${env:LOCAL_IP}"
       ]
     },
     {
       "name": "Admin · Emulador / Simulador iOS",
+      "cwd": "tudu_admin/admin",
       "type": "dart",
       "request": "launch",
-      "program": "tudu_admin/admin/lib/main.dart"
+      "program": "lib/main.dart"
     }
   ]
 }
