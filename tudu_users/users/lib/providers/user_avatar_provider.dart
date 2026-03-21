@@ -9,10 +9,19 @@ class UserAvatarProvider extends ChangeNotifier {
   String? _avatarImage; // base64 data-URI or null
   String _avatarColor = '#78BF32';
   String _avatarIcon = 'person';
+  bool _hasPendingPhotoRequest = false;
 
   String? get avatarImage => _avatarImage;
   String get avatarColor => _avatarColor;
   String get avatarIcon => _avatarIcon;
+  bool get hasPendingPhotoRequest => _hasPendingPhotoRequest;
+
+  void setPendingPhotoRequest(bool pending) {
+    if (_hasPendingPhotoRequest != pending) {
+      _hasPendingPhotoRequest = pending;
+      notifyListeners();
+    }
+  }
 
   /// Called by home_screen when the socket delivers an approved photo.
   /// Updates in-memory state, saves to SharedPreferences, then notifies.

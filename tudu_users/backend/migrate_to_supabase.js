@@ -88,12 +88,18 @@ async function runMigration() {
 
   // USUARIOS
   await migrateTable('users', 'users', 'users', (row) => {
-    // Omite columnas obsoletas de SQLite para evitar errores en Supabase
     const { country_code, phone_number, ...rest } = row;
     return rest;
   });
   await migrateTable('users', 'user_phones');
   await migrateTable('users', 'photo_change_requests');
+  await migrateTable('users', 'user_addresses');
+  await migrateTable('users', 'user_cards', 'user_cards', (row) => {
+    // Si tenían la columna cvv por accidente en SQLite antiguo, la ignoramos.
+    const { cvv, ...rest } = row;
+    return rest;
+  });
+  await migrateTable('users', 'device_sessions');
 
   // ALIADOS
   await migrateTable('allies', 'allies');

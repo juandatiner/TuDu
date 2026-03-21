@@ -64,9 +64,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _connectSocket() {
+    final sessionService = Provider.of<SessionService>(context, listen: false);
     _socket = IO.io(
       Config.baseUrl.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://'),
-      {'transports': ['websocket'], 'autoConnect': true, 'forceNew': true},
+      {
+        'transports': ['websocket'], 
+        'autoConnect': true, 
+        'forceNew': true,
+        'auth': {
+          'email': widget.userEmail,
+          'device': sessionService.deviceInfo ?? '{}'
+        }
+      },
     );
 
     _socket.off('photoRequestUpdated'); // Prevent duplicate listeners
@@ -80,6 +89,12 @@ class _HomeScreenState extends State<HomeScreen> {
           } catch (e) {
             debugPrint('Error marcando notificación en vivo como leída: $e');
           }
+        }
+
+        // Liberar el estado pendiente independientemente si fue aprobada o rechazada.
+        if (mounted) {
+          Provider.of<UserAvatarProvider>(context, listen: false)
+              .setPendingPhotoRequest(false);
         }
 
         // If approved, push the new avatar image into the shared provider

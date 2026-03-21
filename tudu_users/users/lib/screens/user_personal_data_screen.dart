@@ -42,7 +42,10 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
-  bool _hasPendingPhotoRequest = false;
+  bool get _hasPendingPhotoRequest {
+    if (!mounted) return false;
+    return Provider.of<UserAvatarProvider>(context, listen: false).hasPendingPhotoRequest;
+  }
   String _avatarColor = '#78BF32';
   XFile? _selectedImage;
   String _selectedIcon = 'person'; // Icono por defecto
@@ -142,22 +145,28 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   Future<void> _loadUserData() async {
     try {
-      // Verificar si hay solicitud pendiente de cambio de foto
-      final pendingRequestResponse = await http.get(
-        Uri.parse(
-            '${Config.baseUrl}/api/user/photo-change-request/pending?user_email=${widget.userEmail}'),
+      // Lanzar las solicitudes a la red simultáneamente (Paralelización) para matar el tiempo de espera
+      final pendingRequestFuture = http.get(
+        Uri.parse('${Config.baseUrl}/api/user/photo-change-request/pending?user_email=${widget.userEmail}'),
       );
+
+      final profileFuture = http.get(
+        Uri.parse('${Config.baseUrl}/users/profile/${widget.userEmail}'),
+      );
+
+      // Esperar a que ambas terminen al mismo tiempo
+      final results = await Future.wait([pendingRequestFuture, profileFuture]);
+      
+      final pendingRequestResponse = results[0];
+      final response = results[1];
 
       if (pendingRequestResponse.statusCode == 200) {
         final pendingData = json.decode(pendingRequestResponse.body);
-        setState(() {
-          _hasPendingPhotoRequest = pendingData['data'] != null;
-        });
+        if (mounted) {
+          Provider.of<UserAvatarProvider>(context, listen: false)
+              .setPendingPhotoRequest(pendingData['data'] != null);
+        }
       }
-
-      final response = await http.get(
-        Uri.parse('${Config.baseUrl}/users/profile/${widget.userEmail}'),
-      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -818,16 +827,15 @@ class _MyDataScreenState extends State<MyDataScreen> {
       final bytes = await file.readAsBytes();
       final base64Image = base64Encode(bytes);
 
-      // Verificar si la foto es la misma que la actual
-      if (_avatarImage != null && _avatarImage!.startsWith('data:image')) {
-        final currentBase64 = _avatarImage!.split(',')[1];
+      // Verificar si la foto es la misma que la actual (leyendo del Provider en vivo)
+      final liveAvatarImage = Provider.of<UserAvatarProvider>(context, listen: false).avatarImage ?? _avatarImage;
+      if (liveAvatarImage != null && liveAvatarImage.startsWith('data:image')) {
+        final currentBase64 = liveAvatarImage.split(',')[1];
         if (base64Image == currentBase64) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text('La foto seleccionada es la misma que la actual'),
-              backgroundColor: Colors.yellow,
-              duration: const Duration(seconds: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              backgroundColor: Colors.orange,
             ),
           );
           return;
@@ -846,9 +854,10 @@ class _MyDataScreenState extends State<MyDataScreen> {
         );
 
         if (response.statusCode == 200) {
-          setState(() {
-            _hasPendingPhotoRequest = true;
-          });
+          if (mounted) {
+            Provider.of<UserAvatarProvider>(context, listen: false)
+                .setPendingPhotoRequest(true);
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -1194,6 +1203,19 @@ class _MyDataScreenState extends State<MyDataScreen> {
     // Listen for live avatar updates (e.g. photo approved while on this screen)
     final avatarProvider = Provider.of<UserAvatarProvider>(context);
     final liveAvatarImage = avatarProvider.avatarImage ?? _avatarImage;
+
+    // Sincronización en vivo si aprueban una foto mientras estamos usando un ícono
+    if (liveAvatarImage != null && _avatarImage != liveAvatarImage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _avatarImage = liveAvatarImage;
+            _usePhoto = true;
+          });
+        }
+      });
+    }
+
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
       appBar: AppBar(

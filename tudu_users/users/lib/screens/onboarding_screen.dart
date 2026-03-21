@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'login_screen.dart';
+import 'home_screen.dart';
+import 'package:provider/provider.dart';
+import '../services/session_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -65,17 +68,48 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       _shimmerController.repeat();
     });
 
-    Timer(const Duration(milliseconds: 2000), () {
+    Timer(const Duration(milliseconds: 2000), () async {
+      // Verificar sesión al vuelo
+      if (!mounted) return;
+      
+      final sessionService = Provider.of<SessionService>(context, listen: false);
+      await sessionService.initialize();
+      
+      bool activeOnServer = false;
+      String? email = sessionService.userEmail;
+      
+      if (email != null && email.isNotEmpty) {
+        final check = await sessionService.checkSession(email);
+        if (check['success'] == true && check['requires_verification'] == false) {
+          activeOnServer = true;
+        } else {
+          // Si el servidor cerró la sesión remotamente
+          await sessionService.clearAllSessionData();
+        }
+      }
+
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const LoginScreen(),
-            transitionsBuilder: (_, animation, __, child) =>
-                FadeTransition(opacity: animation, child: child),
-            transitionDuration: const Duration(milliseconds: 400),
-          ),
-        );
+        if (activeOnServer) {
+          Navigator.pushReplacement(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => HomeScreen(userEmail: email!),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+              transitionDuration: const Duration(milliseconds: 400),
+            ),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => const LoginScreen(),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+              transitionDuration: const Duration(milliseconds: 400),
+            ),
+          );
+        }
       }
     });
   }
