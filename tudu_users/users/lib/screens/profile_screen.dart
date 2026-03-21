@@ -373,7 +373,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 20),
+                const SizedBox(height: 5),
                 // Sección del perfil: Nombre y Avatar
                 Row(
                   children: [
@@ -456,7 +456,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 15),
                 // Tres botones horizontales
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -503,7 +503,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
                 // Sección Ajustes
                 Text(
                   loc.translate('settings'),
