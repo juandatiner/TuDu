@@ -59,10 +59,11 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
           )
           .timeout(const Duration(seconds: 10));
 
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['exists']) {
-          // Usuario existe, ir a inicio
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -70,7 +71,6 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
             ),
           );
         } else {
-          // Usuario no existe, ir a registro
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -79,7 +79,6 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
           );
         }
       } else {
-        // Error, asumir no existe
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -88,7 +87,7 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
         );
       }
     } catch (e) {
-      // Error de conexión, asumir no existe
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

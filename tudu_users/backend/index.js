@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const mailgun = require('mailgun-js');
 const path = require('path');
 require('dotenv').config();
 const http = require('http');
@@ -64,27 +63,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// Configurar Mailgun
-let mg = null;
-if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN && 
-    process.env.MAILGUN_API_KEY !== 'tu_api_key_de_mailgun') {
-  mg = mailgun({
-    apiKey: process.env.MAILGUN_API_KEY,
-    domain: process.env.MAILGUN_DOMAIN
-  });
-  console.log('Mailgun configurado correctamente');
-} else {
-  console.log('Mailgun no configurado - modo desarrollo activo');
-}
-
-// Almacenamiento temporal de OTPs (en producción usar Redis o tabla Supabase)
-const otpStore = new Map();
-
-// Generar OTP de 6 dígitos
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
 // ==========================================
 // 1. AUTENTICACIÓN Y REGISTRO
 // ==========================================
@@ -112,8 +90,10 @@ app.post('/verify-otp', async (req, res) => {
   const { email, otp } = req.body;
   if (!email || !otp) return res.status(400).json({ error: 'Email y OTP requeridos' });
 
-  // Puerta trasera para testing de las tiendas de apps o desarrollo
-  if (otp === '123456') return res.json({ message: 'OTP verificado (acceso directo)' });
+  // Acceso de testing solo para la cuenta de desarrollo (no afecta a ningún otro usuario)
+  if (otp === '123456' && email === 'cosmodavid2009@gmail.com') {
+    return res.json({ message: 'OTP verificado (acceso de prueba)' });
+  }
 
   // Auth Nativo de Supabase
   const { data, error } = await supabase.auth.verifyOtp({ 
@@ -180,8 +160,12 @@ app.get('/users/profile/:email', async (req, res) => {
   const { email } = req.params;
   if (!email) return res.status(400).json({ error: 'Email requerido' });
 
+  const selectFields = req.query.lite === 'true'
+    ? 'nombre, apellido, avatar_color, avatar_icon, phone, genero, fecha_nacimiento, dark_mode, language'
+    : '*';
+
   const [userRes, phoneRes] = await Promise.all([
-    supabase.from('users').select('*').eq('email', email).single(),
+    supabase.from('users').select(selectFields).eq('email', email).single(),
     supabase.from('user_phones').select('*').eq('user_email', email).single()
   ]);
   
@@ -245,13 +229,11 @@ app.put('/users/profile/data', async (req, res) => {
   }
 
   if (country_code && phone_number) {
-    // Upsert para user_phones (requiere primary key o unique para funcionar bien en Supabase)
-    const { data: existingPhone } = await supabase.from('user_phones').select('id').eq('user_email', email).single();
-    if (existingPhone) {
-      await supabase.from('user_phones').update({ country_code, country_name, phone_number }).eq('user_email', email);
-    } else {
-      await supabase.from('user_phones').insert([{ user_email: email, country_code, country_name, phone_number }]);
-    }
+    // Upsert nativo de Supabase — 1 sola query, usa la constraint UNIQUE de user_email
+    await supabase.from('user_phones').upsert(
+      { user_email: email, country_code, country_name, phone_number },
+      { onConflict: 'user_email' }
+    );
   }
   res.json({ message: 'Datos actualizados' });
 });
@@ -439,8 +421,10 @@ app.post('/users/cards', async (req, res) => {
 
   if (finalIsDefault) await supabase.from('user_cards').update({ is_default: 0 }).eq('user_email', user_email);
 
+  const maskedCard = `**** **** **** ${normalizedCard.slice(-4)}`;
+
   const { data, error } = await supabase.from('user_cards').insert([{
-    user_email, card_number: normalizedCard, card_holder, expiry_date, card_type: card_type || 'visa', document_type: document_type || 'C.C', document_number, card_mode: card_mode || 'credit', is_default: finalIsDefault
+    user_email, card_number: maskedCard, card_holder, expiry_date, card_type: card_type || 'visa', document_type: document_type || 'C.C', document_number, card_mode: card_mode || 'credit', is_default: finalIsDefault
   }]).select('id').single();
 
   if (error) return res.status(500).json({ error: 'Error guardando tarjeta' });
@@ -684,14 +668,12 @@ app.post('/device-session/register', async (req, res) => {
     .eq('user_email', email)
     .neq('device_id', device_id);
 
-  // 2. Registra o actualiza el dispositivo que acaba de acceder
-  const { data: session } = await supabase.from('device_sessions').select('id').eq('user_email', email).eq('device_id', device_id).single();
-  
-  if (session) {
-    await supabase.from('device_sessions').update({ is_active: 1, last_activity: new Date().toISOString(), device_info }).eq('id', session.id);
-  } else {
-    await supabase.from('device_sessions').insert([{ user_email: email, device_id, device_info, is_active: 1 }]);
-  }
+  // 2. Upsert del dispositivo que acaba de acceder — 1 sola query
+  await supabase.from('device_sessions').upsert(
+    { user_email: email, device_id, device_info, is_active: 1, last_activity: new Date().toISOString() },
+    { onConflict: 'user_email,device_id' }
+  );
+
   res.json({ success: true });
 });
 

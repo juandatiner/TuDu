@@ -1,56 +1,72 @@
-=== Estructura del Backend ===
+=== Estructura Arquitectónica del Backend de TuDu ===
+(Versión actualizada a la Arquitectura Serverless con Supabase)
 
-## Backends disponibles:
+## Arquitectura de Base de Datos
+El proyecto ha transicionado exitosamente alejándose de bases de datos locales `.db` (SQLite) hacia un modelo **Cloud/Serverless con PostgreSQL a través de Supabase**. 
 
-### 1. Backend Users (tudu_users/backend/index.js)
-- Puerto: 3002
-- App Flutter: tudu_users/users/
+Al usar Supabase, las bases de datos de todos los proyectos (`users`, `allies`, `admin`, `services`, `search`, `sessions`) han sido consolidadas lógica y centralmente en la nube.
+La autenticación nativa o queries SQL se gestionan directamente a través del cliente multiplataforma `@supabase/supabase-js` que cada microservicio de backend inicializa independientemente.
 
-### 2. Backend Allies (tudu_allies/backend/index.js)
-- Puerto: 3002
-- App Flutter: tudu_allies/allies/
+---
 
-== Bases de Datos SQLite ===
-Rutas de las bases de datos (carpeta databases/):
+## Ecosistema de Backends Disponibles
 
-### users.db
-- Tabla: users (usuarios de la app Users)
-- Campos: id, email, nombre, apellido, role, created_at
+El clúster está formado por tres microservicios en Node.js + Express.
+(Se pueden levantar simultáneamente con `./run-dev.sh all`)
 
-### allies.db
-- Tabla: allies (aliados de la app Allies)
-- Campos: id, email, nombre, apellido, role, created_at
+### 1. Backend Users (Microservicio principal de clientes)
+- **Ruta de Código**: `tudu_users/backend/index.js`
+- **Puerto Principal**: 3000
+- **App Cliente en Flutter**: `tudu_users/users/`
+- **Funciones Especiales**: Socket.io habilitado, Manejo de correos Mailgun, Compresión Zlib.
 
-### services.db
-- Tabla: services (tipos de servicios disponibles)
-- Tabla: services_in_search (servicios publicados por usuarios buscando aliados)
-- Tabla: ally_services (relación aliado-servicio)
+**Endpoints (API REST):**
+*   **Autenticación**: `POST /send-otp`, `POST /verify-otp`, `POST /check-user`, `POST /register-user` (También implementa métodos fallback para revisar aliados durante asignaciones).
+*   **Perfil & Datos Sensibles**: 
+    - `GET /users/profile/:email`
+    - `PUT /users/profile/avatar`
+    - `PUT /users/profile/data`
+    - `DELETE /users/:email`
+*   **Direcciones de Usuario**: `GET /user-addresses`, `POST /user-addresses`, `PUT /user-addresses/:id`, `DELETE /user-addresses/:id`
+*   **Tarjetas & Pagos**: `GET /users/cards/:userEmail`, `POST /users/cards`, `DELETE /users/cards/:id`, `PUT /users/cards/:id/default`
+*   **Geografía / Catálogo Local**: `GET /countries`, `GET /departments`, `GET /cities`
+*   **Servicios y Búsqueda**: 
+    - `GET /services`, `POST /publish-service`, `GET /search-services`
+    - `POST /search-history`, `GET /search-history`, `DELETE /search-history/:id`
+    - `GET /services-in-search`, `PUT /services-in-search/:id/assign`, `PUT /services-in-search/:id/status`, `DELETE /services-in-search/:id`
+*   **Revisiones y Notificaciones de Fotos**:
+    - Endpoints `/api/user/photo-change-request/*` para gestionar la petición o rechazo de cambio de avatar en vivo.
+    - Endpoints `/api/admin/photo-change-requests/*` compartidos para la UI de administración.
+*   **Sesiones Multi-dispositivo**: `/device-session/check`, `/device-session/register`, `/device-session/logout`, `/device-session/list`, `/device-session/close-others`
 
-### search.db
-- Tabla: search_history (historial de búsquedas de usuarios)
+---
 
-== Endpoints por App ===
+### 2. Backend Allies (Microservicio de Proveedores/Aliados)
+- **Ruta de Código**: `tudu_allies/backend/index.js`
+- **Puerto Principal**: 3002
+- **App Cliente en Flutter**: `tudu_allies/allies/`
 
-### App Users (tudu_users/users/):
-- POST /send-otp - Enviar código OTP
-- POST /verify-otp - Verificar código OTP
-- POST /check-user - Verificar si usuario existe (users.db)
-- POST /register-user - Registrar usuario (users.db)
-- GET /services - Obtener servicios (services.db)
-- POST /publish-service - Publicar servicio en búsqueda (services.db)
-- GET /services-in-search - Ver servicios en búsqueda (services.db)
-- POST /search-history - Guardar búsqueda (search.db)
-- GET /search-history - Obtener historial (search.db)
-- DELETE /search-history/:id - Eliminar búsqueda (search.db)
-- GET /search-services - Buscar servicios (services.db)
+**Endpoints (API REST):**
+*   **Autenticación**: `POST /send-otp`, `POST /verify-otp`, `POST /check-ally`, `POST /register-ally`
+*   **Flujo de Trabajo del Aliado**: 
+    - `GET /services` (Ver catálogo)
+    - `GET /services-in-search` (Explorar peticiones o trabajos disponibles sin asignar)
+    - `PUT /services-in-search/:id/assign` (Aceptar y autoadjudicarse un servicio)
+    - `PUT /services-in-search/:id/status` (Actualizar la fase del servicio: Terminando, retrasado, etc).
+    - `GET /my-services` (Historial de trabajos del aliado actual).
 
-### App Allies (tudu_allies/allies/):
-- POST /send-otp - Enviar código OTP
-- POST /verify-otp - Verificar código OTP
-- POST /check-ally - Verificar si aliado existe (allies.db)
-- POST /register-ally - Registrar aliado (allies.db)
-- GET /services - Obtener servicios (services.db)
-- GET /services-in-search - Ver servicios disponibles (services.db)
-- PUT /services-in-search/:id/assign - Aceptar servicio (services.db)
-- PUT /services-in-search/:id/status - Actualizar estado (services.db)
-- GET /my-services - Ver servicios asignados (services.db)
+---
+
+### 3. Backend Admin (Microservicio de Panel de Control)
+- **Ruta de Código**: `tudu_admin/backend/server.js`
+- **Puerto Principal**: 3003
+- **App Cliente en Flutter**: `tudu_admin/admin/`
+
+**Endpoints (API REST):**
+*   **Directorio & Login de Administradores**:
+    - `POST /api/admin/login`
+    - `GET /api/admins` (Ver panel de administradores del sistema)
+    - `POST /api/admins` (Crear nuevo admin)
+    - `PUT /api/admins/:id`
+    - `DELETE /api/admins/:id`
+    - `PUT /api/admins/:id/change-password`

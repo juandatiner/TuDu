@@ -9,8 +9,6 @@ import '../providers/theme_provider.dart';
 import '../l10n/app_localizations.dart';
 import 'all_services_screen.dart';
 import 'service_detail_screen.dart';
-import 'home_screen.dart';
-import 'search_screen.dart';
 import 'profile_screen.dart';
 
 class UserServicesScreen extends StatefulWidget {
@@ -42,7 +40,6 @@ class _UserServicesScreenState extends State<UserServicesScreen>
 
   // Animación
   late AnimationController _animationController;
-  late Animation<double> _expandAnimation;
 
   // Lista de estados disponibles con sus colores naturales
   List<Map<String, dynamic>> _getStatusFilters(BuildContext context) {
@@ -94,11 +91,6 @@ class _UserServicesScreenState extends State<UserServicesScreen>
       duration: const Duration(milliseconds: 400),
       vsync: this,
     );
-    _expandAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
     _fetchUserServices();
     _fetchAllServices();
   }
@@ -128,13 +120,13 @@ class _UserServicesScreenState extends State<UserServicesScreen>
           _applyFilters();
         });
       } else {
-        print('Error fetching user services: ${response.statusCode}');
+        debugPrint('Error fetching user services: ${response.statusCode}');
         setState(() {
           _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error: $e');
+      debugPrint('Error: $e');
       setState(() {
         _isLoading = false;
       });
@@ -152,10 +144,10 @@ class _UserServicesScreenState extends State<UserServicesScreen>
               servicesJson.map((json) => Service.fromJson(json)).toList();
         });
       } else {
-        print('Error fetching services: ${response.statusCode}');
+        debugPrint('Error fetching services: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error: $e');
+      debugPrint('Error: $e');
     }
   }
 
@@ -201,32 +193,26 @@ class _UserServicesScreenState extends State<UserServicesScreen>
         color = Colors.grey;
         icon = Icons.schedule;
         translatedStatus = loc?.translate('waiting_status') ?? 'EN ESPERA';
-        break;
       case 'EN PROCESO':
         color = Colors.amber;
         icon = Icons.autorenew;
         translatedStatus = loc?.translate('in_process_status') ?? 'EN PROCESO';
-        break;
       case 'TERMINADO':
         color = Colors.green;
         icon = Icons.check_circle;
         translatedStatus = loc?.translate('finished_status') ?? 'TERMINADO';
-        break;
       case 'CANCELADO':
         color = Colors.red;
         icon = Icons.cancel;
         translatedStatus = loc?.translate('cancelled_status') ?? 'CANCELADO';
-        break;
       case 'RETRASADO':
         color = Colors.orange;
         icon = Icons.warning;
         translatedStatus = loc?.translate('delayed_status') ?? 'RETRASADO';
-        break;
       case 'FINALIZADO':
         color = Colors.brown;
         icon = Icons.done_all;
         translatedStatus = loc?.translate('completed_status') ?? 'FINALIZADO';
-        break;
       default:
         color = Colors.grey;
         icon = Icons.help;

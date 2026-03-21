@@ -12,7 +12,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
 import '../providers/theme_provider.dart';
-import '../providers/language_provider.dart';
 import '../providers/user_avatar_provider.dart';
 import '../l10n/app_localizations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -151,7 +150,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
       );
 
       final profileFuture = http.get(
-        Uri.parse('${Config.baseUrl}/users/profile/${widget.userEmail}'),
+        Uri.parse('${Config.baseUrl}/users/profile/${widget.userEmail}?lite=true'),
       );
 
       // Esperar a que ambas terminen al mismo tiempo
@@ -176,7 +175,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
           _lastNameController.text = data['apellido'] ?? '';
           _avatarColor = data['avatar_color'] ?? '#78BF32';
           _selectedIcon = data['avatar_icon'] ?? 'person';
-          _avatarImage = data['avatar_image'];
+          if (data.containsKey('avatar_image')) {
+            _avatarImage = data['avatar_image'];
+          }
           _completePhone = data['phone'] ?? '';
 
           // Cargar datos separados si están disponibles
@@ -206,19 +207,20 @@ class _MyDataScreenState extends State<MyDataScreen> {
           }
 
           // Si hay una imagen de perfil, marcar que se usa foto
-          if (data['avatar_image'] != null) {
-            _usePhoto = true;
-          } else {
-            _usePhoto = false;
-          }
+          _usePhoto = _avatarImage != null;
 
           // Guardar datos originales
           _originalName = data['nombre'] ?? '';
           _originalLastName = data['apellido'] ?? '';
           _originalAvatarColor = data['avatar_color'] ?? '#78BF32';
           _originalAvatarIcon = data['avatar_icon'] ?? 'person';
-          _originalAvatarImage = data['avatar_image'];
-          _originalUsePhoto = data['avatar_image'] != null;
+          if (data.containsKey('avatar_image')) {
+            _originalAvatarImage = data['avatar_image'];
+            _originalUsePhoto = data['avatar_image'] != null;
+          } else {
+            _originalAvatarImage = _avatarImage;
+            _originalUsePhoto = _avatarImage != null;
+          }
           _originalPhone = data['phone'] ?? '';
           _selectedGender = data['genero'];
           _originalGender = data['genero'];
@@ -240,7 +242,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
         // Sync the shared avatar provider so live socket updates work
         if (mounted) {
           Provider.of<UserAvatarProvider>(context, listen: false).syncFromNetwork(
-            avatarImage: data['avatar_image'] as String?,
+            avatarImage: _avatarImage,
             avatarColor: data['avatar_color'] ?? '#78BF32',
             avatarIcon: data['avatar_icon'] ?? 'person',
           );
@@ -267,24 +269,6 @@ class _MyDataScreenState extends State<MyDataScreen> {
     }
   }
 
-  Future<void> _loadUserPhone() async {
-    try {
-      final response = await http.get(
-        Uri.parse('${Config.baseUrl}/users/profile/phone/${widget.userEmail}'),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final phone = data['phone'] ?? '';
-        setState(() {
-          _completePhone = phone;
-          _originalPhone = phone;
-        });
-      }
-    } catch (e) {
-      print('Error loading phone: $e');
-    }
-  }
 
   Future<void> _saveUserData() async {
     if (!_formKey.currentState!.validate()) return;
@@ -454,6 +438,13 @@ class _MyDataScreenState extends State<MyDataScreen> {
                             'work',
                             'school'
                           ][DateTime.now().millisecondsSinceEpoch % 10];
+                          final avatarProvider = Provider.of<UserAvatarProvider>(context, listen: false);
+                          avatarProvider.syncFromNetwork(
+                            avatarImage: null,
+                            avatarColor: _avatarColor,
+                            avatarIcon: randomIcon,
+                          );
+
                           setState(() {
                             _usePhoto = false;
                             _selectedImage = null;
@@ -510,6 +501,12 @@ class _MyDataScreenState extends State<MyDataScreen> {
                             'work',
                             'school'
                           ][DateTime.now().millisecondsSinceEpoch % 10];
+                          final avatarProvider = Provider.of<UserAvatarProvider>(context, listen: false);
+                          avatarProvider.syncFromNetwork(
+                            avatarImage: null,
+                            avatarColor: _avatarColor,
+                            avatarIcon: randomIcon,
+                          );
                           setState(() {
                             _usePhoto = false;
                             _selectedImage = null;
@@ -769,7 +766,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   Future<void> _updateAvatar(String color, String icon) async {
     try {
-      await http.put(
+      final response = await http.put(
         Uri.parse('${Config.baseUrl}/users/profile/avatar'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
@@ -779,6 +776,14 @@ class _MyDataScreenState extends State<MyDataScreen> {
           'avatar_image': null,
         }),
       );
+
+      if (response.statusCode == 200 && mounted) {
+        Provider.of<UserAvatarProvider>(context, listen: false).syncFromNetwork(
+          avatarImage: null,
+          avatarColor: color,
+          avatarIcon: icon,
+        );
+      }
     } catch (e) {
       print('Error updating avatar: $e');
     }

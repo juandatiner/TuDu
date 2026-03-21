@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:provider/provider.dart';
 import '../config.dart';
 import '../providers/theme_provider.dart';
@@ -66,7 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) setState(() => _avatarLoaded = true);
       }
     } catch (e) {
-      print('Error loading cached profile: $e');
+      debugPrint('Error loading cached profile: $e');
       if (mounted) setState(() => _avatarLoaded = true);
     }
   }
@@ -118,7 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     } catch (e) {
-      print('Error loading profile: $e');
+      debugPrint('Error loading profile: $e');
     }
   }
 
@@ -136,7 +135,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await prefs.remove('${keyPrefix}image');
       }
     } catch (e) {
-      print('Error saving cached profile: $e');
+      debugPrint('Error saving cached profile: $e');
     }
   }
 
@@ -361,8 +360,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Provider value takes priority; fall back to local state if provider
     // hasn't been populated yet (e.g. very first cold start)
     final liveAvatarImage = avatarProvider.avatarImage ?? _avatarImage;
-    final liveAvatarColor = _avatarColor; // color stays local
-    final liveAvatarIcon  = _avatarIcon;  // icon stays local
+    final liveAvatarColor = _avatarColor;
 
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,

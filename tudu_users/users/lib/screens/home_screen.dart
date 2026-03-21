@@ -486,23 +486,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  String _removeDiacritics(String text) {
-    const accentMap = {
-      'á': 'a',
-      'é': 'e',
-      'í': 'i',
-      'ó': 'o',
-      'ú': 'u',
-      'Á': 'a',
-      'É': 'e',
-      'Í': 'i',
-      'Ó': 'o',
-      'Ú': 'u',
-      'ñ': 'n',
-      'Ñ': 'n',
-    };
-    return text.split('').map((char) => accentMap[char] ?? char).join('');
-  }
+
 
   Future<void> _fetchServices() async {
     try {

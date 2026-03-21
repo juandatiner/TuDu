@@ -368,24 +368,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     'Camino'
   ];
 
-  // Métudus helper para obtener traducciones
-  String _getTranslatedIconName(String name, AppLocalizations loc) {
-    final Map<String, String> iconTranslations = {
-      'Casa': loc.translate('icon_home'),
-      'Apartamento': loc.translate('icon_apartment'),
-      'Empresa': loc.translate('icon_company'),
-      'Colegio': loc.translate('icon_school'),
-      'Tienda': loc.translate('icon_store'),
-      'Iglesia': loc.translate('icon_church'),
-      'Hospital': loc.translate('icon_hospital'),
-      'Restaurante': loc.translate('icon_restaurant'),
-      'Hotel': loc.translate('icon_hotel'),
-      'Gimnasio': loc.translate('icon_gym'),
-      'Parque': loc.translate('icon_park'),
-      'Finca': loc.translate('icon_farm'),
-    };
-    return iconTranslations[name] ?? name;
-  }
+
 
   String _getTranslatedViaName(String name, AppLocalizations loc) {
     final Map<String, String> viaTranslations = {

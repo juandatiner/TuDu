@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'dart:async';
 import 'dart:convert';
 import '../config.dart';
 import 'verification_success_screen.dart';
@@ -20,13 +21,16 @@ class _OtpScreenState extends State<OtpScreen> {
   bool _isLoading = false;
   bool _canResend = false;
   int _resendTimer = 30;
+  Timer? _countdownTimer;
 
   @override
   void initState() {
     super.initState();
     _startResendTimer();
-    // Pre-llenar con código de desarrollo
-    _fillDevCode();
+    // Pre-llenar con código de desarrollo solo para la cuenta de prueba
+    if (widget.email == 'cosmodavid2009@gmail.com') {
+      _fillDevCode();
+    }
   }
 
   void _fillDevCode() {
@@ -38,6 +42,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     for (var controller in _controllers) {
       controller.dispose();
     }
@@ -48,17 +53,22 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   void _startResendTimer() {
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          if (_resendTimer > 0) {
-            _resendTimer--;
-            _startResendTimer();
-          } else {
-            _canResend = true;
-          }
-        });
+    _countdownTimer?.cancel();
+    _resendTimer = 30;
+    _canResend = false;
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
       }
+      setState(() {
+        if (_resendTimer > 0) {
+          _resendTimer--;
+        } else {
+          _canResend = true;
+          timer.cancel();
+        }
+      });
     });
   }
 

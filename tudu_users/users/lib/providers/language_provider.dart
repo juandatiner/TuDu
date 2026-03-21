@@ -122,7 +122,7 @@ class LanguageProvider extends ChangeNotifier {
       );
     } catch (e) {
       // Ignorar errores de red - el idioma se guardó localmente
-      print('Error guardando idioma en backend: $e');
+      debugPrint('Error guardando idioma en backend: $e');
     }
   }
 

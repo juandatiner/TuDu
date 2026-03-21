@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -18,10 +19,11 @@ class LoginScreen extends StatefulWidget {
 // Estado del LoginScreen
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController =
-      TextEditingController(text: 'cosmodavid2009@gmail.com');
+  // Pre-llenado solo en debug para la cuenta de prueba
+  final _emailController = TextEditingController(
+    text: kDebugMode ? 'cosmodavid2009@gmail.com' : '',
+  );
   bool _isLoading = false;
-  String _email = 'cosmodavid2009@gmail.com';
 
   @override
   void initState() {
@@ -139,21 +141,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _loginWithGoogle() {
-    // Implementar login con Google
+  void _loginWithSocial(String provider) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Login con Google - Próximamente'),
-        backgroundColor: Colors.blue,
-      ),
-    );
-  }
-
-  void _loginWithFacebook() {
-    // Implementar login con Facebook
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Login con Facebook - Próximamente'),
+      SnackBar(
+        content: Text('Login con $provider - Próximamente'),
         backgroundColor: Colors.blue,
       ),
     );
@@ -234,16 +225,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     keyboardType: TextInputType.emailAddress,
-                    onChanged: (value) {
-                      setState(() {
-                        _email = value;
-                      });
-                    },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return null; // Dejar que el SnackBar maneje este caso
+                        return null;
                       }
-                      // Validación básica de email
                       if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
                         return 'Ingresa un correo electrónico válido';
                       }
@@ -320,7 +305,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // Social Login Buttons
                   ElevatedButton.icon(
-                    onPressed: _loginWithGoogle,
+                    onPressed: () => _loginWithSocial('Google'),
                     icon: Image.asset(
                       'assets/images/logos/google_logo.png',
                       height: 24,
@@ -340,7 +325,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 16),
 
                   ElevatedButton.icon(
-                    onPressed: _loginWithFacebook,
+                    onPressed: () => _loginWithSocial('Facebook'),
                     icon: Image.asset(
                       'assets/images/logos/facebook_logo.png',
                       height: 24,

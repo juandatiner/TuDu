@@ -21,7 +21,6 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     with TickerProviderStateMixin {
   List<CreditCard> _creditCards = [];
   bool _isLoading = true;
-  bool _isSaving = false;
 
   // Para animaciones de reordenamiento de tarjetas
   String? _animatingCardId;
@@ -40,6 +39,21 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     _loadCreditCards();
   }
 
+  CardType _parseCardType(String? value) {
+    if (value == null) return CardType.unknown;
+    final clean = value.toLowerCase().trim();
+    switch (clean) {
+      case 'visa': return CardType.visa;
+      case 'mastercard': return CardType.mastercard;
+      case 'amex': return CardType.amex;
+      case 'discover': return CardType.discover;
+      case 'diners': return CardType.diners;
+      case 'jcb': return CardType.jcb;
+      case 'unionpay': return CardType.unionpay;
+      default: return CardType.unknown;
+    }
+  }
+
   Future<void> _loadCreditCards() async {
     try {
       // Cargar las tarjetas del usuario desde el backend
@@ -50,23 +64,51 @@ class _MyCardsScreenState extends State<MyCardsScreen>
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
-          _creditCards = data
-              .map<CreditCard>((card) => CreditCard(
-                    id: card['id'].toString(),
-                    cardNumber: card['card_number'],
-                    cardHolder: card['card_holder'],
-                    expiryDate: card['expiry_date'],
-                    // CVV no se almacena por seguridad
-                    isDefault:
-                        (card['is_default'] == 1 || card['is_default'] == true),
-                    cardType: _getCardType(card['card_number']),
-                    documentType: card['document_type'] ?? 'C.C',
-                    documentNumber: card['document_number'] ?? '',
-                    createdAt: card['created_at'] ?? '',
-                    cardMode: card['card_mode'] ?? 'credit',
-                  ))
-              .toList();
+          final now = DateTime.now();
+          final currentYear = now.year % 100;
+          final currentMonth = now.month;
+
+          final validCards = <CreditCard>[];
+          final expiredIds = <String>[];
+
+          for (var card in data) {
+            final expiry = card['expiry_date']?.toString() ?? '';
+            final parts = expiry.split('/');
+            if (parts.length == 2) {
+              final month = int.tryParse(parts[0]) ?? 0;
+              final year = int.tryParse(parts[1]) ?? 0;
+
+              if (year < currentYear ||
+                  (year == currentYear && month < currentMonth)) {
+                expiredIds.add(card['id'].toString());
+                continue; // Excluir de la lista mostrada
+              }
+            }
+
+            validCards.add(CreditCard(
+              id: card['id'].toString(),
+              cardNumber: card['card_number'] ?? '',
+              cardHolder: card['card_holder'] ?? '',
+              expiryDate: expiry,
+              isDefault: card['is_default'] == 1 || card['is_default'] == true,
+              cardType: _parseCardType(card['card_type']),
+              documentType: card['document_type'] ?? 'C.C',
+              documentNumber: card['document_number'] ?? '',
+              createdAt: card['created_at'] ?? '',
+              cardMode: card['card_mode'] ?? 'credit',
+            ));
+          }
+
+          _creditCards = validCards;
           _isLoading = false;
+
+          // Lanzar el borrado en background de forma asíncrona
+          for (final id in expiredIds) {
+            http.delete(Uri.parse('${Config.baseUrl}/users/cards/$id')).catchError((e) {
+              debugPrint("Error borrando tarjeta vencida: $e");
+              return http.Response('error', 500);
+            });
+          }
         });
       } else {
         setState(() {
@@ -99,10 +141,6 @@ class _MyCardsScreenState extends State<MyCardsScreen>
   }
 
   Future<void> _addCreditCard(CreditCard card) async {
-    setState(() {
-      _isSaving = true;
-    });
-
     try {
       // Enviar datos a la API para guardar la tarjeta de forma segura
       // NOTA: El CVV no se envía ni almacena por seguridad (PCI-DSS)
@@ -150,6 +188,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
           });
         }
 
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(AppLocalizations.of(context)!.t('card_saved')),
@@ -163,11 +202,9 @@ class _MyCardsScreenState extends State<MyCardsScreen>
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print('Error saving credit card: $e');
-      setState(() {
-        _isSaving = false;
-      });
+      debugPrint('Error saving credit card: $e');
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context)!.t('error_saving_card')),
@@ -310,6 +347,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
             await _setFavoriteCard(newFavoriteCard.id);
           }
 
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(loc.t('card_deleted')),
@@ -324,11 +362,13 @@ class _MyCardsScreenState extends State<MyCardsScreen>
           throw Exception('Error al eliminar la tarjeta');
         }
       } catch (e) {
-        print('Error deleting credit card: $e');
+        debugPrint('Error deleting credit card: $e');
         // Revertir animación si hay error
         setState(() {
           _cardExitAnimations.remove(id);
         });
+        
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(loc.t('error_saving_card')),
@@ -341,58 +381,9 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     }
   }
 
-  CardType _getCardType(String cardNumber) {
-    final cleaned = cardNumber.replaceAll(RegExp(r'\s+'), '');
-    if (cleaned.isEmpty) return CardType.unknown;
 
-    // Visa: empieza con 4
-    if (cleaned.startsWith('4')) {
-      return CardType.visa;
-    }
-    // Mastercard: empieza con 51-55 o 2221-2720
-    if (RegExp(r'^5[1-5]').hasMatch(cleaned)) {
-      return CardType.mastercard;
-    }
-    if (cleaned.length >= 4 && cleaned.startsWith('2')) {
-      final firstFour = int.tryParse(cleaned.substring(0, 4));
-      if (firstFour != null && firstFour >= 2221 && firstFour <= 2720) {
-        return CardType.mastercard;
-      }
-    }
-    // American Express: empieza con 34 o 37
-    if (cleaned.startsWith('34') || cleaned.startsWith('37')) {
-      return CardType.amex;
-    }
-    // Discover: empieza con 6011, 644-649, o 65
-    if (cleaned.startsWith('6011') || cleaned.startsWith('65')) {
-      return CardType.discover;
-    }
-    if (cleaned.startsWith('64') && cleaned.length >= 3) {
-      final thirdDigit = int.tryParse(cleaned.substring(2, 3));
-      if (thirdDigit != null && thirdDigit >= 4 && thirdDigit <= 9) {
-        return CardType.discover;
-      }
-    }
-    // Diners Club: empieza con 300-305, 36, 38
-    if (RegExp(r'^(30[0-5]|36|38)').hasMatch(cleaned)) {
-      return CardType.diners;
-    }
-    // JCB: empieza con 35
-    if (cleaned.startsWith('35')) {
-      return CardType.jcb;
-    }
-    // UnionPay: empieza con 62
-    if (cleaned.startsWith('62')) {
-      return CardType.unionpay;
-    }
-    return CardType.unknown;
-  }
 
   Future<void> _setFavoriteCard(String id) async {
-    // Encontrar la tarjeta que se va a hacer favorita
-    final cardToMakeFavorite = _creditCards.firstWhere((card) => card.id == id);
-    final currentFavoriteCard = _favoriteCard;
-
     // Deseleccionar la tarjeta actual
     setState(() {
       _selectedCardId = null;
@@ -757,9 +748,11 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     final cardColors = _getCardColors(card.cardType);
     final logoPath = _getCardLogoPath(card.cardType);
 
-    // Mask the card number: show first 4 digits as **** and last 4 digits
-    String maskedCardNumber =
-        '**** **** **** ${card.cardNumber.split(' ').last}';
+    final cleanedNumber = card.cardNumber.replaceAll(RegExp(r'\s+'), '');
+    final lastFour = cleanedNumber.length >= 4 
+        ? cleanedNumber.substring(cleanedNumber.length - 4) 
+        : cleanedNumber;
+    String maskedCardNumber = '**** **** **** $lastFour';
 
     return Material(
       color: Colors.transparent,
@@ -895,7 +888,6 @@ class _MyCardsScreenState extends State<MyCardsScreen>
           const Color(0xFF00447C)
         ]; // Rojo/Azul UnionPay
       case CardType.unknown:
-      default:
         return [
           const Color(0xFF6B7280),
           const Color(0xFF374151)
@@ -921,7 +913,6 @@ class _MyCardsScreenState extends State<MyCardsScreen>
       case CardType.unionpay:
         return 'assets/images/cards/unionpay.png';
       case CardType.unknown:
-      default:
         return null; // No mostrar logo si es desconocido
     }
   }
@@ -1085,7 +1076,6 @@ class _AddCardDialogState extends State<_AddCardDialog> {
       case CardType.unionpay:
         return 'assets/images/cards/unionpay.png';
       case CardType.unknown:
-      default:
         return null; // No mostrar logo si es desconocido
     }
   }
@@ -1115,7 +1105,6 @@ class _AddCardDialogState extends State<_AddCardDialog> {
     // Validar que empiece con un prefijo válido de tarjeta conocida
     final firstDigit = cleaned[0];
     final firstTwoDigits = cleaned.substring(0, 2);
-    final firstFourDigits = cleaned.substring(0, 4);
 
     bool isValidPrefix = false;
 
@@ -1189,16 +1178,27 @@ class _AddCardDialogState extends State<_AddCardDialog> {
       return AppLocalizations.of(context)!.t('expiry_date_invalid');
     }
 
-    // Validar que el mes esté entre 01 y 12
     final parts = value.split('/');
     final month = int.tryParse(parts[0]);
     if (month == null || month < 1 || month > 12) {
       return AppLocalizations.of(context)!.t('expiry_date_invalid');
     }
 
-    // Validar que el año esté entre 26 y 99
     final year = int.tryParse(parts[1]);
-    if (year == null || year < 26 || year > 99) {
+    if (year == null || year > 99) {
+      return AppLocalizations.of(context)!.t('expiry_date_invalid');
+    }
+
+    // Cálculo dinámico de fecha actual
+    final now = DateTime.now();
+    final currentYear = now.year % 100; // ej: 2026 -> 26
+    final currentMonth = now.month;
+
+    if (year < currentYear) {
+      return AppLocalizations.of(context)!.t('expiry_date_invalid');
+    }
+
+    if (year == currentYear && month < currentMonth) {
       return AppLocalizations.of(context)!.t('expiry_date_invalid');
     }
 
@@ -1208,6 +1208,11 @@ class _AddCardDialogState extends State<_AddCardDialog> {
   String? _validateDocument(String? value) {
     if (value == null || value.trim().isEmpty) {
       return AppLocalizations.of(context)!.t('document_required');
+    }
+
+    final cleaned = value.trim();
+    if (cleaned.length < 7) {
+      return 'El documento debe tener al menos 7 caracteres';
     }
 
     return null;
@@ -1464,7 +1469,6 @@ class _AddCardDialogState extends State<_AddCardDialog> {
           const Color(0xFF00447C)
         ]; // Rojo/Azul UnionPay
       case CardType.unknown:
-      default:
         return [
           const Color(0xFF6B7280),
           const Color(0xFF374151)
@@ -2065,7 +2069,6 @@ class _CreditCardWidget extends StatefulWidget {
 }
 
 class _CreditCardWidgetState extends State<_CreditCardWidget> {
-  bool _isFlipped = false;
 
   // Obtener colores según el tipo de tarjeta
   List<Color> _getCardColors(CardType cardType) {
@@ -2103,7 +2106,6 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
           const Color(0xFF00447C)
         ]; // Rojo/Azul UnionPay
       case CardType.unknown:
-      default:
         return [
           const Color(0xFF6B7280),
           const Color(0xFF374151)
@@ -2129,15 +2131,15 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
       case CardType.unionpay:
         return 'assets/images/cards/unionpay.png';
       case CardType.unknown:
-      default:
         return null; // No mostrar logo si es desconocido
     }
   }
 
-  void _flipCard() {
-    setState(() {
-      _isFlipped = !_isFlipped;
-    });
+  String _formatCardNumber(String number) {
+    final cleaned = number.replaceAll(RegExp(r'\s+'), '');
+    if (cleaned.length < 4) return cleaned;
+    final lastFour = cleaned.substring(cleaned.length - 4);
+    return '**** **** **** $lastFour';
   }
 
   @override
@@ -2276,7 +2278,7 @@ class _CreditCardWidgetState extends State<_CreditCardWidget> {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      widget.card.cardNumber,
+                      _formatCardNumber(widget.card.cardNumber),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -2403,8 +2405,8 @@ class CardNumberFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
-    var text = newValue.text;
-    var selection = newValue.selection;
+    // Eliminar espacios previos antes de formatear
+    var text = newValue.text.replaceAll(RegExp(r'\s+'), '');
 
     if (text.length <= 16) {
       var formattedText = '';
@@ -2415,10 +2417,8 @@ class CardNumberFormatter extends TextInputFormatter {
         formattedText += text[i];
       }
 
-      var newSelection = TextSelection(
-        baseOffset: formattedText.length,
-        extentOffset: formattedText.length,
-      );
+      // El cursor siempre al final para simplificar
+      var newSelection = TextSelection.collapsed(offset: formattedText.length);
 
       return TextEditingValue(
         text: formattedText,

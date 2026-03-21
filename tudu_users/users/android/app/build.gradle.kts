@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.users"
+    namespace = "com.tudu.users"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,8 +20,7 @@ android {
     }
 
     defaultConfig {
-        // tudu: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.users"
+        applicationId = "com.tudu.users"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

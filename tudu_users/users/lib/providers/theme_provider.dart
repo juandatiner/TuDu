@@ -140,7 +140,7 @@ class ThemeProvider with ChangeNotifier {
       );
     } catch (e) {
       // Ignorar errores de red - el tema se guardó localmente
-      print('Error guardando tema en backend: $e');
+      debugPrint('Error guardando tema en backend: $e');
     }
   }
 

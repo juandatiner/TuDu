@@ -23,13 +23,10 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  List<Service> _searchResults = [];
   List<Service> _filteredServices = [];
   List<dynamic> _searchHistory = [];
   List<Service> _randomServices = [];
   List<Service> _allServices = [];
-  bool _isSearching = false;
-  bool _showSuggestions = false;
 
   @override
   void initState() {
@@ -52,12 +49,10 @@ class _SearchScreenState extends State<SearchScreen> {
     final query = _searchController.text;
     if (query.isNotEmpty) {
       setState(() {
-        _showSuggestions = true;
         _filterServices(query);
       });
     } else {
       setState(() {
-        _showSuggestions = false;
         _filteredServices = [];
       });
     }
@@ -127,48 +122,7 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  Future<void> _searchServices(String query) async {
-    print('Buscando: $query');
-    if (query.isEmpty) {
-      setState(() {
-        _searchResults = [];
-      });
-      return;
-    }
 
-    setState(() {
-      _isSearching = true;
-    });
-
-    try {
-      final url = '${Config.baseUrl}/search-services?query=$query';
-      print('URL de búsqueda: $url');
-      final response = await http.get(Uri.parse(url));
-
-      print('Estado de la respuesta: ${response.statusCode}');
-      print('Cuerpo de la respuesta: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        print('Resultados: ${data['services']}');
-        setState(() {
-          _searchResults =
-              data['services'].map((json) => Service.fromJson(json)).toList();
-          _isSearching = false;
-        });
-      } else {
-        print('Error searching services: ${response.statusCode}');
-        setState(() {
-          _isSearching = false;
-        });
-      }
-    } catch (e) {
-      print('Error: $e');
-      setState(() {
-        _isSearching = false;
-      });
-    }
-  }
 
   Future<void> _saveSearchQuery(String query) async {
     try {
