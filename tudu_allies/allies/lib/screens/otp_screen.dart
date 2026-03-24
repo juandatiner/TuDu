@@ -67,64 +67,27 @@ class _OtpScreenState extends State<OtpScreen> {
 
   String get _otpCode => _controllers.map((c) => c.text).join();
 
-  Future<void> _checkAllyAfterOtp() async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse('${Config.baseUrl}/check-ally'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': widget.email}),
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['exists']) {
-          // Aliado existe, ir a verificación exitosa
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  VerificationSuccessScreen(email: widget.email),
-            ),
-          );
-        } else {
-          // Aliado no existe, ir a registro
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => RegistrationScreen(email: widget.email),
-            ),
-          );
-        }
-      } else {
-        // Error, asumir no existe
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => RegistrationScreen(email: widget.email),
+  void _showSnack(String msg, {bool isError = true}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
           ),
-        );
-      }
-    } catch (e) {
-      // Error de conexión, asumir no existe
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => RegistrationScreen(email: widget.email),
         ),
-      );
-    }
+        backgroundColor: isError ? Colors.red : const Color(0xFF78BF32),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   Future<void> _verifyOtp() async {
     if (_otpCode.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor ingresa el código completo de 6 dígitos'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnack('Por favor ingresa el código completo de 6 dígitos');
       return;
     }
 
@@ -142,28 +105,27 @@ class _OtpScreenState extends State<OtpScreen> {
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        // OTP verificado exitosamente
-        _checkAllyAfterOtp();
+        // OTP verificado exitosamente, ir a la pantalla de éxito
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VerificationSuccessScreen(email: widget.email),
+            ),
+          );
+        }
       } else {
         final error = jsonDecode(response.body)['error'];
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error ?? 'Error verificando OTP'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnack(error ?? 'Error verificando OTP');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error de conexión. Verifica tu conexión a internet.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnack('Error de conexión. Verifica tu conexión a internet.');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

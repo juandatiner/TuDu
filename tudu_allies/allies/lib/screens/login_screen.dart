@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../config.dart';
+import '../services/session_service.dart';
 import 'otp_screen.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,10 +19,21 @@ class LoginScreen extends StatefulWidget {
 // Estado del LoginScreen
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController =
-      TextEditingController(text: 'cosmodavid2009@gmail.com');
+  final _emailController = TextEditingController(
+    text: kDebugMode ? 'cosmodavid2009@gmail.com' : '',
+  );
   bool _isLoading = false;
-  String _email = 'cosmodavid2009@gmail.com';
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeSession();
+  }
+
+  Future<void> _initializeSession() async {
+    final sessionService = Provider.of<SessionService>(context, listen: false);
+    await sessionService.initialize();
+  }
 
   @override
   void dispose() {
@@ -26,16 +41,29 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  void _showSnack(String msg, {bool isError = true}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: isError ? Colors.red : const Color(0xFF78BF32),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       // Verificar que el campo de email tenga contenido
       if (_emailController.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Por favor ingresa tu correo electrónico'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnack('Por favor ingresa tu correo electrónico');
         return;
       }
 
@@ -44,51 +72,69 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       try {
-        final response = await http
-            .post(
-              Uri.parse('${Config.baseUrl}/send-otp'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'email': _emailController.text}),
-            )
-            .timeout(const Duration(seconds: 10));
+        final sessionService =
+            Provider.of<SessionService>(context, listen: false);
 
-        if (response.statusCode == 200) {
-          // Navegar a la pantalla OTP
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OtpScreen(email: _emailController.text),
-            ),
-          );
+        // Verificar si el dispositivo necesita verificación
+        final sessionCheck =
+            await sessionService.checkSession(_emailController.text);
+
+        if (sessionCheck['success'] == true &&
+            sessionCheck['requires_verification'] == false) {
+          // La sesión está activa, no necesita verificación
+          // Guardar el email y navegar directamente al home
+          await sessionService.setUserEmail(_emailController.text);
+
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    AllyHomeScreen(allyEmail: _emailController.text),
+              ),
+            );
+          }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error enviando el código de verificación'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          // Necesita verificación, enviar OTP y navegar a la pantalla OTP
+          final response = await http
+              .post(
+                Uri.parse('${Config.baseUrl}/send-otp'),
+                headers: {'Content-Type': 'application/json'},
+                body: jsonEncode({'email': _emailController.text}),
+              )
+              .timeout(const Duration(seconds: 10));
+
+          if (response.statusCode == 200) {
+            if (mounted) {
+              // Navegar a la pantalla OTP
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OtpScreen(email: _emailController.text),
+                ),
+              );
+            }
+          } else {
+            if (mounted) {
+              _showSnack('Error enviando el código de verificación');
+            }
+          }
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Error de conexión. Verifica tu conexión a internet.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (mounted) {
+          debugPrint('Error de conexión detallado: $e');
+          _showSnack('Error de conexión. Verifica tu conexión a internet.');
+        }
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     } else {
       // Mostrar mensaje si la validación falla
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ingresa un correo electrónico válido para continuar'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnack('Ingresa un correo electrónico válido para continuar');
     }
   }
 
@@ -127,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo/Title
+                   // Logo/Title
                   Column(
                     children: [
                       Text(
@@ -136,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontFamily: 'TitanOne',
                           fontSize: 90,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF78BF32),
+                          color: const Color(0xFF78BF32),
                           height: 0.8,
                         ),
                         textAlign: TextAlign.center,
@@ -148,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontFamily: 'TitanOne',
                           fontSize: 90,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF78BF32),
+                          color: const Color(0xFF78BF32),
                           height: 0.8,
                         ),
                         textAlign: TextAlign.center,
@@ -161,6 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     autofocus: true,
+                    style: const TextStyle(fontSize: 16, color: Colors.black87),
                     decoration: InputDecoration(
                       labelText: 'Ingresa tu correo electrónico',
                       labelStyle:
@@ -179,19 +226,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.black, width: 2),
+                        borderSide: const BorderSide(color: Colors.black, width: 2),
                       ),
-                      errorStyle: TextStyle(
+                      errorStyle: const TextStyle(
                         color: Colors.red,
                         fontSize: 14,
                       ),
                     ),
                     keyboardType: TextInputType.emailAddress,
-                    onChanged: (value) {
-                      setState(() {
-                        _email = value;
-                      });
-                    },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return null; // Dejar que el SnackBar maneje este caso
@@ -281,7 +323,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     label: const Text('Continuar con Google'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF595959),
+                      backgroundColor: const Color(0xFF595959),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -301,7 +343,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     label: const Text('Continuar con Facebook'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF595959),
+                      backgroundColor: const Color(0xFF595959),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(

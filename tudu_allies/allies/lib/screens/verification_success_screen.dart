@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'dart:async';
 import '../config.dart';
+import '../services/session_service.dart';
 import 'registration_screen.dart';
-import 'dashboard_screen.dart';
+import 'kyc_verification_screen.dart';
+import 'home_screen.dart';
 
 class VerificationSuccessScreen extends StatefulWidget {
   final String email;
@@ -25,11 +28,22 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
   @override
   void initState() {
     super.initState();
+    _registerSessionAndNavigate();
+  }
+
+  Future<void> _registerSessionAndNavigate() async {
+    // Registrar la sesión del dispositivo
+    final sessionService = Provider.of<SessionService>(context, listen: false);
+    await sessionService.registerSession(widget.email);
+
     Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
       if (widget.isAfterRegistration) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          MaterialPageRoute(
+            builder: (context) => AllyHomeScreen(allyEmail: widget.email),
+          ),
         );
       } else {
         _checkAlly();
@@ -47,25 +61,37 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
           )
           .timeout(const Duration(seconds: 10));
 
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['exists']) {
-          // Aliado existe, ir a inicio
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const DashboardScreen()),
-          );
-        } else {
-          // Aliado no existe, ir a registro
+        if (data['exists'] == true) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => RegistrationScreen(email: widget.email),
+              builder: (context) => AllyHomeScreen(allyEmail: widget.email),
             ),
           );
+        } else {
+          // Si faltan datos personales o servicios
+          if (data['partial'] == 'service') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    KycVerificationScreen(email: widget.email),
+              ),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => RegistrationScreen(email: widget.email),
+              ),
+            );
+          }
         }
       } else {
-        // Error, asumir no existe
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -74,7 +100,7 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
         );
       }
     } catch (e) {
-      // Error de conexión, asumir no existe
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

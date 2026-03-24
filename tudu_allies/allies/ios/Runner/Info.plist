@@ -4,6 +4,12 @@
 	<dict>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
+		<key>NSCameraUsageDescription</key>
+		<string>TuDu Aliados necesita acceso a tu cámara para tomar fotos de tu cédula y selfie de verificación.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>TuDu Aliados necesita acceso a tu galería para seleccionar fotos de tus documentos.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>TuDu Aliados necesita acceso al micrófono para la funcionalidad de la cámara.</string>
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>

@@ -19,8 +19,17 @@ class PublishServiceScreen extends StatefulWidget {
 class _PublishServiceScreenState extends State<PublishServiceScreen> {
   int _selectedQuantity = 1;
   int _selectedUnitIndex = 0;
-  String _summary = 'Resumen: 0 días';
+  String _summary = '';
   bool _showMaxYearWarning = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Inicializar el resumen con los valores por defecto al cargar la pantalla
+    if (_summary.isEmpty) {
+      _updateSummary();
+    }
+  }
 
   // Variables para validación de campos
   bool _titleError = false;

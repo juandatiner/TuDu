@@ -164,6 +164,16 @@ class ThemeProvider with ChangeNotifier {
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
       ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: Colors.red,
+        contentTextStyle: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         fillColor: lightCardBg,
         filled: true,
@@ -208,6 +218,16 @@ class ThemeProvider with ChangeNotifier {
         backgroundColor: darkCardBg,
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey[600],
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: Colors.red,
+        contentTextStyle: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       inputDecorationTheme: InputDecorationTheme(
         fillColor: darkCardBg,
