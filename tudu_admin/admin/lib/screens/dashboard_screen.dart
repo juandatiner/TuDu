@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../config.dart';
+import 'kyc_review_screen.dart';
 import '../services/admin_api.dart';
 import 'photo_change_requests_screen.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -246,38 +247,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
-        // Aliados
-        Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
-              const Text(
-                'Gestión de Aliados',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(height: 32),
-              const Icon(
-                Icons.business,
-                size: 100,
-                color: Colors.black38,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Funcionalidad en construcción',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+        // Aliados: revisión de la verificación de identidad
+        const KycReviewScreen(),
       ];
 
   @override

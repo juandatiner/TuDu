@@ -22,11 +22,18 @@ class Config {
   /// Backend propio de administración: login y CRUD de administradores.
   static const int adminPort = 3003;
 
+  /// Backend de aliados: revisión de KYC. El panel lo consulta con el mismo
+  /// token, porque los tres backends firman con el mismo secreto.
+  static const int alliesPort = 3002;
+
   /// URL base del backend de users. Síncrona a propósito: se usa en `build()`.
   static String get baseUrl => _resolverUrl(port);
 
   /// URL base del backend de administración.
   static String get adminBaseUrl => _resolverUrl(adminPort);
+
+  /// URL base del backend de aliados.
+  static String get alliesBaseUrl => _resolverUrl(alliesPort);
 
   /// Resuelve la URL según dónde se esté ejecutando la app.
   static String _resolverUrl(int puerto) {

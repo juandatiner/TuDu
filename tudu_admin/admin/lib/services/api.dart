@@ -47,13 +47,17 @@ class ApiSinConexion implements Exception {
 class Api {
   static const Duration _tiempoLimite = Duration(seconds: 15);
 
-  /// Las rutas que empiezan por `/api/admin/login`, `/api/admins` o
-  /// `/auth/refresh` viven en el backend de administración (3003). El resto
-  /// del panel consume el backend de users (3000).
+  /// El panel habla con tres backends y cada ruta sabe a cuál va:
+  ///  - administración (3003): login y CRUD de administradores
+  ///  - aliados (3002): revisión de KYC
+  ///  - users (3000): todo lo demás, incluidas las solicitudes de foto
   static String _baseDe(String ruta) {
     const rutasDelPanel = ['/api/admin/login', '/api/admins', '/auth/refresh'];
-    final esDelPanel = rutasDelPanel.any((r) => ruta.startsWith(r));
-    return esDelPanel ? Config.adminBaseUrl : Config.baseUrl;
+    if (rutasDelPanel.any((r) => ruta.startsWith(r))) return Config.adminBaseUrl;
+
+    if (ruta.startsWith('/api/admin/kyc')) return Config.alliesBaseUrl;
+
+    return Config.baseUrl;
   }
 
   static Uri _uri(String ruta, [Map<String, dynamic>? query]) {

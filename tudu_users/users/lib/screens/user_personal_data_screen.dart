@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api.dart';
+import 'phone_otp_dialog.dart';
 import '../services/user_api.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_avatar_provider.dart';
@@ -253,6 +254,28 @@ class _MyDataScreenState extends State<MyDataScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final loc = AppLocalizations.of(context)!;
+
+    // El teléfono se verifica igual que el correo: si cambió, hay que demostrar
+    // que se controla el número antes de guardarlo. La verificación graba el
+    // teléfono por su cuenta, así que el guardado normal ya no lo toca.
+    final telefonoCambio =
+        _completePhone.isNotEmpty && _completePhone != _originalPhone;
+
+    if (telefonoCambio) {
+      final verificado = await mostrarVerificacionTelefono(
+        context,
+        email: widget.userEmail,
+        countryCode: _countryCode,
+        phoneNumber: _phoneNumber,
+        countryName: _countryName,
+      );
+
+      // Canceló o falló: no se guarda nada, ni siquiera el resto de campos.
+      // Guardar a medias dejaría el formulario diciendo una cosa y la base otra.
+      if (verificado != true) return;
+
+      _originalPhone = _completePhone;
+    }
 
     setState(() {
       _isSaving = true;

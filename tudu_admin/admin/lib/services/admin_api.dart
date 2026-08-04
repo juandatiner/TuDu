@@ -66,3 +66,25 @@ class AdminsApi {
         'newPassword': nueva,
       });
 }
+
+/// Revisión de la verificación de identidad de los aliados.
+/// Vive en el backend de aliados (3002), que es el dueño de la tabla `allies`.
+class KycAdminApi {
+  /// [estado] `submitted` para los pendientes, `todos` para el historial.
+  static Future<List<Map<String, dynamic>>> listar({String estado = 'submitted'}) async {
+    final data = await Api.get('/api/admin/kyc', query: {'estado': estado});
+    final filas = (data is Map) ? data['data'] : data;
+    return List<Map<String, dynamic>>.from(filas ?? []);
+  }
+
+  /// Detalle con los tres documentos. Las URLs vienen firmadas y caducan en una
+  /// hora: el bucket de KYC es privado.
+  static Future<Map<String, dynamic>> detalle(String email) async {
+    final data = await Api.get('/api/admin/kyc/$email');
+    return Map<String, dynamic>.from((data as Map)['data'] ?? {});
+  }
+
+  /// Al rechazar, el motivo es obligatorio: el aliado necesita saber qué corregir.
+  static Future<void> revisar(String email, String estado, {String? motivo}) =>
+      Api.put('/api/admin/kyc/$email', {'status': estado, 'note': motivo});
+}

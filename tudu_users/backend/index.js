@@ -336,6 +336,68 @@ app.put('/users/profile/avatar', async (req, res) => {
   res.json({ message: 'Avatar actualizado' });
 });
 
+// ==========================================
+//  VERIFICACIÓN DE TELÉFONO
+// ==========================================
+//
+// Mismo principio que el correo: el número no se guarda hasta que la persona
+// demuestra que lo controla.
+//
+// EN DESARROLLO (DEV_MODE=true) no se envía ningún SMS y vale el código maestro,
+// igual que con el correo. En producción hay que enchufar aquí un proveedor de
+// SMS (Twilio, Supabase Phone Auth…): es lo único que falta.
+
+/// Envía el código al teléfono. Hoy solo simula el envío.
+app.post('/users/phone/send-otp', limiteEnvioOtp, async (req, res) => {
+  const { email, phone } = req.body;
+  if (!email || !phone) return res.status(400).json({ error: 'Faltan email y teléfono' });
+
+  if (process.env.DEV_MODE === 'true') {
+    console.log(`🔓 DEV_MODE: SMS omitido para ${phone} — usar el código ${OTP_DEV}`);
+    return res.json({ message: 'Código simulado en modo desarrollo', dev_mode: true });
+  }
+
+  // TODO: integrar proveedor de SMS. Mientras no exista, no se puede verificar
+  // un teléfono en producción y hay que decirlo, no fingir que se envió.
+  console.warn(`⚠️  Verificación de teléfono solicitada para ${phone} sin proveedor de SMS configurado.`);
+  return res.status(501).json({
+    error: 'El envío de SMS todavía no está disponible',
+    code: 'SMS_NO_CONFIGURADO'
+  });
+});
+
+/// Comprueba el código y guarda el teléfono ya verificado.
+app.post('/users/phone/verify-otp', limiteVerificacionOtp, async (req, res) => {
+  const { email, otp, country_code, country_name, phone_number } = req.body;
+
+  if (!email || !otp) return res.status(400).json({ error: 'Faltan email y código' });
+  if (!country_code || !phone_number) {
+    return res.status(400).json({ error: 'Faltan los datos del teléfono' });
+  }
+
+  const valido = process.env.DEV_MODE === 'true' && otp === OTP_DEV;
+  if (!valido) {
+    return res.status(400).json({ error: 'Código incorrecto', code: 'OTP_INVALIDO' });
+  }
+
+  const telefonoCompleto = `${country_code}${phone_number}`;
+
+  const [phoneRes, userRes] = await Promise.all([
+    supabase.from('user_phones').upsert(
+      { user_email: email, country_code, country_name: country_name || null, phone_number },
+      { onConflict: 'user_email' }
+    ),
+    supabase.from('users').update({ phone: telefonoCompleto }).eq('email', email)
+  ]);
+
+  if (phoneRes.error || userRes.error) {
+    console.error('Error guardando teléfono verificado:', (phoneRes.error || userRes.error).message);
+    return res.status(500).json({ error: 'Error guardando el teléfono' });
+  }
+
+  res.json({ success: true, phone: telefonoCompleto });
+});
+
 app.put('/users/profile/data', async (req, res) => {
   const { email, nombre, apellido, phone, country_code, country_name, phone_number, genero, fecha_nacimiento } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requerido' });

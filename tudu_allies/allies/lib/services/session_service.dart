@@ -193,7 +193,15 @@ class SessionService extends ChangeNotifier {
   /// Verifica si la sesión actual sigue activa
   /// Útil para polling y detectar si otro dispositivo cerró esta sesión
   Future<bool> verifySessionStatus() async {
-    if (_userEmail == null || _deviceId == null) return false;
+    // El servicio puede no estar listo todavía si la pantalla lo llama nada más
+    // construirse. `initialize()` es idempotente y recupera email y device_id
+    // de SharedPreferences.
+    await initialize();
+
+    // Sin datos locales NO se puede afirmar que la sesión esté cerrada: sería
+    // devolver `false` por una carrera de arranque y echar al usuario al login
+    // teniendo la sesión perfectamente viva. Solo el servidor decide eso.
+    if (_userEmail == null || _deviceId == null) return _isSessionActive;
 
     try {
       final response = await http
@@ -210,11 +218,22 @@ class SessionService extends ChangeNotifier {
 
         if (!isActive && _isSessionActive) {
           await _handleSessionClosed();
+        } else if (isActive && !_isSessionActive) {
+          // Se entró por la vía "la sesión sigue viva, no hace falta OTP", que
+          // guarda el correo pero no marcaba la sesión como activa en local.
+          // Sin esto, el estado local decía `false` con la sesión válida.
+          _isSessionActive = true;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool(_sessionActiveKey, true);
         }
 
         return isActive;
       }
-      return false;
+
+      // Respuesta inesperada del servidor: se conserva el estado actual en vez
+      // de cerrar la sesión por las bravas.
+      debugPrint('Estado de sesión: respuesta ${response.statusCode}');
+      return _isSessionActive;
     } catch (e) {
       debugPrint('Error verificando estado de sesión: $e');
       return _isSessionActive; // Mantener estado actual si hay error de conexión

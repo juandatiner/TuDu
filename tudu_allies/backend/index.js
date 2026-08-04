@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const compression = require('compression'); // Acelera cargas de Base64 reduciendo 80%
 const { corsOptions, corsSocket, avisarConfiguracion } = require('./cors_config');
-const { subirImagen } = require('./storage');
+const { subirImagen, urlFirmada } = require('./storage');
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
@@ -118,6 +118,14 @@ app.use((req, res, next) => {
   }
 
   next();
+});
+
+// 3. El área de administración exige rol admin, no basta con estar logueado.
+//    El JWT se firma con el mismo secreto en los tres backends, así que el token
+//    que emite el panel al iniciar sesión vale también aquí.
+app.use('/api/admin', (req, res, next) => {
+  if (req.auth && req.auth.role === 'admin') return next();
+  return res.status(403).json({ error: 'Se requiere rol de administrador', code: 'NOT_ADMIN' });
 });
 
 // Una sesión sin actividad durante este tiempo caduca y vuelve a pedir OTP.
@@ -418,6 +426,140 @@ app.post('/ally-service-profile', async (req, res) => {
 });
 
 
+
+// ==========================================
+//  REVISIÓN DE KYC (PANEL DE ADMINISTRACIÓN)
+// ==========================================
+//
+// Hasta ahora los aliados subían la cédula y quedaban en `submitted` para
+// siempre: no existía forma de aprobarlos salvo editar la fila a mano.
+
+/// Estados que el administrador puede asignar al revisar.
+const ESTADOS_KYC_REVISION = ['approved', 'rejected'];
+
+/// Lista de aliados para revisar.
+/// `?estado=submitted` (por defecto) trae los pendientes; `?estado=todos`, todos.
+///
+/// No devuelve las imágenes: son megas por aliado y en el listado no se ven.
+/// Para eso está el detalle.
+app.get('/api/admin/kyc', async (req, res) => {
+  const estado = req.query.estado || 'submitted';
+
+  let consulta = supabase
+    .from('allies')
+    .select('id, email, nombre, apellido, fecha_nacimiento, kyc_status, kyc_submitted_at, kyc_reviewed_at, kyc_reviewer_note, created_at')
+    .order('kyc_submitted_at', { ascending: true, nullsFirst: false });
+
+  if (estado !== 'todos') consulta = consulta.eq('kyc_status', estado);
+
+  const { data, error } = await consulta;
+  if (error) {
+    console.error('Error listando KYC:', error.message);
+    return res.status(500).json({ error: 'Error obteniendo solicitudes de verificación' });
+  }
+
+  res.json({ success: true, data: data || [] });
+});
+
+/// Detalle de un aliado con sus tres documentos listos para mostrar.
+///
+/// El bucket `kyc` es privado: lo que se guarda en la fila es una ruta, y aquí
+/// se cambia por una URL firmada que caduca en una hora. Las filas antiguas
+/// guardan base64 y se devuelven tal cual, así el panel funciona con las dos.
+app.get('/api/admin/kyc/:email', async (req, res) => {
+  const { email } = req.params;
+
+  const { data: ally, error } = await supabase
+    .from('allies')
+    .select('*')
+    .eq('email', email)
+    .single();
+
+  if (error || !ally) return res.status(404).json({ error: 'Aliado no encontrado' });
+
+  const [frente, reverso, selfie] = await Promise.all([
+    urlFirmada(supabase, 'kyc', ally.kyc_cedula_frente),
+    urlFirmada(supabase, 'kyc', ally.kyc_cedula_reverso),
+    urlFirmada(supabase, 'kyc', ally.kyc_selfie)
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      id: ally.id,
+      email: ally.email,
+      nombre: ally.nombre,
+      apellido: ally.apellido,
+      fecha_nacimiento: ally.fecha_nacimiento,
+      phone: ally.phone,
+      kyc_status: ally.kyc_status,
+      kyc_submitted_at: ally.kyc_submitted_at,
+      kyc_reviewed_at: ally.kyc_reviewed_at,
+      kyc_reviewer_note: ally.kyc_reviewer_note,
+      created_at: ally.created_at,
+      cedula_frente: frente,
+      cedula_reverso: reverso,
+      selfie: selfie
+    }
+  });
+});
+
+/// Aprueba o rechaza la verificación.
+///
+/// Al rechazar es obligatorio el motivo: el aliado tiene que saber qué corregir,
+/// y `check-ally` lo devuelve a la pantalla de subir cédula.
+app.put('/api/admin/kyc/:email', async (req, res) => {
+  const { email } = req.params;
+  const { status, note } = req.body;
+
+  if (!ESTADOS_KYC_REVISION.includes(status)) {
+    return res.status(400).json({ error: "El estado debe ser 'approved' o 'rejected'" });
+  }
+
+  if (status === 'rejected' && (!note || !note.trim())) {
+    return res.status(400).json({ error: 'Al rechazar hay que indicar el motivo' });
+  }
+
+  const { data: ally } = await supabase
+    .from('allies')
+    .select('email, kyc_status')
+    .eq('email', email)
+    .single();
+
+  if (!ally) return res.status(404).json({ error: 'Aliado no encontrado' });
+
+  if (ally.kyc_status !== 'submitted') {
+    return res.status(409).json({
+      error: `Este aliado no está pendiente de revisión (estado actual: ${ally.kyc_status})`,
+      code: 'NO_PENDIENTE'
+    });
+  }
+
+  const { error } = await supabase
+    .from('allies')
+    .update({
+      kyc_status: status,
+      kyc_reviewed_at: new Date().toISOString(),
+      kyc_reviewer_note: note ? note.trim() : null
+    })
+    .eq('email', email);
+
+  if (error) {
+    console.error('Error revisando KYC:', error.message);
+    return res.status(500).json({ error: 'Error guardando la revisión' });
+  }
+
+  // Avisar al aliado en el momento: su pantalla de espera reacciona sin que
+  // tenga que pulsar "Actualizar estado".
+  io.to(`ally:${String(email).toLowerCase()}`).emit('kycUpdated', {
+    email,
+    status,
+    note: note ? note.trim() : null
+  });
+
+  console.log(`🪪 KYC de ${email}: ${status}${note ? ' — ' + note.trim() : ''}`);
+  res.json({ success: true, status });
+});
 
 // ==========================================
 // 3. SERVICIOS Y ASIGNACIONES

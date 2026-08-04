@@ -1,4 +1,4 @@
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
 /// Límites de intentos para los endpoints sensibles.
 ///
@@ -11,7 +11,12 @@ const rateLimit = require('express-rate-limit');
 /// de una red móvil, y un atacante cambia de IP con facilidad.
 function porCorreo(req) {
   const email = (req.body && req.body.email) || '';
-  return email ? String(email).toLowerCase() : req.ip;
+  if (email) return String(email).toLowerCase();
+
+  // Sin correo se cae a la IP, pero pasando por `ipKeyGenerator`: una IPv6
+  // cruda permitiría saltarse el límite cambiando de dirección dentro del mismo
+  // bloque asignado al usuario.
+  return ipKeyGenerator(req.ip);
 }
 
 const opcionesComunes = {
