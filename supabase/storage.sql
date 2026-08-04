@@ -44,13 +44,32 @@ create policy "avatars lectura publica"
   on storage.objects for select
   using (bucket_id = 'avatars');
 
--- Nadie escribe avatares directamente: siempre pasa por el backend, que valida
--- el token y el tamaño antes de subir.
-drop policy if exists "avatars sin escritura publica" on storage.objects;
+-- El backend necesita política explícita para escribir.
+--
+-- `storage.objects` tiene RLS activo y, a diferencia de las tablas del esquema
+-- public, la service role NO la esquiva por sí sola en la API de Storage: sin
+-- estas dos políticas, subir un archivo falla con
+-- "new row violates row-level security policy".
+drop policy if exists "backend gestiona avatars" on storage.objects;
+create policy "backend gestiona avatars"
+  on storage.objects for all
+  to service_role
+  using (bucket_id = 'avatars')
+  with check (bucket_id = 'avatars');
 
--- El bucket `kyc` no lleva ninguna política a propósito: sin políticas, los
--- roles anon y authenticated no pueden ni leer ni escribir. Solo la service
--- role (el backend) llega a esos archivos.
+drop policy if exists "backend gestiona kyc" on storage.objects;
+create policy "backend gestiona kyc"
+  on storage.objects for all
+  to service_role
+  using (bucket_id = 'kyc')
+  with check (bucket_id = 'kyc');
+
+-- El bucket `kyc` no tiene ninguna política para anon ni authenticated, a
+-- propósito: solo el backend llega a esos documentos, y los sirve mediante URL
+-- firmada con caducidad.
+--
+-- Tampoco hay política de escritura para roles públicos en `avatars`: subir una
+-- foto pasa siempre por el backend, que valida el token y el tamaño.
 
 -- ----------------------------------------------------------------------------
 --  COMPROBACIÓN

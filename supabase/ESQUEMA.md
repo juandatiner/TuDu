@@ -147,5 +147,20 @@ select table_name, column_name, data_type, is_nullable, column_default
 |---|---|---|
 | `cron.sql` | Programa el mantenimiento horario con pg_cron | Sí |
 | `fix_kyc_view.sql` | Corrige la vista expuesta con SECURITY DEFINER | Sí (la vista se borró) |
-| `rls.sql` | Activa Row Level Security en todas las tablas | **Pendiente** |
-| `borrar_cuenta.sql` | Borrado de cuenta en una sola transacción | **Pendiente** |
+| `rls.sql` | Activa Row Level Security en todas las tablas | Sí |
+| `rls_politicas.sql` | Borra las políticas que abrían las tablas al rol público | Sí |
+| `borrar_cuenta.sql` | Borrado de cuenta en una sola transacción | Sí |
+| `storage.sql` | Buckets `avatars` (público) y `kyc` (privado) | Sí |
+
+> ⚠ **La clave del `.env` debe ser la secreta (`sb_secret_…`), no la publicable
+> (`sb_publishable_…`).** Con la publicable, los backends pierden privilegios:
+> Storage rechaza las subidas y las funciones dan "permission denied". Y peor:
+> esa clave es pública por diseño, así que la seguridad pasa a depender por
+> completo de que RLS esté bien configurado.
+
+## Tablas obsoletas
+
+- `user_sessions` — control de sesiones anterior a `device_sessions` y los JWT.
+  Eliminada.
+- `ally_services` — prevista para los servicios de los aliados, todavía sin uso.
+  Se conserva.
