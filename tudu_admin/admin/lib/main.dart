@@ -1,17 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'config.dart';
+import 'services/auth_store.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // El token debe estar en memoria antes de la primera petición.
+  await AuthStore.load();
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  runApp(const MyApp());
+
+  // Todas las llamadas del panel viajan firmadas con el token de admin.
+  http.runWithClient(
+    () => runApp(const MyApp()),
+    () => AuthenticatedClient(),
+  );
 }
 
 class MyApp extends StatelessWidget {

@@ -1,481 +1,235 @@
 # CLAUDE.md — tudu Ecosystem
-> Última revisión: 2026-03-17 — generado leyendo código fuente real, no el blueprint.
+
+> Última revisión: 2026-07-28 — generado leyendo el código fuente real (`index.js`, `server.js`, `config.dart`, `package.json`), no el blueprint.
+>
+> **Cambio mayor respecto a la revisión anterior (2026-03-17):** el backend migró de **SQLite local a Supabase (Postgres)**. Toda la sección de DBs fue reescrita. Ver §3.
 
 ---
 
 ## 1. PROJECT IDENTITY
 
 **tudu** es un marketplace de servicios locales (Colombia) que conecta usuarios (clientes) con aliados (prestadores de servicios), gestionado por un panel de administración.
-Stack: Flutter/Dart (frontend multi-plataforma) + Node.js/Express (backends) + SQLite3 (5 bases de datos separadas) + Socket.io (tiempo real en users backend) + Mailgun (OTP por email).
-Contexto geográfico: los datos de departamentos y ciudades están pre-cargados para Colombia (33 departamentos, ~1000+ ciudades).
+
+Stack: Flutter/Dart (frontend multiplataforma) + Node.js/Express (3 backends) + **Supabase (Postgres + Supabase Auth)** + Socket.io (tiempo real en users y allies) + `compression` (gzip para los JSON con base64).
+
+Contexto geográfico: los datos de departamentos y ciudades están pre-cargados para Colombia (33 departamentos, ~1000+ ciudades) en las tablas `departments` / `cities` de Supabase.
 
 ---
 
 ## 2. ARCHITECTURE
 
-| App | Frontend | Backend | Archivo principal | Puerto real |
-|-----|----------|---------|-------------------|-------------|
+| App | Frontend | Backend | Archivo principal | Puerto |
+|-----|----------|---------|-------------------|--------|
 | Users | `tudu_users/users/` | `tudu_users/backend/` | `index.js` | **3000** |
 | Allies | `tudu_allies/allies/` | `tudu_allies/backend/` | `index.js` | **3002** |
 | Admin | `tudu_admin/admin/` | `tudu_admin/backend/` | `server.js` | **3003** |
 
-> **El blueprint dice que Users usa 3002 — eso es incorrecto.** El `index.js` de users usa `PORT || 3000`, `config.dart` del admin apunta a 3000. Aliases y admin no comparten puerto.
+Los 3 backends escuchan en `0.0.0.0` (accesibles desde dispositivo físico en la misma red).
 
-### Conexiones de bases de datos por backend
+### Acceso a datos
 
-| Backend | DBs que abre |
-|---------|-------------|
-| Users (`index.js`) | `users.db`, `allies.db`, `services.db`, `search.db` (4 DBs) |
-| Allies (`index.js`) | `allies.db`, `services.db` (2 DBs) |
-| Admin (`server.js`) | `admins.db` (1 DB) |
+Los 3 backends hablan con **la misma instancia de Supabase** vía `@supabase/supabase-js` usando la **service role key** (bypassa RLS). No hay separación de bases por backend: es un solo Postgres compartido.
 
-> **`allies.db` y `services.db` son escritas por dos procesos simultáneos** (users y allies backends). No tienen WAL mode activo — punto de contención real en concurrencia.
-> **`search.db` ya tiene WAL mode** activado en el código de users backend (`PRAGMA journal_mode = WAL`).
+| Backend | Tablas que toca |
+|---------|-----------------|
+| Users (`index.js`) | `users`, `user_phones`, `user_addresses`, `user_cards`, `device_sessions`, `photo_change_requests`, `search_history`, `services`, `services_in_search`, `departments`, `cities`, `countries`, `allies` |
+| Allies (`index.js`) | `allies`, `ally_service_profiles`, `ally_device_sessions`, `services`, `services_in_search` |
+| Admin (`server.js`) | `admins` |
 
-### Config Flutter (`config.dart` — igual en las 3 apps)
-- `localIpAddress = '10.150.102.86'` ← cambiar manualmente al cambiar de red
-- Android emulador → `10.0.2.2:PORT`, iOS simulador → `localhost:PORT`, físico → IP local
-- Admin app apunta a puerto 3000 (users backend), no a 3003 (admin backend) — el admin llama a ambos
+> `allies`, `services` y `services_in_search` son escritas por **dos procesos** (users backend y allies backend). Postgres maneja la concurrencia — ya no aplica el problema de `SQLITE_BUSY` de la arquitectura anterior.
+
+### Socket.io
+
+- **Users backend (3000)** — emite `newPhotoChangeRequest` y `photoRequestUpdated`. El admin Flutter se conecta acá, no al admin backend.
+- **Allies backend (3002)** — solo loguea conexiones/desconexiones para monitoreo. No emite eventos de negocio.
+- **Admin backend (3003)** — no tiene Socket.io.
+
+Handshake: `auth.email` y `auth.device` (JSON string con `model` / `name` / `platform`).
+
+### Config Flutter (`config.dart` — una por app)
+
+La IP **ya no está hardcodeada**. Se inyecta en compilación:
+
+```dart
+static const String _dartDefineIp = String.fromEnvironment('LOCAL_IP');
+
+static String get baseUrl {
+  if (_dartDefineIp.isNotEmpty) return 'http://$_dartDefineIp:$port';
+  if (Platform.isAndroid) return 'http://10.0.2.2:$port';  // emulador Android
+  return 'http://localhost:$port';                          // simulador iOS / web / macOS
+}
+```
+
+| App | `Config.port` |
+|-----|---------------|
+| users | 3000 |
+| allies | 3002 |
+| admin | **3000** — el admin Flutter consume el users backend (photo_change_requests); el admin backend 3003 se usa solo para login y CRUD de admins |
+
+`run-dev.sh` detecta la IP local (`ipconfig getifaddr en0`) y la pasa con `--dart-define=LOCAL_IP=<ip>`. Sin ese flag, los emuladores igual funcionan por el fallback.
 
 ---
 
-## 3. DATABASES
+## 3. DATA MODEL (Supabase / Postgres)
 
-**Ruta absoluta base:** `/Users/juanda/tudu/databases/`
-Los backends usan `path.join(__dirname, '../../databases')` — nunca rutas hardcodeadas.
+> El schema vive en Supabase, no en el repo. No hay migraciones versionadas ni archivos SQL acá. Las columnas listadas abajo están **inferidas del uso en el código** — no de un `CREATE TABLE`. Para el schema autoritativo, mirar el dashboard de Supabase.
 
----
+### `users`
+Campos usados: `id`, `email` (único), `nombre`, `apellido`, `avatar_color` (default `#78BF32`), `avatar_icon` (default `person`), `avatar_image` (base64, puede ser varios MB), `phone`, `genero`, `fecha_nacimiento`, `dark_mode` (int 0/1), `language`, `created_at`.
 
-### users.db
-Abierta por: **users backend** (lectura/escritura)
+`GET /users/profile/:email?lite=true` omite `avatar_image` del select — usar siempre que no se necesite la foto.
 
-#### Tabla `users`
-```sql
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  email TEXT UNIQUE NOT NULL,
-  nombre TEXT NOT NULL,        -- máx 20 chars, validado en backend
-  apellido TEXT NOT NULL,      -- máx 20 chars, validado en backend
-  role TEXT DEFAULT 'user',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
--- Columnas agregadas via ALTER TABLE (no están en el CREATE original):
--- avatar_color TEXT DEFAULT '#78BF32'
--- avatar_icon  TEXT DEFAULT 'person'
--- avatar_image TEXT                    ← base64, puede ser varios MB
--- phone        TEXT
--- genero       TEXT
--- fecha_nacimiento TEXT
--- dark_mode    INTEGER DEFAULT 0
--- language     TEXT DEFAULT 'es'
-```
+### `user_phones`
+`user_email` (UNIQUE — hay upsert con `onConflict: 'user_email'`), `country_code`, `country_name`, `phone_number`.
 
-#### Tabla `user_phones`
-```sql
-CREATE TABLE IF NOT EXISTS user_phones (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_email TEXT NOT NULL,
-  country_code TEXT NOT NULL,
-  country_name TEXT,
-  phone_number TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_email) REFERENCES users(email),
-  UNIQUE(user_email)            -- un teléfono por usuario
-)
-```
+### `user_addresses`
+`user_email`, `address_name`, `department_id` → `departments`, `city_id` → `cities`, `type_via`, `number_principal`, `number_secondary`, `number_final`, `additional_info`, `address_icon`, `created_at`.
 
-#### Tabla `photo_change_requests`
-```sql
-CREATE TABLE IF NOT EXISTS photo_change_requests (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_email TEXT NOT NULL,
-  new_avatar_image TEXT NOT NULL,  -- base64
-  status TEXT DEFAULT 'pending',   -- 'pending' | 'approved' | 'rejected'
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_email) REFERENCES users(email)
-)
-```
+El join a `departments(name)` / `cities(name)` se hace con la sintaxis anidada de Supabase y se aplana a `department_name` / `city_name` antes de responder.
 
-#### Tabla `countries`
-```sql
-CREATE TABLE IF NOT EXISTS countries (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  iso_code TEXT UNIQUE NOT NULL,   -- 'CO', 'US', etc.
-  name TEXT NOT NULL,
-  dial_code TEXT NOT NULL,         -- '+57', '+1', etc.
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
--- Seeded: ~200 países del mundo
-```
+### `user_cards`
+`user_email`, `card_number` (**guardado enmascarado**: `**** **** **** 1234`), `card_holder`, `expiry_date`, `card_type`, `document_type`, `document_number`, `card_mode`, `is_default` (int 0/1), `created_at`.
 
-#### Tabla `departments`
-```sql
-CREATE TABLE IF NOT EXISTS departments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT UNIQUE NOT NULL
-)
--- Seeded: 33 departamentos de Colombia
-```
+La primera tarjeta de un usuario se marca `is_default` automáticamente.
 
-#### Tabla `cities`
-```sql
-CREATE TABLE IF NOT EXISTS cities (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  department_id INTEGER,
-  FOREIGN KEY (department_id) REFERENCES departments(id),
-  UNIQUE(name, department_id)
-)
--- Seeded: ~1000+ ciudades de Colombia
--- NOTA: Hay errores en los datos — 'Cali' aparece bajo Antioquia,
---       'Barranquilla' aparece bajo Bolívar, 'Luruaco' aparece bajo Bolívar.
-```
+### `device_sessions` / `ally_device_sessions`
+`user_email` / `ally_email`, `device_id`, `device_info`, `is_active` (int 0/1), `last_activity`.
 
-#### Tabla `user_addresses`
-```sql
-CREATE TABLE IF NOT EXISTS user_addresses (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_email TEXT NOT NULL,
-  address_name TEXT NOT NULL,
-  department_id INTEGER,   -- agregado via ALTER TABLE
-  city_id INTEGER,         -- agregado via ALTER TABLE
-  type_via TEXT,           -- agregado via ALTER TABLE
-  number_principal TEXT,   -- agregado via ALTER TABLE (originalmente INTEGER)
-  number_secondary TEXT,   -- agregado via ALTER TABLE
-  number_final TEXT,       -- agregado via ALTER TABLE
-  additional_info TEXT,    -- agregado via ALTER TABLE
-  address_icon TEXT,       -- agregado via ALTER TABLE
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_email) REFERENCES users(email),
-  FOREIGN KEY (department_id) REFERENCES departments(id),
-  FOREIGN KEY (city_id) REFERENCES cities(id)
-)
-```
+`device_sessions` tiene constraint compuesta `(user_email, device_id)` — el users backend hace upsert con `onConflict: 'user_email,device_id'`. El allies backend **no** usa upsert; hace select-then-insert-or-update manual.
 
-#### Tabla `device_sessions`
-```sql
-CREATE TABLE IF NOT EXISTS device_sessions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_email TEXT NOT NULL,
-  device_id TEXT NOT NULL,
-  device_info TEXT,                        -- JSON con modelo, SO, versión
-  is_active INTEGER DEFAULT 1,
-  requires_verification INTEGER DEFAULT 0,
-  last_activity DATETIME DEFAULT CURRENT_TIMESTAMP,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_email) REFERENCES users(email),
-  UNIQUE(user_email, device_id)
-)
-```
+Regla de negocio: registrar un dispositivo desactiva todos los demás del mismo email (sesión única).
 
-#### Tabla `user_cards`
-```sql
-CREATE TABLE IF NOT EXISTS user_cards (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_email TEXT NOT NULL,
-  card_number TEXT NOT NULL,       -- plain text ← problema de seguridad
-  card_holder TEXT NOT NULL,
-  expiry_date TEXT NOT NULL,
-  card_type TEXT DEFAULT 'visa',
-  document_type TEXT DEFAULT 'C.C',
-  document_number TEXT,            -- plain text ← problema de seguridad
-  card_mode TEXT DEFAULT 'credit', -- agregado via ALTER TABLE
-  is_default INTEGER DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_email) REFERENCES users(email)
-  -- CVV fue eliminado via ALTER TABLE DROP COLUMN (PCI-DSS)
-)
-```
+### `photo_change_requests`
+`id`, `user_email`, `new_avatar_image` (base64), `status` (`pending` / `approved` / `rejected`), `rejection_reason`, `read_at`, `user_notified` (bool), `created_at`, `updated_at`.
 
----
+Limpieza automática: `cleanupOldPhotoRequests()` borra las que tienen `user_notified = true`, al arrancar el server y luego **cada hora** (`setInterval`), más una limpieza inmediata al marcar como notificada.
 
-### allies.db
-Abierta por: **users backend** (R/W) y **allies backend** (R/W) — sin WAL mode
+### `search_history`
+`user_email`, `query` (⚠ la columna se llama `query`, pero la API la expone como `search_query`), `created_at`. Se devuelven las últimas 10.
 
-#### Tabla `allies`
-```sql
-CREATE TABLE IF NOT EXISTS allies (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  email TEXT UNIQUE NOT NULL,
-  nombre TEXT NOT NULL,    -- máx 20 chars, validado en ambos backends
-  apellido TEXT NOT NULL,  -- máx 20 chars, validado en ambos backends
-  role TEXT DEFAULT 'ally',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-```
+### `services`
+`id`, `name`, `created_at`. Catálogo compartido. Los aliados pueden crear entradas nuevas vía `POST /services` (allies backend).
 
----
+### `services_in_search`
+`id`, `user_email`, `ally_email`, `title`, `description`, `time_quantity`, `time_unit`, `budget` (string ya formateado con comas), `worker_info`, `status`, `assigned` (int 0/1), `created_at`.
 
-### services.db
-Abierta por: **users backend** (R/W) y **allies backend** (R/W) — sin WAL mode
+`budget` se normaliza en `POST /publish-service`: se parsea a número, se redondea a la centena más cercana y se re-formatea con separador de miles.
 
-#### Tabla `services`
-```sql
-CREATE TABLE IF NOT EXISTS services (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT UNIQUE NOT NULL,
-  description TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
--- Seeded: 10 servicios (Servicio de hogar, Reparaciones eléctricas, Limpieza, etc.)
-```
+### `allies`
+`id`, `email` (único), `nombre`, `apellido`, `fecha_nacimiento`, `kyc_cedula_frente`, `kyc_cedula_reverso`, `kyc_selfie` (los 3 base64), `kyc_status` (`submitted`), `kyc_submitted_at`, `updated_at`.
 
-#### Tabla `services_in_search`
-```sql
-CREATE TABLE IF NOT EXISTS services_in_search (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER,           -- FK manual → users.id en users.db
-  title TEXT NOT NULL,
-  description TEXT,
-  time_quantity INTEGER,
-  time_unit TEXT,
-  budget TEXT,               -- formateado a centenas con comas (ej: "1,200")
-  worker_info TEXT,
-  status TEXT DEFAULT 'EN ESPERA',  -- 'EN ESPERA' | 'EN PROCESO' | 'COMPLETADO'
-  assigned INTEGER DEFAULT 0,
-  ally_id INTEGER,           -- FK manual → allies.id en allies.db
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
--- NOTA: NO tiene campo additional_info — el blueprint estaba equivocado.
--- BUG CONOCIDO: users backend /assign pone status='En Proceso' (mixed case),
---              allies backend /assign pone status='EN PROCESO' (correcto).
-```
+### `ally_service_profiles`
+`ally_email`, `service_id`, `nombre_comercial`, `frase_presentacion`, `resumen`, `created_at`.
 
-#### Tabla `ally_services`
-```sql
-CREATE TABLE IF NOT EXISTS ally_services (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  ally_id INTEGER NOT NULL,
-  service_id INTEGER NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(ally_id, service_id)
-)
-```
+> ⚠ **Inconsistencia real:** `POST /ally-service-profile` inserta con `ally_email`, pero `POST /check-ally` consulta con `.eq('ally_id', ally.id)`. Uno de los dos está mal — `check-ally` nunca va a encontrar los perfiles creados. Ver §9.
 
----
+### `admins`
+`id`, `username` (único), `password` (**plain text**), `email` (único), `name`, `role` (default `admin`), `created_at`, `updated_at`.
 
-### search.db
-Abierta por: **users backend** — ya tiene WAL mode activo
+### `departments`, `cities`, `countries`
+Catálogos pre-cargados. `cities.department_id` → `departments.id`. `countries` incluye códigos de marcación.
 
-#### Tabla `search_history`
-```sql
-CREATE TABLE IF NOT EXISTS search_history (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_email TEXT NOT NULL,
-  search_query TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-```
-
-> **La tabla `messages` del blueprint NO existe en el código de creación de search.db.**
-> El schema de messages fue documentado en el blueprint pero nunca implementado en código.
-
----
-
-### admins.db
-Abierta por: **admin backend** únicamente
-
-#### Tabla `admins`
-```sql
-CREATE TABLE IF NOT EXISTS admins (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE NOT NULL,
-  password TEXT NOT NULL,    -- plain text ← crítico
-  email TEXT UNIQUE,
-  name TEXT NOT NULL,
-  role TEXT DEFAULT 'admin',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
--- Default admin: username='admin', password='123', email='admin@tuduapp.com'
-```
-
----
-
-### Relaciones cross-database (sin FK real, join manual en código)
-- `services_in_search.user_id` → `users.id` (users.db)
-- `services_in_search.ally_id` → `allies.id` (allies.db)
-- `ally_services.ally_id` → `allies.id` (allies.db)
-- `ally_services.service_id` → `services.id` (services.db)
-- `photo_change_requests.user_email` → `users.email` (misma DB)
+### Código SQLite muerto (no ejecutar)
+Quedaron archivos de la arquitectura anterior que **ya no se usan** y apuntan a `../../databases`, ruta que no existe:
+- `tudu_allies/backend/index.js.old`, `tudu_allies/backend/index.sqlite.js`
+- `tudu_admin/backend/server.sqlite.js`
+- `tudu_admin/backend/init-db.js` (y su script `npm run init-db`) — requiere `sqlite3`, que ya no está en `package.json`
 
 ---
 
 ## 4. API ENDPOINTS
 
-### Users Backend — port 3000 (`tudu_users/backend/index.js`)
+### Users Backend — puerto 3000 (`tudu_users/backend/index.js`)
 
-**Autenticación**
-```
-POST /send-otp                          { email }
-POST /verify-otp                        { email, otp } — backdoor '123456' hardcodeado
-POST /check-user                        { email } → { exists, user }
-POST /check-ally                        { email } → { exists, ally }  ← en users backend
-POST /register-user                     { email, nombre, apellido }
-POST /register-ally                     { email, nombre, apellido }   ← en users backend
-```
+**Auth y registro**
+| Método | Ruta | Notas |
+|--------|------|-------|
+| POST | `/send-otp` | Supabase Auth `signInWithOtp`. Bypass si `DEV_MODE=true` y email = `cosmodavid2009@gmail.com` |
+| POST | `/verify-otp` | Supabase Auth `verifyOtp`. Backdoor: `otp === '123456'` **solo** con email `cosmodavid2009@gmail.com` |
+| POST | `/check-user` | `{exists, user}` |
+| POST | `/check-ally` | `{exists, ally}` |
+| POST | `/register-user` | |
+| POST | `/register-ally` | |
 
-**Servicios**
-```
-GET  /services                          → catálogo completo
-POST /publish-service                   { user_email, title, description, time_quantity,
-                                          time_unit, budget, worker_info }
-GET  /services-in-search                query: ?user_email= (opcional, filtra por usuario)
-PUT  /services-in-search/:id/assign     (sin body) → assigned=1, status='En Proceso' ← BUG DE CASE
-PUT  /services-in-search/:id/status     { status }
-DELETE /services-in-search/:id          query: ?user_email= (requerido para verificar ownership)
-```
+**Perfil**
+| Método | Ruta | Notas |
+|--------|------|-------|
+| GET | `/users/profile/:email` | `?lite=true` omite `avatar_image` |
+| PUT | `/users/profile/avatar` | `avatar_image: null` vuelve a color+icono; con imagen resetea color a `#78BF32` |
+| PUT | `/users/profile/data` | upsert de `user_phones` si vienen `country_code` + `phone_number` |
+| DELETE | `/users/:email` | Borra en cascada manual sobre 6 tablas. **Sin auth, sin transacción** |
 
-**Búsqueda**
-```
-POST /search-history                    { user_email, search_query }
-GET  /search-history                    query: ?email=
-DELETE /search-history/:id
-GET  /search-services                   query: ?q=
-```
+**Fotos (usuario ↔ admin)**
+| Método | Ruta |
+|--------|------|
+| POST | `/api/user/photo-change-request` |
+| GET | `/api/user/photo-change-request/pending` |
+| GET | `/api/user/photo-change-request/unnotified` |
+| PUT | `/api/user/photo-change-request/mark-notified/:id` |
+| GET | `/api/admin/photo-change-requests` |
+| PUT | `/api/admin/photo-change-requests/:id` |
+| PUT | `/api/admin/photo-change-requests/:id/read` |
 
-**Perfil de usuario**
-```
-GET  /users/profile/:email
-PUT  /users/profile/avatar              { email, avatar_image } o { email, avatar_color, avatar_icon }
-PUT  /users/profile/data                { email, nombre, apellido, genero, fecha_nacimiento, phone }
-GET  /users/profile/phone/:email
-GET  /users/theme/:email
-PUT  /users/theme                       { email, dark_mode }
-GET  /users/language/:email
-PUT  /users/language                    { email, language }
-DELETE /users/:email                    — elimina user + addresses + phones (sin transacción)
-```
+`PUT /api/admin/photo-change-requests/:id` con `status: 'approved'` copia `new_avatar_image` a `users.avatar_image` y emite `photoRequestUpdated` por socket **incluyendo `new_avatar_image`** — el Provider de Flutter depende de ese campo.
 
-**Direcciones**
-```
-GET  /user-addresses                    query: ?email=
-POST /user-addresses                    { user_email, address_name, department_id, city_id, ... }
-PUT  /user-addresses/:id
-DELETE /user-addresses/:id
-GET  /departments
-GET  /cities                            query: ?department_id=
-```
+**Ubicaciones y direcciones**
+`GET /departments` · `GET /cities?department_id=` · `GET /countries` · `GET /user-addresses?user_email=` · `POST /user-addresses` · `PUT /user-addresses/:id` · `DELETE /user-addresses/:id`
+
+Validación: `number_principal` debe contener al menos un dígito; `address_name` único por usuario.
 
 **Tarjetas**
-```
-GET  /users/cards/:userEmail
-POST /users/cards                       { user_email, card_number, card_holder, expiry_date,
-                                          card_type, document_type, document_number, card_mode }
-PUT  /users/cards/:id/default
-DELETE /users/cards/:id
-```
+`GET /users/cards/:userEmail` · `POST /users/cards` · `DELETE /users/cards/:id` · `PUT /users/cards/:id/default`
 
-**Países**
-```
-GET  /countries
-GET  /countries/by-dial/:dialCode
-GET  /countries/by-iso/:isoCode
-```
+**Servicios y búsqueda**
+`GET /services` · `POST /publish-service` · `GET /services-in-search?user_email=` · `PUT /services-in-search/:id/assign` · `PUT /services-in-search/:id/status` · `DELETE /services-in-search/:id?user_email=` · `GET /search-services?query=` (ilike) · `POST /search-history` · `GET /search-history?user_email=` · `DELETE /search-history/:id`
 
 **Sesiones de dispositivo**
-```
-POST /device-session/check              { email, device_id, device_info }
-POST /device-session/register           { email, device_id, device_info }
-GET  /device-session/status             query: ?email=&device_id=
-POST /device-session/logout             { email, device_id }
-GET  /device-session/list               query: ?email=
-POST /device-session/close-others       { email, device_id }
-```
+`POST /device-session/check` · `POST /device-session/register` · `GET /device-session/status` · `POST /device-session/logout` · `GET /device-session/list` · `POST /device-session/close-others`
 
-**Foto de perfil (interfaz users ↔ admin)**
-```
-POST /api/user/photo-change-request     { user_email, new_avatar_image }
-GET  /api/user/photo-change-request/pending  query: ?user_email=
-GET  /api/admin/photo-change-requests   → todas las solicitudes (para admin panel)
-PUT  /api/admin/photo-change-requests/:id    { status: 'approved'|'rejected' }
-```
+### Allies Backend — puerto 3002 (`tudu_allies/backend/index.js`)
 
-> Socket.io emite `newPhotoChangeRequest` al crear una solicitud.
-> El admin Flutter llama a estos endpoints en el backend de users (puerto 3000).
+| Método | Ruta | Notas |
+|--------|------|-------|
+| POST | `/send-otp` | Igual que users |
+| POST | `/verify-otp` | ⚠ Backdoor `'123456'` **para cualquier email** (a diferencia de users) |
+| POST | `/check-ally` | Devuelve `partial: 'personal'` o `partial: 'service'` según qué falte |
+| POST | `/register-ally` | upsert con `onConflict: 'email'` |
+| POST | `/ally-kyc` | Sube 3 imágenes base64, marca `kyc_status = 'submitted'` |
+| POST | `/ally-service-profile` | |
+| GET | `/services` | |
+| POST | `/services` | Crea servicio nuevo (mín. 2 chars) |
+| GET | `/services-in-search` | Solo `assigned = 0` |
+| PUT | `/services-in-search/:id/assign` | Requiere `ally_email`; pone `status: 'EN PROCESO'` |
+| PUT | `/services-in-search/:id/status` | |
+| GET | `/my-services?ally_email=` | |
+| — | `/ally-device-session/*` | check · register · status · logout · list · close-others |
 
----
+`POST /ally-device-session/check` fuerza `requires_verification: true` para `cosmodavid2009@gmail.com`.
 
-### Allies Backend — port 3002 (`tudu_allies/backend/index.js`)
+### Admin Backend — puerto 3003 (`tudu_admin/backend/server.js`)
 
-> Endpoints confirmados leyendo el código real (no el blueprint).
+`GET /` (health) · `POST /api/admin/login` · `GET /api/admins` · `POST /api/admins` · `PUT /api/admins/:id` · `DELETE /api/admins/:id` · `PUT /api/admins/:id/change-password`
 
-```
-POST /send-otp                          { email } — SIN backdoor '123456'
-POST /verify-otp                        { email, otp } — DEV_MODE acepta cualquier código
-POST /check-ally                        { email } → { exists, ally }
-POST /register-ally                     { email, nombre, apellido }
-GET  /services                          → catálogo
-GET  /services-in-search                → servicios con assigned=0
-PUT  /services-in-search/:id/assign     { ally_email } → assigned=1, status='EN PROCESO' (correcto)
-PUT  /services-in-search/:id/status     { status }
-GET  /my-services                       query: ?ally_email=
-```
-
-> El allies backend NO tiene Socket.io, ni endpoints de perfil, ni tarjetas, ni direcciones.
-> `PUT /services-in-search/:id/assign` recibe `ally_email` (no `ally_id`) y hace join con allies.db para resolver el ID.
-
----
-
-### Admin Backend — port 3003 (`tudu_admin/backend/server.js`)
-
-```
-POST /api/admin/login                   { username, password } → plain text compare
-GET  /api/admins                        → lista sin passwords
-POST /api/admins                        { username, password, email, name, role }
-PUT  /api/admins/:id                    { username, email, name, role } — NO cambia password
-DELETE /api/admins/:id                  — sin protección del último admin
-PUT  /api/admins/:id/change-password    { currentPassword, newPassword }
-```
-
-> El admin backend NO tiene Socket.io. Usa `app.listen` directo.
-> El admin Flutter también llama endpoints del users backend (puerto 3000) para photo_change_requests.
+El login compara `password` en plain text con `.eq('password', password)`. Código Postgres `23505` (unique violation) se traduce a "Username or email already exists".
 
 ---
 
 ## 5. AUTH FLOW
 
-### OTP — Users backend (port 3000)
-```
-1. POST /send-otp { email }
-   → genera OTP 6 dígitos (Math.random)
-   → almacena en Map<email, { otp, timestamp }> — en memoria, se pierde al reiniciar
-   → DEV_MODE=true: loguea en consola, no envía email
-   → Mailgun activo solo si MAILGUN_API_KEY !== 'tu_api_key_de_mailgun' y no vacío
-   → responde 200
+### OTP (users y allies) — Supabase Auth
 
-2. POST /verify-otp { email, otp }
-   → SI otp === '123456' → PASA siempre (backdoor hardcodeado, línea 1499)
-   → SI DEV_MODE=true → acepta cualquier código
-   → producción: verifica Map, comprueba expiración 10min, borra entrada
-   → responde 200 o 400
+1. Cliente → `POST /send-otp { email }`
+2. Backend → `supabase.auth.signInWithOtp({ email })` — **Supabase envía el correo**, no Mailgun
+3. Cliente → `POST /verify-otp { email, otp }`
+4. Backend → `supabase.auth.verifyOtp({ email, token: otp, type: 'email' })`
+5. Backend responde `{ message }` — **no devuelve token ni sesión al cliente**
 
-3. POST /check-user { email }   (o /check-ally para el flujo de aliados)
-   → { exists: true, user/ally: {...} } → ir a home
-   → { exists: false } → ir a registro
+> El backend descarta la sesión que devuelve Supabase. El cliente queda "autenticado" solo por convención: guarda el email en `SharedPreferences` y lo manda en cada request. **No hay JWT en el resto de la API.**
 
-4. POST /register-user { email, nombre, apellido }
-   → valida nombre/apellido ≤ 20 chars
-   → INSERT en users.db, devuelve { id }
-```
-
-### OTP — Allies backend (port 3002)
-```
-Igual que arriba EXCEPTO:
-- NO tiene el backdoor '123456'
-- Mailgun se inicializa SIN verificar credenciales — crash en arranque si MAILGUN_API_KEY no está definida
-- DEV_MODE=true acepta cualquier código igualmente
-```
+**Mailgun ya no se usa para OTP.** El allies backend todavía inicializa el cliente (`mg`) si hay credenciales, pero la variable nunca se vuelve a usar — es código muerto. Ya **no** crashea sin credenciales (a diferencia de la versión SQLite).
 
 ### Admin — username + password plain text
-```
-POST /api/admin/login { username, password }
-→ SELECT * FROM admins WHERE username=? AND password=?  (plain text, sin hash)
-→ 200 { success: true, data: { id, username, email, name, role } }  (password no se devuelve)
-→ 401 si no coincide
-→ cliente guarda objeto admin en SharedPreferences
-```
+`POST /api/admin/login` → select directo por `username` + `password`. Sin hashing, sin sesión, sin token. La app guarda los datos del admin en local.
 
 ---
 
@@ -489,34 +243,34 @@ POST /api/admin/login { username, password }
 | State classes Dart | `_PascalCaseState` | `_DashboardScreenState` |
 | Variables privadas Dart | `_camelCase` | `_isLoading` |
 | Endpoints REST | `kebab-case` | `/services-in-search` |
-| Prefijo admin/user en endpoints | `/api/admin/` o `/api/user/` | solo para photo/admin mgmt |
+| Prefijo admin/user | `/api/admin/` o `/api/user/` | solo para gestión de fotos y admins |
 | Campos de BD | `snake_case` | `created_at`, `dark_mode` |
 | Roles en BD | inglés, minúsculas | `'user'`, `'ally'`, `'admin'` |
-| Estados de servicio | español, MAYÚSCULAS | `'EN ESPERA'`, `'EN PROCESO'`, `'COMPLETADO'` |
+| Estados de servicio | español, MAYÚSCULAS | `'EN ESPERA'`, `'EN PROCESO'` |
 | Estados de photo_request | inglés, minúsculas | `'pending'`, `'approved'`, `'rejected'` |
 
-### Estructura Flutter (igual en las 3 apps)
+### Estructura Flutter
 ```
 lib/
 ├── main.dart        # MaterialApp, MultiProvider, rutas
-├── config.dart      # Config class: URL, colores, IP, helpers de onboarding/UI
+├── config.dart      # Config: baseUrl vía --dart-define=LOCAL_IP, colores, helpers
 ├── screens/         # Un archivo por pantalla; StatefulWidget por defecto
-├── models/          # Data classes simples (sin ChangeNotifier)
-├── providers/       # ChangeNotifier para estado global (theme, language)
-├── services/        # Lógica de negocio, sesiones (solo en tudu_users)
-└── l10n/            # Localizaciones (solo en tudu_users)
+├── models/          # Data classes simples (users, allies)
+├── providers/       # ChangeNotifier: theme, language (solo users)
+├── services/        # Sesiones y lógica de negocio (users, allies)
+└── l10n/            # Localizaciones (solo users)
 ```
+`tudu_admin/admin/lib/` solo tiene `config.dart`, `main.dart` y `screens/`.
 
 ### Patrones de código observados
-- **HTTP en widgets:** la mayoría de screens llaman `http.get/post` directamente en `initState` o botones — solo `session_service.dart` tiene capa de servicio correctamente separada
-- **Error handling Flutter:** `try/catch` → `setState(() { _isLoading = false; })`, el error se loguea con `print()` o `debugPrint()`
-- **Estado Flutter:** `setState()` en StatefulWidgets; `ChangeNotifier` para theme y language; no hay BLoC ni Riverpod
-- **URLs Flutter:** siempre `${Config.baseUrl}/ruta` — nunca URLs hardcodeadas en screens
-- **Socket.io Flutter:** `socket_io_client` — `initState()` conecta, `dispose()` desconecta; las dos screens admin que lo usan duplican el código de conexión
-- **SQLite backend:** callbacks anidados (callback hell), no async/await — `db.run/get/all(sql, params, (err, row) => {...})`
-- **Migraciones:** `ALTER TABLE ADD COLUMN` en el callback de apertura de DB; error `'duplicate column'` se ignora silenciosamente — sin sistema de versiones
-- **JSON body:** `express.json({ limit: '50mb' })` — necesario para base64 de imágenes
-- **Budget formatting:** presupuesto se redondea a centenas y se formatea con comas en `POST /publish-service`
+- **Backend:** `async/await` con el patrón `const { data, error } = await supabase...`. Ya no hay callback hell — eso era SQLite.
+- **Errores backend:** se chequea `error` y se responde `res.status(4xx/5xx).json({ error })`. `error.code === 'PGRST116'` = "no rows", se trata como "no existe", no como fallo.
+- **HTTP en widgets:** la mayoría de screens llaman `http.get/post` directo en `initState` o en handlers de botón; solo la capa `services/` está separada correctamente.
+- **Estado Flutter:** `setState()` en StatefulWidgets; `ChangeNotifier` para theme y language. No hay BLoC ni Riverpod.
+- **URLs Flutter:** siempre `${Config.baseUrl}/ruta` — nunca URLs hardcodeadas en screens.
+- **Socket.io Flutter:** `socket_io_client` — conecta en `initState()`, desconecta en `dispose()`.
+- **JSON body:** `express.json({ limit: '50mb' })` en users y admin — necesario para base64.
+- **`compression()`** activo en users y allies: reduce ~80% los JSON con base64.
 
 ### Colores (siempre vía `Config`, nunca hex hardcodeado en widgets)
 ```dart
@@ -533,140 +287,163 @@ Config.textColor       // Color(0xFF78BF32) — igual que primary
 
 ## 7. ENVIRONMENT
 
-### Users Backend — `tudu_users/backend/.env`
+### Variables (los `.env` están gitignored)
+
+**`tudu_users/backend/.env`**
 ```env
 PORT=3000
-MAILGUN_API_KEY=          # vacío o 'tu_api_key_de_mailgun' → Mailgun deshabilitado, modo desarrollo
-MAILGUN_DOMAIN=           # dominio verificado en Mailgun
-DEV_MODE=true             # true = OTP en consola, verify-otp acepta cualquier código
+SUPABASE_URL=                 # REQUERIDO — process.exit(1) si falta
+SUPABASE_SERVICE_ROLE_KEY=    # REQUERIDO — process.exit(1) si falta
+DEV_MODE=true                 # bypass de /send-otp solo para cosmodavid2009@gmail.com
 ```
 
-### Allies Backend — `tudu_allies/backend/.env`
+**`tudu_allies/backend/.env`**
 ```env
 PORT=3002
-MAILGUN_API_KEY=          # REQUERIDO — el backend crashea en arranque si está vacío
-MAILGUN_DOMAIN=           # REQUERIDO — igual que arriba
-DEV_MODE=true             # true = verify-otp acepta cualquier código
+SUPABASE_URL=                 # REQUERIDO
+SUPABASE_SERVICE_ROLE_KEY=    # REQUERIDO
+MAILGUN_API_KEY=              # opcional — código muerto, ya no se usa para OTP
+MAILGUN_DOMAIN=               # opcional — ídem
+DEV_MODE=true
 ```
 
-> **Diferencia crítica:** el users backend verifica si MAILGUN_API_KEY está configurado antes de inicializar Mailgun. El allies backend inicializa Mailgun incondicionalmente — sin credenciales, el proceso crashea al arrancar.
-
-### Admin Backend — `tudu_admin/backend/.env`
+**`tudu_admin/backend/.env`**
 ```env
 PORT=3003
+SUPABASE_URL=                 # REQUERIDO
+SUPABASE_SERVICE_ROLE_KEY=    # REQUERIDO
 ```
 
-### Flutter — cambio de IP (obligatorio al cambiar de red)
-```dart
-// En config.dart de cada app:
-static const String localIpAddress = '10.150.102.86'; // ← CAMBIAR POR TU IP LOCAL
-// Mac: ipconfig getifaddr en0 | Windows: ipconfig
+> `SUPABASE_SERVICE_ROLE_KEY` **bypassa RLS**. Nunca exponerla al cliente ni commitearla.
+
+### Toolchain de desarrollo (macOS, verificado 2026-07-28)
+
+| Componente | Versión |
+|---|---|
+| Flutter | 3.44.8 (stable) · Dart 3.12.2 |
+| Node / npm | 26.5.0 / 11.17.0 |
+| Xcode | 26.6 + runtime iOS 26.5 |
+| CocoaPods | 1.17.0 |
+| Android SDK | 36.1.0 (platform android-36.1, build-tools 36.1.0/37.0.0) |
+| JDK | 21 (el bundled de Android Studio) |
+
+Variables en `~/.zshrc`:
+```sh
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
 ```
+
+Emuladores configurados: `Pixel_8_API_36` (Android 16, arm64) · iPhone 17 Pro · iPhone 17 Pro Max · iPad Pro 13-inch (M5) · iPad mini (A17 Pro).
+
+### Arranque
+
+```sh
+./run-dev.sh users     # backend 3000 + Flutter users
+./run-dev.sh allies    # backend 3002 + Flutter allies
+./run-dev.sh admin     # backend 3003 + Flutter admin
+./run-dev.sh all       # los 3 backends, imprime los comandos Flutter
+./run-dev.sh backend   # solo los 3 backends
+./run-dev.sh ip        # imprime la IP local detectada
+```
+
+El script detecta la IP con `ipconfig getifaddr en0` y la pasa como `--dart-define=LOCAL_IP=<ip>`. **Ya no hay que editar `config.dart` al cambiar de red.**
 
 ---
 
 ## 8. CRITICAL RULES — NUNCA ROMPER
 
-1. **Puertos reales:**
-   - Users backend: `3000` (no 3002 como dice el blueprint)
-   - Allies backend: `3002`
-   - Admin backend: `3003`
-   - Admin Flutter llama a puerto `3000` (users) para photo_change_requests
+1. **Puertos:** users `3000`, allies `3002`, admin `3003`. El **Flutter del admin apunta a 3000**, no a 3003 — usa el users backend para `photo_change_requests` y el 3003 solo para login/CRUD de admins.
 
-2. **Rutas absolutas de las 5 DBs:**
-   ```
-   /Users/juanda/tudu/databases/users.db
-   /Users/juanda/tudu/databases/allies.db
-   /Users/juanda/tudu/databases/services.db
-   /Users/juanda/tudu/databases/search.db
-   /Users/juanda/tudu/databases/admins.db
-   ```
+2. **No hay bases de datos locales.** Todo vive en Supabase. `path.join(__dirname, '../../databases')` solo aparece en archivos muertos (`init-db.js`, `*.sqlite.js`, `index.js.old`). No revivirlos.
 
-3. **Roles en BD — strings exactos:** `'user'`, `'ally'`, `'admin'` (minúsculas, en inglés). Cualquier variación rompe la lógica.
+3. **`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` son obligatorias.** Los 3 backends hacen `process.exit(1)` al arrancar si falta cualquiera.
 
-4. **Estados de servicio — strings exactos:** `'EN ESPERA'`, `'EN PROCESO'`, `'COMPLETADO'` (español, mayúsculas). BUG ACTIVO: users backend `/assign` pone `'En Proceso'` (mixed case) en lugar de `'EN PROCESO'`.
+4. **Roles en BD — strings exactos:** `'user'`, `'ally'`, `'admin'` (minúsculas, inglés).
 
-5. **`photo_change_requests` vive en `users.db`.** El admin backend accede a ella llamando HTTP al users backend (puerto 3000), no abre users.db directamente.
+5. **Estados de servicio — strings exactos:** `'EN ESPERA'`, `'EN PROCESO'`. **BUG ACTIVO:** users `/services-in-search/:id/assign` escribe `'En Proceso'` (mixed case); allies escribe `'EN PROCESO'`. Ver §9.
 
-6. **No hay JWT.** El backend no valida identidad en la mayoría de endpoints — acepta cualquier email en el body/query. La autenticación real solo existe en el flujo OTP y en admin login.
+6. **Socket.io de negocio vive solo en el users backend (3000).** El admin Flutter se conecta ahí. El allies backend tiene Socket.io pero solo para logging.
 
-7. **Socket.io está en el proceso de users backend** (puerto 3000, `http.createServer`). El admin Flutter se conecta al Socket.io del users backend, no al admin backend.
+7. **`photoRequestUpdated` debe incluir `new_avatar_image`** cuando el status es `approved` — el Provider de Flutter depende de ese campo para refrescar el avatar sin recargar.
 
-8. **`allies.db` y `services.db` son escritas por dos procesos.** Users backend escribe en `allies.db` (via `/register-ally`) y en `services.db` (via `/publish-service`, `/assign`). Allies backend también escribe en ambas. Sin WAL mode activo en estas DBs.
+8. **No hay JWT.** Fuera del flujo OTP y del login de admin, ningún endpoint valida identidad: aceptan cualquier email en body o query.
 
-9. **Allies backend necesita credenciales Mailgun al arrancar.** A diferencia del users backend, no tiene guard de credenciales — arranca o crashea según exista `MAILGUN_API_KEY`.
+9. **`error.code === 'PGRST116'` significa "no encontrado"**, no un fallo. Tratarlo como caso normal, igual que hace `check-user` / `check-ally`.
 
-10. **`services_in_search` NO tiene campo `additional_info`** en el schema real — el blueprint lo listaba pero no está en el `CREATE TABLE` del código.
+10. **`user_phones` y `device_sessions` dependen de constraints UNIQUE en Supabase** (`user_email` y `(user_email, device_id)`). Si se borran, los upsert con `onConflict` fallan.
+
+11. **`search_history` guarda la columna `query`** pero la API la expone como `search_query`. No unificar sin tocar el cliente.
 
 ---
 
 ## 9. KNOWN ISSUES — DEUDA TÉCNICA
 
 ### Seguridad (crítico — bloquea producción)
-- **Backdoor `'123456'`** en users `/verify-otp` (línea 1499): acepta este código para cualquier email sin restricción
-- **Passwords de admin en plain text** en `admins.db` — sin hashing
-- **Sin JWT ni auth middleware** — cualquier cliente que conozca un email puede leer/modificar el perfil de ese usuario
-- **CORS abierto** (`origin: "*"`) en los 3 backends y en Socket.io
-- **Sin rate limiting** en `/send-otp` — abierto a spam de emails Mailgun
-- **OTPs en memoria** (Map de Node.js) — se pierden en cada reinicio del servidor
-- **Números de tarjeta en plain text** en `user_cards.card_number`
-- **`DELETE /users/:email` sin auth** — cualquiera puede eliminar la cuenta de cualquier usuario
+- **Backdoor OTP en allies** (`tudu_allies/backend/index.js:122`): `if (otp === '123456') return ...` — **cualquier email** entra sin verificar. El equivalente en users (`index.js:94`) está acotado a `cosmodavid2009@gmail.com`, pero igual debe salir antes de producción.
+- **Passwords de admin en plain text** (`admins.password`) — sin hashing, comparados con `.eq()`.
+- **Service role key en los 3 backends** — bypassa RLS por completo. No hay políticas de fila efectivas.
+- **Sin JWT ni middleware de auth** — quien conozca un email puede leer y modificar ese perfil.
+- **CORS abierto** (`origin: "*"`) en los 3 backends y en Socket.io.
+- **Sin rate limiting** en `/send-otp` — abierto a spam contra la cuota de Supabase Auth.
+- **`DELETE /users/:email` sin auth** — cualquiera borra la cuenta de cualquiera.
+- **El backend descarta la sesión de Supabase Auth** y no la devuelve al cliente, así que no hay forma de verificar identidad después del OTP.
 
 ### Bugs activos
-- **Status case inconsistency:** users `/services-in-search/:id/assign` pone `'En Proceso'` pero el valor correcto es `'EN PROCESO'` — breaks filtros que comparan por estado
-- **`DELETE /users/:email` sin transacción** — 3 deletes secuenciales sin BEGIN/COMMIT; usuario puede quedar con datos huérfanos si falla uno
-- **`cities` con datos incorrectos** — 'Cali' aparece bajo Antioquia, 'Barranquilla' bajo Bolívar, 'Luruaco' bajo Bolívar (están en departamentos equivocados)
-- **Mailgun en allies crashea sin credenciales** — se inicializa incondicionalmente, sin guard
+- **`ally_service_profiles` con clave inconsistente:** `POST /ally-service-profile` inserta usando `ally_email` (`index.js:218`), pero `POST /check-ally` busca con `.eq('ally_id', ally.id)` (`index.js:152`). El check nunca encuentra los perfiles → el aliado queda atrapado en `partial: 'service'`.
+- **Status case inconsistency:** users `/assign` escribe `'En Proceso'` (`index.js:484`), allies escribe `'EN PROCESO'` (`index.js:271`). Rompe cualquier filtro que compare por igualdad exacta.
+- **`POST /users/cards` detecta duplicados con `.like('%1234')`** sobre los últimos 4 dígitos — falsos positivos entre tarjetas distintas del mismo usuario.
+- **`DELETE /users/:email` sin transacción** — 7 deletes secuenciales; si uno falla quedan datos huérfanos.
+- **`GET /api/user/photo-change-request/unnotified` ignora el error** de Supabase y siempre responde `success: true`.
+- **`cities` con datos incorrectos** (heredado): 'Cali' bajo Antioquia, 'Barranquilla' y 'Luruaco' bajo Bolívar.
 
 ### Deuda de arquitectura
-- **`allies.db` y `services.db` sin WAL mode** — escrituras concurrentes de dos procesos pueden causar `SQLITE_BUSY`
-- **Sin sistema de migraciones** — ALTER TABLE acumulados en el callback de apertura, ignorando `duplicate column`; no hay versión de schema
-- **Imágenes base64 en SQLite** — `avatar_image` y `new_avatar_image` pueden ser varios MB por registro; `multer` está instalado pero comentado
-- **Socket.io duplicado en Flutter** — `dashboard_screen.dart` y `photo_change_requests_screen.dart` replican el mismo código de conexión
-- **Firebase comentado** — import y init comentados en users backend (líneas 13-18); `firebase-admin.json` no existe
+- **Imágenes base64 en columnas de Postgres** — `avatar_image`, `new_avatar_image`, y los 3 campos KYC pueden pesar varios MB por fila. Deberían ir a Supabase Storage.
+- **Sin migraciones versionadas** — el schema solo existe en el dashboard de Supabase; no hay SQL en el repo ni forma de recrear el entorno desde cero.
+- **Código SQLite muerto sin borrar** — `index.js.old`, `index.sqlite.js`, `server.sqlite.js`, `init-db.js` y el script `npm run init-db` (que ni siquiera tiene ya la dependencia `sqlite3`).
+- **Mailgun muerto en allies** — se inicializa `mg` y nunca se usa; `mailgun-js` sigue en `package.json`.
+- **`users` backend duplica endpoints de allies** (`/check-ally`, `/register-ally`) con lógica más simple que la del allies backend.
+- **Limpieza de fotos por `setInterval`** — se pierde si el proceso reinicia; debería ser un cron o una función de Supabase.
 
 ### Deuda de frontend
-- **IP hardcodeada** en `config.dart` de las 3 apps — no hay `--dart-define` ni `.env`
-- **Lógica HTTP en widgets** — la mayoría de screens hacen `http.get/post` directamente, sin capa de servicios
-- **Sin expiración de sesión** — `SharedPreferences` persiste indefinidamente
+- **Lógica HTTP en widgets** — la mayoría de screens hacen `http.get/post` directo, sin capa de servicios.
+- **Sin expiración de sesión** — `SharedPreferences` persiste indefinidamente.
+- **`config.dart` divergente entre las 3 apps** — misma lógica copiada con imports y comentarios distintos.
 
 ---
 
 ## 10. CURRENT STATE
 
 ### Implementado y funcional
-- [x] Auth OTP completo (users y allies)
+- [x] Auth OTP vía Supabase Auth (users y allies)
 - [x] Auth admin (username/password)
-- [x] Registro de usuarios y aliados (con validación de 20 chars)
-- [x] Catálogo de 10 servicios (seeded)
+- [x] Registro de usuarios y aliados
+- [x] Catálogo de servicios + creación de servicios nuevos desde allies
 - [x] Publicar y buscar servicios (`services_in_search`)
-- [x] Asignación de servicios a aliados (`PUT /assign`)
-- [x] Actualización de estado de servicios
-- [x] Historial de búsquedas
-- [x] Perfil de usuario (datos personales, avatar color/icono/foto)
-- [x] Gestión de direcciones (con 33 departamentos y ~1000 ciudades de Colombia)
-- [x] Gestión de tarjetas de pago (guardado, sin procesador real)
-- [x] Solicitudes de cambio de foto con aprobación de admin
-- [x] Socket.io para notificaciones en tiempo real (photo_change_requests)
+- [x] Asignación de servicios a aliados y cambio de estado
+- [x] Historial de búsquedas (últimas 10)
+- [x] Perfil de usuario (datos, avatar color/icono/foto)
+- [x] Direcciones (33 departamentos, ~1000 ciudades)
+- [x] Tarjetas de pago (enmascaradas, sin procesador real)
+- [x] Solicitudes de cambio de foto con aprobación de admin + limpieza automática
+- [x] Socket.io en tiempo real para photo_change_requests
 - [x] Panel admin: login, CRUD de admins, cambio de contraseña
-- [x] Pantalla admin de photo_change_requests
-- [x] Sistema de sesiones por dispositivo (device_sessions completo)
-- [x] i18n en app Users (l10n/)
-- [x] Dark mode y selector de idioma en app Users
-- [x] Países del mundo con códigos de marcación (seeded)
+- [x] Sesiones por dispositivo (users y allies, sesión única)
+- [x] Carga de documentos KYC de aliados
+- [x] i18n, dark mode y selector de idioma en app Users
+- [x] Países con códigos de marcación
 
 ### Incompleto o placeholder
-- [ ] **`messages` table:** en el blueprint, no implementada en código (search.db no la crea)
+- [ ] **Revisión de KYC:** los documentos se suben y quedan en `submitted`; no hay endpoint ni UI de admin para aprobar/rechazar
+- [ ] **`ally_service_profiles`:** roto por el mismatch `ally_email` / `ally_id` (ver §9)
+- [ ] **Mensajería:** sin tabla, sin endpoints, sin UI
+- [ ] **Reviews/ratings:** mencionados en el blueprint, no existen
+- [ ] **Notificaciones push (FCM):** no implementadas
+- [ ] **Pagos reales:** tarjetas guardadas, sin procesador
 - [ ] **Admin tab "Usuarios":** muestra solicitudes de foto, no lista de usuarios
 - [ ] **Admin tab "Aliados":** "Funcionalidad en construcción"
-- [ ] **Admin cards "Solicitud 2/3/4":** placeholders que navegan a `PhotoChangeRequestsScreen`
-- [ ] **Mensajería:** sin endpoints ni UI
-- [ ] **Reviews/ratings:** mencionados en blueprint, no existen en código
-- [ ] **Notificaciones push (FCM):** Firebase comentado
-- [ ] **Pagos reales:** tarjetas guardadas, sin procesador de pagos
 - [ ] **App Allies:** sin pantallas de perfil, configuración ni dirección
-- [ ] **Filtros por ubicación:** mencionados en blueprint, no implementados
+- [ ] **Filtros por ubicación:** no implementados
 
 ### Backlog activo
-Ver `TASKS.md` — 37 tareas priorizadas, ~120h estimadas.
-Secuencia recomendada: TASK-001 → TASK-033 → TASK-032 → TASK-036 → TASK-006 → TASK-037 → TASK-002 → TASK-003
+Ver `TASKS.md`. ⚠ `TASKS.md`, `APPLICATION_BLUEPRINT.md`, `backend_structure.txt` e `informe_normalizacion.md` **no fueron revisados en esta pasada** y todavía describen la arquitectura SQLite. Tratarlos como desactualizados hasta verificarlos contra el código.

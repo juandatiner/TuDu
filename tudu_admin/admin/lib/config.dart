@@ -28,6 +28,20 @@ class Config {
     return baseUrl;
   }
 
+  /// Puerto del backend propio de administración (login y CRUD de admins).
+  /// El resto del panel consume el backend de users en el 3000.
+  static const int adminPort = 3003;
+
+  static String get adminBaseUrl {
+    if (_dartDefineIp.isNotEmpty) {
+      return 'http://$_dartDefineIp:$adminPort';
+    }
+    if (Platform.isAndroid) {
+      return 'http://10.0.2.2:$adminPort';
+    }
+    return 'http://localhost:$adminPort';
+  }
+
   // Colores de la aplicación (identidad de TuDu)
   static const Color backgroundColor = Color(0xFFF4F2F2);
   static const Color primaryColor = Color(0xFF78BF32);

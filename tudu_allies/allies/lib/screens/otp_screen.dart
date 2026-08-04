@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../config.dart';
+import '../services/auth_store.dart';
+import '../services/session_service.dart';
 import 'verification_success_screen.dart';
 import 'registration_screen.dart';
 
@@ -100,12 +103,19 @@ class _OtpScreenState extends State<OtpScreen> {
           .post(
             Uri.parse('${Config.baseUrl}/verify-otp'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': widget.email, 'otp': _otpCode}),
+            body: jsonEncode({
+              'email': widget.email,
+              'otp': _otpCode,
+              'device_id':
+                  Provider.of<SessionService>(context, listen: false).deviceId,
+            }),
           )
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        // OTP verificado exitosamente, ir a la pantalla de éxito
+        // Identidad probada: se guardan el token de acceso y el de refresco.
+        await AuthStore.saveSession(jsonDecode(response.body));
+
         if (mounted) {
           Navigator.pushReplacement(
             context,

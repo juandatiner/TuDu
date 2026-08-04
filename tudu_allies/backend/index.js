@@ -31,13 +31,20 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+/// Sala privada de un dispositivo, para avisarle solo a él que perdió la sesión.
+function salaDispositivo(email, deviceId) {
+  return `device:${String(email).toLowerCase()}:${deviceId}`;
+}
+
 // Socket.io connection handler para monitoreo de Aliados
 io.on('connection', (socket) => {
   const auth = socket.handshake.auth || {};
-  console.log('--- NUEVA CONEXIÓN SOCKET ---');
-  console.log('Recibido Auth:', auth);
-  
-  let email = auth.email || 'Desconocido';
+
+  const email = socket.data.auth.email;
+  const deviceId = socket.data.auth.device_id || auth.device_id;
+  socket.join(`ally:${String(email).toLowerCase()}`);
+  if (deviceId) socket.join(salaDispositivo(email, deviceId));
+
   let deviceName = 'Cliente Web o Emulador';
 
   try {
@@ -51,18 +58,10 @@ io.on('connection', (socket) => {
     console.error('Error parseando device info:', e);
   }
 
-  if (email !== 'Desconocido') {
-    console.log(`📱 Conexión en vivo -> Aliado: [${email}] | Equipo: [${deviceName}]`);
-  } else {
-    console.log(`💻 Conexión en vivo -> Panel o Anónimo | ID: ${socket.id}`);
-  }
+  console.log(`📱 Conexión en vivo -> Aliado: [${email}] | Equipo: [${deviceName}]`);
 
   socket.on('disconnect', () => {
-    if (email !== 'Desconocido') {
-      console.log(`🔌 Desconectado -> Aliado: [${email}] | Equipo: [${deviceName}]`);
-    } else {
-      console.log(`🔌 Desconectado -> Panel o Anónimo`);
-    }
+    console.log(`🔌 Desconectado -> Aliado: [${email}] | Equipo: [${deviceName}]`);
   });
 });
 
@@ -83,6 +82,124 @@ if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN &&
 app.use(cors());
 app.use(express.json());
 
+const { signSession, requireAuth, createRefreshHandler, authenticateSocket } = require('./auth');
+
+// El socket exige el mismo JWT que la API REST.
+io.use(authenticateSocket);
+
+// Código maestro de desarrollo. Solo sirve con DEV_MODE=true.
+const OTP_DEV = process.env.DEV_OTP || '123456';
+
+// Rutas sin token: las que sirven para obtenerlo y los catálogos públicos.
+const RUTAS_PUBLICAS = [
+  '/send-otp',
+  '/verify-otp',
+  '/check-ally',
+  '/services',
+  '/ally-device-session/check',
+  '/auth/refresh'
+];
+
+function esRutaPublica(path) {
+  return RUTAS_PUBLICAS.some(r => path === r || path.startsWith(r + '/'));
+}
+
+const CAMPOS_DUENO = ['email', 'ally_email', 'user_email'];
+
+// 1. Todo lo demás exige token válido.
+app.use((req, res, next) => {
+  if (esRutaPublica(req.path)) return next();
+  return requireAuth(req, res, next);
+});
+
+// 2. Nadie opera sobre la cuenta de otro.
+app.use((req, res, next) => {
+  if (esRutaPublica(req.path) || !req.auth) return next();
+  if (req.auth.role === 'admin') return next();
+
+  const propio = String(req.auth.email).toLowerCase();
+  const fuentes = { ...req.query, ...req.body };
+
+  for (const campo of CAMPOS_DUENO) {
+    const valor = fuentes[campo];
+    if (valor && String(valor).toLowerCase() !== propio) {
+      return res.status(403).json({ error: 'No puedes operar sobre otra cuenta', code: 'FORBIDDEN' });
+    }
+  }
+
+  for (const segmento of decodeURIComponent(req.path).split('/')) {
+    if (segmento.includes('@') && segmento.toLowerCase() !== propio) {
+      return res.status(403).json({ error: 'No puedes operar sobre otra cuenta', code: 'FORBIDDEN' });
+    }
+  }
+
+  next();
+});
+
+// Una sesión sin actividad durante este tiempo caduca y vuelve a pedir OTP.
+const SESSION_MAX_IDLE_DAYS = 180;
+
+// Un registro de aliado a medias (sin cédula enviada) se descarta pasado este tiempo.
+// La ventana existe para que quien cierre la app a mitad del registro y vuelva
+// al rato siga donde iba, en vez de tener que escribir todo de nuevo.
+const REGISTRO_INCOMPLETO_MAX_DIAS = 7;
+
+function fechaLimiteSesion() {
+  return new Date(Date.now() - SESSION_MAX_IDLE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function fechaLimiteRegistroIncompleto() {
+  return new Date(Date.now() - REGISTRO_INCOMPLETO_MAX_DIAS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+// Cierra sesiones de aliado sin actividad reciente.
+async function expirarSesionesInactivas() {
+  const { data, error } = await supabase
+    .from('ally_device_sessions')
+    .update({ is_active: 0 })
+    .eq('is_active', 1)
+    .lt('last_activity', fechaLimiteSesion())
+    .select('id');
+
+  if (!error && data && data.length > 0) {
+    console.log(`🧹 SESIONES: ${data.length} sesiones de aliado caducadas por ${SESSION_MAX_IDLE_DAYS} días sin actividad.`);
+  }
+}
+
+// Borra registros de aliado abandonados: viejos y sin cédula enviada nunca.
+// Los que están en 'submitted' o 'approved' no se tocan jamás: esa persona ya
+// se identificó ante la empresa y solo está esperando respuesta.
+async function limpiarRegistrosAbandonados() {
+  const { data: abandonados, error } = await supabase
+    .from('allies')
+    .select('email')
+    .not('kyc_status', 'in', '("submitted","approved")')
+    .lt('created_at', fechaLimiteRegistroIncompleto());
+
+  if (error || !abandonados || abandonados.length === 0) return;
+
+  const emails = abandonados.map(a => a.email);
+  await supabase.from('ally_service_profiles').delete().in('ally_email', emails);
+  await supabase.from('allies').delete().in('email', emails);
+  console.log(`🧹 REGISTROS: ${emails.length} registros de aliado abandonados (>${REGISTRO_INCOMPLETO_MAX_DIAS} días sin cédula) eliminados.`);
+}
+
+/// El mantenimiento real corre en la base con pg_cron (ver `supabase/cron.sql`).
+/// Este respaldo en proceso solo se activa con MANTENIMIENTO_EN_PROCESO=true,
+/// pensado para desarrollo local: un setInterval muere con el proceso y se
+/// duplica si hay varias instancias del backend.
+const MANTENIMIENTO_EN_PROCESO = process.env.MANTENIMIENTO_EN_PROCESO === 'true';
+
+function programarMantenimiento(nombre, tarea) {
+  if (!MANTENIMIENTO_EN_PROCESO) return;
+  tarea();
+  setInterval(tarea, 1000 * 60 * 60);
+  console.log(`⏱  Mantenimiento en proceso activo: ${nombre} (cada hora). En producción esto lo hace pg_cron.`);
+}
+
+programarMantenimiento('caducidad de sesiones', expirarSesionesInactivas);
+programarMantenimiento('registros abandonados', limpiarRegistrosAbandonados);
+
 // Almacenamiento temporal de OTPs
 const otpStore = new Map();
 
@@ -99,8 +216,11 @@ app.post('/send-otp', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email es requerido' });
 
-  if (process.env.DEV_MODE === 'true' && email === 'cosmodavid2009@gmail.com') {
-    return res.json({ message: 'OTP simulado en dev' });
+  // MODO DESARROLLO: no se envía correo y se entra con el OTP maestro.
+  // Solo con DEV_MODE=true, que nunca debe estar puesto en producción.
+  if (process.env.DEV_MODE === 'true') {
+    console.log(`🔓 DEV_MODE: OTP omitido para ${email} — usar el código ${OTP_DEV}`);
+    return res.json({ message: 'OTP simulado en modo desarrollo', dev_mode: true });
   }
 
   // Auth Nativo de Supabase (Envía el correo OTP automáticamente sin Mailgun)
@@ -115,11 +235,19 @@ app.post('/send-otp', async (req, res) => {
 });
 
 app.post('/verify-otp', async (req, res) => {
-  const { email, otp } = req.body;
+  const { email, otp, device_id } = req.body;
   if (!email || !otp) return res.status(400).json({ error: 'Email y OTP requeridos' });
 
-  // Puerta trasera para testing
-  if (otp === '123456') return res.json({ message: 'OTP verificado (acceso directo)' });
+  // MODO DESARROLLO: OTP maestro con cualquier correo, solo si DEV_MODE=true.
+  // Antes este atajo estaba SIEMPRE activo y sin condición de entorno: cualquiera
+  // entraba a cualquier cuenta escribiendo 123456.
+  if (process.env.DEV_MODE === 'true' && otp === OTP_DEV) {
+    return res.json({
+      message: 'OTP verificado en modo desarrollo',
+      ...signSession({ email, role: 'ally', device_id }),
+      dev_mode: true
+    });
+  }
 
   // Auth Nativo de Supabase
   const { data, error } = await supabase.auth.verifyOtp({ 
@@ -133,34 +261,102 @@ app.post('/verify-otp', async (req, res) => {
     return res.status(400).json({ error: 'OTP expirado o inválido' });
   }
 
-  res.json({ message: 'OTP verificado exitosamente mediante Supabase' });
+  // Identidad probada: se emite el token para el resto de peticiones.
+  res.json({
+    message: 'OTP verificado exitosamente mediante Supabase',
+    ...signSession({ email, role: 'ally', device_id })
+  });
 });
+
+/// Canjea el refresh token por un acceso nuevo, comprobando contra la base que
+/// la sesión de ese dispositivo siga viva. Eso es lo que hace revocable el acceso.
+app.post('/auth/refresh', createRefreshHandler(async ({ email, device_id }) => {
+  if (!device_id) return false;
+
+  const { data } = await supabase
+    .from('ally_device_sessions')
+    .select('is_active, last_activity')
+    .eq('ally_email', email)
+    .eq('device_id', device_id)
+    .single();
+
+  if (!data || data.is_active !== 1) return false;
+  return data.last_activity >= fechaLimiteSesion();
+}));
 
 // ==========================================
 // 2. ALIADOS
 // ==========================================
 
 app.post('/check-ally', async (req, res) => {
-  const { email } = req.body;
+  const { email, on_login } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requerido' });
 
-  const { data: ally, error } = await supabase.from('allies').select('id, nombre, apellido, fecha_nacimiento').eq('email', email).single();
+  const { data: ally, error } = await supabase
+    .from('allies')
+    .select('id, nombre, apellido, fecha_nacimiento, kyc_status, created_at')
+    .eq('email', email)
+    .single();
   if (error && error.code !== 'PGRST116') return res.status(500).json({ error: 'Error verificando' });
 
-  if (ally && ally.nombre && ally.apellido && ally.fecha_nacimiento) {
-    // Si tiene perfil personal, vemos si tiene al menos un servicio creado
-    const { data: services } = await supabase.from('ally_service_profiles').select('id').eq('ally_id', ally.id).limit(1);
-    
-    if (services && services.length > 0) {
-      return res.json({ exists: true, ally });
-    } else {
-      // Tiene datos personales pero no servicios
-      return res.json({ exists: false, partial: 'service' });
-    }
-  } else {
-    // No tiene datos personales o están incompletos
-    return res.json({ exists: false, partial: 'personal' });
+  if (!ally) {
+    return res.json({ exists: false, partial: 'personal', kyc_status: null });
   }
+
+  const kyc = ally.kyc_status || 'pending';
+  const identificado = kyc === 'submitted' || kyc === 'approved';
+
+  // Registro abandonado: entró alguna vez, dejó datos a medias y NUNCA llegó a
+  // enviar la cédula. Se descarta y arranca limpio desde el formulario, pero
+  // solo si además ya pasó la ventana de gracia: quien escribió su nombre,
+  // cerró la app y volvió al rato continúa donde iba, sin repetir nada.
+  //
+  // Se hace únicamente en el login (`on_login`), no en los refrescos de estado,
+  // para que un chequeo a mitad del onboarding no borre lo recién guardado.
+  const registroVencido = ally.created_at < fechaLimiteRegistroIncompleto();
+
+  if (on_login === true && !identificado && registroVencido) {
+    await supabase.from('ally_service_profiles').delete().eq('ally_email', email);
+    await supabase.from('allies').delete().eq('email', email);
+    console.log(`🧹 Registro incompleto descartado al iniciar sesión: ${email} (kyc_status=${kyc})`);
+    return res.json({ exists: false, partial: 'personal', kyc_status: null, reset: true });
+  }
+
+  // 1. Sin datos personales mínimos (nombre + apellido) → hay que pedirlos.
+  //    `fecha_nacimiento` no entra en esta condición a propósito: si ya nos dio
+  //    el nombre, no se lo volvemos a pedir dentro del mismo onboarding.
+  if (!ally.nombre || !ally.apellido) {
+    return res.json({ exists: false, partial: 'personal', kyc_status: kyc });
+  }
+
+  // 2. Ya tiene datos personales. Si todavía no subió cédula, ese es el paso.
+  if (!identificado) {
+    return res.json({ exists: false, partial: 'kyc', kyc_status: kyc, ally });
+  }
+
+  // 3. Documentos ya enviados. Falta el perfil del primer servicio.
+  //    La tabla guarda `ally_email`, no `ally_id` — consultar por `ally_id` nunca encontraba nada.
+  const { data: services } = await supabase
+    .from('ally_service_profiles')
+    .select('id')
+    .eq('ally_email', email)
+    .limit(1);
+
+  const tieneServicio = services && services.length > 0;
+
+  if (!tieneServicio) {
+    // Se deja seguir el onboarding sin esperar la aprobación del admin:
+    // bloquear acá dejaría al aliado atrapado a mitad del registro.
+    return res.json({ exists: false, partial: 'service', kyc_status: kyc, ally });
+  }
+
+  // 4. Onboarding completo. Solo entra al home si el admin ya aprobó el KYC;
+  //    si no, pantalla de "tu cuenta está siendo verificada" — nunca el formulario otra vez.
+  if (kyc !== 'approved') {
+    return res.json({ exists: false, partial: 'kyc_pending', kyc_status: kyc, ally });
+  }
+
+  return res.json({ exists: true, ally, kyc_status: kyc });
 });
 
 app.post('/register-ally', async (req, res) => {
@@ -171,13 +367,14 @@ app.post('/register-ally', async (req, res) => {
 
   // Usamos upsert para que si ya existe en la tabla 'allies' (por el OTP previo), 
   // simplemente actualicemos sus datos personales.
-  const { data, error } = await supabase.from('allies').upsert([{ 
-    email, 
-    nombre, 
-    apellido, 
-    fecha_nacimiento: fecha_nacimiento || null,
-    updated_at: new Date().toISOString()
-  }], { 
+  // OJO: la tabla `allies` no tiene columna `updated_at`. Escribirla hace que
+  // Supabase responda "Could not find the 'updated_at' column" y el registro falle entero.
+  const { data, error } = await supabase.from('allies').upsert([{
+    email,
+    nombre,
+    apellido,
+    fecha_nacimiento: fecha_nacimiento || null
+  }], {
     onConflict: 'email',
     ignoreDuplicates: false 
   }).select('id').single();
@@ -305,45 +502,69 @@ app.post('/ally-device-session/check', async (req, res) => {
   const { email, device_id, device_info } = req.body;
   if (!email || !device_id) return res.status(400).json({ error: 'Faltan campos' });
 
-  // Bypass de prueba: Cosmodavid siempre pide OTP para testing, igual que en users
-  if (email === 'cosmodavid2009@gmail.com') {
-    return res.json({ requires_verification: true, session_active: false });
-  }
-
   const { data: ally } = await supabase.from('allies').select('email').eq('email', email).single();
   if (!ally) return res.status(404).json({ error: 'Aliado no encontrado' });
 
   const { data: session } = await supabase.from('ally_device_sessions').select('*').eq('ally_email', email).eq('device_id', device_id).single();
   if (session) {
+    if (session.is_active === 1 && session.last_activity < fechaLimiteSesion()) {
+      await supabase.from('ally_device_sessions').update({ is_active: 0 }).eq('id', session.id);
+      return res.json({ requires_verification: true, session_active: false, expired: true });
+    }
+
     if (session.is_active === 1) {
       await supabase.from('ally_device_sessions').update({ last_activity: new Date().toISOString() }).eq('id', session.id);
       return res.json({ requires_verification: false, session_active: true });
-    } else {
-      return res.json({ requires_verification: true, session_active: false });
     }
-  } else {
-    const { count } = await supabase.from('ally_device_sessions').select('*', { count: 'exact', head: true }).eq('ally_email', email).eq('is_active', 1);
-    return res.json({ requires_verification: count > 0, session_active: false });
+
+    return res.json({ requires_verification: true, session_active: false });
   }
+
+  // Igual que en users: dispositivo desconocido (incluye reinstalación) → siempre OTP.
+  const { count } = await supabase.from('ally_device_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('ally_email', email)
+    .eq('is_active', 1);
+
+  return res.json({ requires_verification: true, session_active: false, has_other_sessions: count > 0 });
 });
 
 app.post('/ally-device-session/register', async (req, res) => {
   const { email, device_id, device_info } = req.body;
   if (!email || !device_id) return res.status(400).json({ error: 'Faltan campos' });
   
-  // 1. Cierra todas las demás sesiones de este aliado
-  await supabase.from('ally_device_sessions')
+  // 1. Cierra todas las demás sesiones de este aliado y les avisa en el acto
+  //    por socket, en vez de que ellas pregunten cada 30 segundos.
+  const { data: desplazadas } = await supabase.from('ally_device_sessions')
     .update({ is_active: 0 })
     .eq('ally_email', email)
-    .neq('device_id', device_id);
+    .neq('device_id', device_id)
+    .eq('is_active', 1)
+    .select('device_id');
+
+  for (const s of desplazadas || []) {
+    io.to(salaDispositivo(email, s.device_id)).emit('sessionClosed', {
+      reason: 'other_device',
+      device_id: s.device_id
+    });
+  }
 
   // 2. Registra o actualiza la actual
   const { data: existing } = await supabase.from('ally_device_sessions').select('id').eq('ally_email', email).eq('device_id', device_id).single();
   
-  if (existing) {
-    await supabase.from('ally_device_sessions').update({ device_info, is_active: 1, last_activity: new Date().toISOString() }).eq('id', existing.id);
-  } else {
-    await supabase.from('ally_device_sessions').insert([{ ally_email: email, device_id, device_info, is_active: 1, last_activity: new Date().toISOString() }]);
+  // Antes no se miraba el error y siempre se respondía `success: true`. Si el
+  // insert fallaba (por ejemplo, la clave foránea contra `allies` cuando el
+  // aliado no existe), el cliente creía tener sesión y no la tenía.
+  const { error } = existing
+    ? await supabase.from('ally_device_sessions')
+        .update({ device_info, is_active: 1, last_activity: new Date().toISOString() })
+        .eq('id', existing.id)
+    : await supabase.from('ally_device_sessions')
+        .insert([{ ally_email: email, device_id, device_info, is_active: 1, last_activity: new Date().toISOString() }]);
+
+  if (error) {
+    console.error('❌ No se pudo registrar la sesión del aliado:', error.message);
+    return res.status(500).json({ error: 'No se pudo registrar la sesión', code: 'SESSION_NOT_CREATED' });
   }
 
   res.json({ success: true });
@@ -351,12 +572,25 @@ app.post('/ally-device-session/register', async (req, res) => {
 
 app.get('/ally-device-session/status', async (req, res) => {
   const { email, device_id } = req.query;
-  const { data: session } = await supabase.from('ally_device_sessions').select('is_active').eq('ally_email', email).eq('device_id', device_id).single();
-  if (session) {
-    res.json({ is_active: session.is_active === 1 });
-  } else {
-    res.json({ is_active: false });
+  const { data: session } = await supabase.from('ally_device_sessions').select('id, is_active, last_activity').eq('ally_email', email).eq('device_id', device_id).single();
+
+  if (session && session.is_active === 1 && session.last_activity < fechaLimiteSesion()) {
+    await supabase.from('ally_device_sessions').update({ is_active: 0 }).eq('id', session.id);
+    return res.json({ is_active: false, closed_remotely: false, expired: true });
   }
+
+  if (session && session.is_active === 1) {
+    return res.json({ is_active: true, closed_remotely: false });
+  }
+
+  // Igual que en users: solo es cierre remoto si otro dispositivo está activo.
+  const { count } = await supabase.from('ally_device_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('ally_email', email)
+    .eq('is_active', 1)
+    .neq('device_id', device_id);
+
+  res.json({ is_active: false, closed_remotely: count > 0 });
 });
 
 app.post('/ally-device-session/logout', async (req, res) => {
@@ -377,8 +611,21 @@ app.get('/ally-device-session/list', async (req, res) => {
 
 app.post('/ally-device-session/close-others', async (req, res) => {
   const { email, keep_device_id } = req.body;
-  await supabase.from('ally_device_sessions').update({ is_active: 0 }).eq('ally_email', email).neq('device_id', keep_device_id);
-  res.json({ success: true });
+  const { data: cerradas } = await supabase.from('ally_device_sessions')
+    .update({ is_active: 0 })
+    .eq('ally_email', email)
+    .neq('device_id', keep_device_id)
+    .eq('is_active', 1)
+    .select('device_id');
+
+  for (const s of cerradas || []) {
+    io.to(salaDispositivo(email, s.device_id)).emit('sessionClosed', {
+      reason: 'closed_by_user',
+      device_id: s.device_id
+    });
+  }
+
+  res.json({ success: true, closed_count: (cerradas || []).length });
 });
 
 

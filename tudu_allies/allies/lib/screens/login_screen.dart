@@ -5,9 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../config.dart';
+import '../services/ally_routing.dart';
 import '../services/session_service.dart';
 import 'otp_screen.dart';
-import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -85,13 +85,16 @@ class _LoginScreenState extends State<LoginScreen> {
           // Guardar el email y navegar directamente al home
           await sessionService.setUserEmail(_emailController.text);
 
+          // No entrar directo al home: el aliado puede tener sesión válida y aun
+          // así estar sin KYC. El enrutador decide el paso que le falta.
+          final destino = await AllyRouting.resolveDestination(
+              _emailController.text,
+              onLogin: true);
+
           if (mounted) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    AllyHomeScreen(allyEmail: _emailController.text),
-              ),
+              MaterialPageRoute(builder: (context) => destino),
             );
           }
         } else {

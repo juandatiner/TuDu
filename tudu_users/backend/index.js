@@ -17,6 +17,102 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+const { signSession, requireAuth, createRefreshHandler, authenticateSocket } = require('./auth');
+
+// Código maestro de desarrollo. Solo sirve con DEV_MODE=true.
+const OTP_DEV = process.env.DEV_OTP || '123456';
+
+// Rutas que se pueden llamar SIN token, porque son justo las que sirven para
+// obtenerlo o son catálogos públicos sin datos personales.
+const RUTAS_PUBLICAS = [
+  '/send-otp',
+  '/verify-otp',
+  '/check-user',
+  '/check-ally',
+  '/departments',
+  '/cities',
+  '/countries',
+  '/services',
+  '/search-services',
+  '/device-session/check',
+  '/auth/refresh'
+];
+
+function esRutaPublica(path) {
+  return RUTAS_PUBLICAS.some(r => path === r || path.startsWith(r + '/'));
+}
+
+// Campos por los que un endpoint identifica al dueño de los datos.
+const CAMPOS_DUENO = ['email', 'user_email', 'userEmail', 'ally_email'];
+
+// 1. Todo lo que no sea ruta pública exige token válido.
+app.use((req, res, next) => {
+  if (esRutaPublica(req.path)) return next();
+  return requireAuth(req, res, next);
+});
+
+// 2. Con token en mano, nadie puede operar sobre el correo de otro.
+//    El rol `admin` sí puede: el panel gestiona cuentas ajenas por definición.
+app.use((req, res, next) => {
+  if (esRutaPublica(req.path) || !req.auth) return next();
+  if (req.auth.role === 'admin') return next();
+
+  const propio = String(req.auth.email).toLowerCase();
+
+  const fuentes = { ...req.query, ...req.body };
+  for (const campo of CAMPOS_DUENO) {
+    const valor = fuentes[campo];
+    if (valor && String(valor).toLowerCase() !== propio) {
+      return res.status(403).json({ error: 'No puedes operar sobre otra cuenta', code: 'FORBIDDEN' });
+    }
+  }
+
+  // Los emails que viajan en la URL (`/users/profile/:email`, `/users/:email`,
+  // `/users/cards/:userEmail`) no están en req.params todavía: este middleware
+  // corre antes de que Express resuelva la ruta. Se leen del path directamente.
+  for (const segmento of decodeURIComponent(req.path).split('/')) {
+    if (segmento.includes('@') && segmento.toLowerCase() !== propio) {
+      return res.status(403).json({ error: 'No puedes operar sobre otra cuenta', code: 'FORBIDDEN' });
+    }
+  }
+
+  next();
+});
+
+/// Comprueba que la FILA sobre la que se opera pertenezca a quien pide.
+///
+/// Los middlewares de arriba solo miran el correo cuando viaja en el cuerpo, la
+/// query o la URL. Los endpoints que operan por `:id` (tarjetas, direcciones,
+/// historial…) no lo llevan: sin esto, cualquiera con un token válido podía
+/// borrar la tarjeta de otro probando números de id.
+function requireOwnRow(tabla, columnaDueno = 'user_email') {
+  return async (req, res, next) => {
+    if (req.auth && req.auth.role === 'admin') return next();
+
+    const { data, error } = await supabase
+      .from(tabla)
+      .select(columnaDueno)
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: 'No encontrado', code: 'NOT_FOUND' });
+    }
+
+    if (String(data[columnaDueno]).toLowerCase() !== String(req.auth.email).toLowerCase()) {
+      return res.status(403).json({ error: 'No puedes operar sobre otra cuenta', code: 'FORBIDDEN' });
+    }
+
+    next();
+  };
+}
+
+// 3. El área de administración exige rol admin, no basta con estar logueado.
+app.use('/api/admin', (req, res, next) => {
+  if (req.auth && req.auth.role === 'admin') return next();
+  return res.status(403).json({ error: 'Se requiere rol de administrador', code: 'NOT_ADMIN' });
+});
+
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -35,10 +131,20 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// El socket ya no acepta a cualquiera: exige el mismo JWT que la API REST.
+io.use(authenticateSocket);
+
+/// Sala privada de un dispositivo concreto. Permite avisarle solo a él que su
+/// sesión fue cerrada, sin molestar a los demás equipos de la misma cuenta.
+function salaDispositivo(email, deviceId) {
+  return `device:${String(email).toLowerCase()}:${deviceId}`;
+}
+
 // Socket.io connection handler
 io.on('connection', (socket) => {
   const auth = socket.handshake.auth || {};
-  let email = auth.email || 'Desconocido';
+  const email = socket.data.auth.email;
+  const deviceId = socket.data.auth.device_id || auth.device_id;
   let deviceName = 'Cliente Web o Emulador';
 
   try {
@@ -48,18 +154,14 @@ io.on('connection', (socket) => {
     }
   } catch(e) {}
 
-  if (email !== 'Desconocido') {
-    console.log(`📱 Conexión en vivo -> Usuario: [${email}] | Equipo: [${deviceName}]`);
-  } else {
-    console.log(`💻 Conexión en vivo -> Panel Admin o Anónimo | ID: ${socket.id}`);
-  }
+  // Sala por cuenta (avisos generales) y sala por dispositivo (cierre de sesión).
+  socket.join(`user:${String(email).toLowerCase()}`);
+  if (deviceId) socket.join(salaDispositivo(email, deviceId));
+
+  console.log(`📱 Conexión en vivo -> Usuario: [${email}] | Equipo: [${deviceName}] | Rol: ${socket.data.auth.role}`);
 
   socket.on('disconnect', () => {
-    if (email !== 'Desconocido') {
-      console.log(`🔌 Desconectado -> Usuario: [${email}] | Equipo: [${deviceName}]`);
-    } else {
-      console.log(`🔌 Desconectado -> Panel Admin o Anónimo`);
-    }
+    console.log(`🔌 Desconectado -> Usuario: [${email}] | Equipo: [${deviceName}]`);
   });
 });
 
@@ -71,8 +173,12 @@ app.post('/send-otp', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email es requerido' });
 
-  if (process.env.DEV_MODE === 'true' && email === 'cosmodavid2009@gmail.com') {
-    return res.json({ message: 'OTP simulado en dev' });
+  // MODO DESARROLLO: no se manda ningún correo y se entra con el OTP maestro.
+  // Se activa solo con DEV_MODE=true en el .env, que NUNCA debe estar puesto
+  // en el servidor de producción.
+  if (process.env.DEV_MODE === 'true') {
+    console.log(`🔓 DEV_MODE: OTP omitido para ${email} — usar el código ${OTP_DEV}`);
+    return res.json({ message: 'OTP simulado en modo desarrollo', dev_mode: true });
   }
 
   // Auth Nativo de Supabase (Envía el correo OTP automáticamente sin Mailgun)
@@ -87,12 +193,17 @@ app.post('/send-otp', async (req, res) => {
 });
 
 app.post('/verify-otp', async (req, res) => {
-  const { email, otp } = req.body;
+  const { email, otp, device_id } = req.body;
   if (!email || !otp) return res.status(400).json({ error: 'Email y OTP requeridos' });
 
-  // Acceso de testing solo para la cuenta de desarrollo (no afecta a ningún otro usuario)
-  if (otp === '123456' && email === 'cosmodavid2009@gmail.com') {
-    return res.json({ message: 'OTP verificado (acceso de prueba)' });
+  // MODO DESARROLLO: el OTP maestro entra con cualquier correo.
+  // Protegido por DEV_MODE — con la variable apagada este atajo no existe.
+  if (process.env.DEV_MODE === 'true' && otp === OTP_DEV) {
+    return res.json({
+      message: 'OTP verificado en modo desarrollo',
+      ...signSession({ email, role: 'user', device_id }),
+      dev_mode: true
+    });
   }
 
   // Auth Nativo de Supabase
@@ -107,8 +218,32 @@ app.post('/verify-otp', async (req, res) => {
     return res.status(400).json({ error: 'OTP expirado o inválido' });
   }
 
-  res.json({ message: 'OTP verificado exitosamente mediante Supabase' });
+  // A partir de acá la identidad está probada: se emite el token que el cliente
+  // mandará en `Authorization: Bearer` en todas las peticiones siguientes.
+  res.json({
+    message: 'OTP verificado exitosamente mediante Supabase',
+    ...signSession({ email, role: 'user', device_id })
+  });
 });
+
+/// Canjea el refresh token por un acceso nuevo.
+///
+/// No basta con que el refresh sea válido: la sesión de ese dispositivo tiene
+/// que seguir activa en `device_sessions`. Así, cerrar sesión desde otro equipo
+/// corta de verdad al intruso en cuanto vence su token de acceso.
+app.post('/auth/refresh', createRefreshHandler(async ({ email, device_id }) => {
+  if (!device_id) return false;
+
+  const { data } = await supabase
+    .from('device_sessions')
+    .select('is_active, last_activity')
+    .eq('user_email', email)
+    .eq('device_id', device_id)
+    .single();
+
+  if (!data || data.is_active !== 1) return false;
+  return data.last_activity >= fechaLimiteSesion();
+}));
 
 app.post('/check-user', async (req, res) => {
   const { email } = req.body;
@@ -254,9 +389,45 @@ async function cleanupOldPhotoRequests() {
     console.log(`🧹 LIMPIEZA: Se borraron ${data.length} historiales inútiles de cambios de foto.`);
   }
 }
-// Ejecutar limpieza al iniciar el servidor y luego cada hora
-cleanupOldPhotoRequests();
-setInterval(cleanupOldPhotoRequests, 1000 * 60 * 60);
+/// Los trabajos periódicos de verdad viven en la base (pg_cron), no acá:
+/// ver `supabase/cron.sql`. Un `setInterval` muere con el proceso y se duplica
+/// si hay más de una instancia del backend.
+///
+/// Este respaldo en proceso solo se activa con MANTENIMIENTO_EN_PROCESO=true,
+/// pensado para desarrollo local, donde no hay cron corriendo.
+const MANTENIMIENTO_EN_PROCESO = process.env.MANTENIMIENTO_EN_PROCESO === 'true';
+
+function programarMantenimiento(nombre, tarea) {
+  if (!MANTENIMIENTO_EN_PROCESO) return;
+  tarea();
+  setInterval(tarea, 1000 * 60 * 60);
+  console.log(`⏱  Mantenimiento en proceso activo: ${nombre} (cada hora). En producción esto lo hace pg_cron.`);
+}
+
+programarMantenimiento('limpieza de fotos', cleanupOldPhotoRequests);
+
+// Una sesión sin actividad durante este tiempo se considera muerta y pide OTP otra vez.
+// Solo caduca la sesión: NO se borra nada del usuario ni de sus servicios publicados.
+const SESSION_MAX_IDLE_DAYS = 180;
+
+function fechaLimiteSesion() {
+  return new Date(Date.now() - SESSION_MAX_IDLE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+// Cierra las sesiones que llevan más de SESSION_MAX_IDLE_DAYS sin usarse.
+async function expirarSesionesInactivas() {
+  const { data, error } = await supabase
+    .from('device_sessions')
+    .update({ is_active: 0 })
+    .eq('is_active', 1)
+    .lt('last_activity', fechaLimiteSesion())
+    .select('id');
+
+  if (!error && data && data.length > 0) {
+    console.log(`🧹 SESIONES: ${data.length} sesiones caducadas por ${SESSION_MAX_IDLE_DAYS} días sin actividad.`);
+  }
+}
+programarMantenimiento('caducidad de sesiones', expirarSesionesInactivas);
 
 // Endpoint para obtener si hay notificaciones pendientes (y limpiar tras notificar)
 app.get('/api/user/photo-change-request/unnotified', async (req, res) => {
@@ -273,7 +444,7 @@ app.get('/api/user/photo-change-request/unnotified', async (req, res) => {
   res.json({ success: true, data: data || null });
 });
 
-app.put('/api/user/photo-change-request/mark-notified/:id', async (req, res) => {
+app.put('/api/user/photo-change-request/mark-notified/:id', requireOwnRow('photo_change_requests'), async (req, res) => {
   const { id } = req.params;
   await supabase.from('photo_change_requests').update({ user_notified: true }).eq('id', id);
   
@@ -370,7 +541,7 @@ app.post('/user-addresses', async (req, res) => {
   res.json({ message: 'Direccion agregada exitosamente', id: data.id });
 });
 
-app.put('/user-addresses/:id', async (req, res) => {
+app.put('/user-addresses/:id', requireOwnRow('user_addresses'), async (req, res) => {
   const { id } = req.params;
   const { address_name, department_id, city_id, type_via, number_principal, number_secondary, number_final, additional_info, address_icon } = req.body;
   
@@ -390,7 +561,7 @@ app.put('/user-addresses/:id', async (req, res) => {
   res.json({ message: 'Direccion actualizada exitosamente' });
 });
 
-app.delete('/user-addresses/:id', async (req, res) => {
+app.delete('/user-addresses/:id', requireOwnRow('user_addresses'), async (req, res) => {
   const { error } = await supabase.from('user_addresses').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: 'Error al eliminar' });
   res.json({ message: 'Direccion eliminada exitosamente' });
@@ -431,13 +602,13 @@ app.post('/users/cards', async (req, res) => {
   res.json({ success: true, message: 'Tarjeta guardada', id: data.id, is_first_card: isFirstCard });
 });
 
-app.delete('/users/cards/:id', async (req, res) => {
+app.delete('/users/cards/:id', requireOwnRow('user_cards'), async (req, res) => {
   const { error } = await supabase.from('user_cards').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: 'Error eliminando tarjeta' });
   res.json({ message: 'Tarjeta eliminada exitosamente' });
 });
 
-app.put('/users/cards/:id/default', async (req, res) => {
+app.put('/users/cards/:id/default', requireOwnRow('user_cards'), async (req, res) => {
   const { user_email } = req.body;
   if (!user_email) return res.status(400).json({ error: 'Email requerido' });
 
@@ -486,7 +657,7 @@ app.put('/services-in-search/:id/assign', async (req, res) => {
   res.json({ message: 'Asignado exitosamente' });
 });
 
-app.delete('/services-in-search/:id', async (req, res) => {
+app.delete('/services-in-search/:id', requireOwnRow('services_in_search'), async (req, res) => {
   const { user_email } = req.query;
   if (!user_email) return res.status(400).json({ error: 'Email requerido' });
 
@@ -495,7 +666,7 @@ app.delete('/services-in-search/:id', async (req, res) => {
   res.json({ message: 'Eliminado exitosamente' });
 });
 
-app.put('/services-in-search/:id/status', async (req, res) => {
+app.put('/services-in-search/:id/status', requireOwnRow('services_in_search'), async (req, res) => {
   const { status } = req.body;
   const { error } = await supabase.from('services_in_search').update({ status }).eq('id', req.params.id);
   if (error) return res.status(500).json({ error: 'Error actualizando estado' });
@@ -529,7 +700,7 @@ app.get('/search-history', async (req, res) => {
   res.json({ search_history: (data || []).map(r => ({ ...r, search_query: r.query })) });
 });
 
-app.delete('/search-history/:id', async (req, res) => {
+app.delete('/search-history/:id', requireOwnRow('search_history'), async (req, res) => {
   const { error } = await supabase.from('search_history').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: 'Error eliminando' });
   res.json({ message: 'Eliminado exitosamente' });
@@ -647,26 +818,41 @@ app.post('/device-session/check', async (req, res) => {
 
   const { data: session } = await supabase.from('device_sessions').select('*').eq('user_email', email).eq('device_id', device_id).single();
   if (session) {
+    // Caducada por inactividad: se cierra en el momento, sin esperar al job horario.
+    if (session.is_active === 1 && session.last_activity < fechaLimiteSesion()) {
+      await supabase.from('device_sessions').update({ is_active: 0 }).eq('id', session.id);
+      return res.json({ requires_verification: true, session_active: false, expired: true });
+    }
+
     if (session.is_active === 1) {
       await supabase.from('device_sessions').update({ last_activity: new Date().toISOString() }).eq('id', session.id);
       return res.json({ requires_verification: false, session_active: true });
-    } else {
-      return res.json({ requires_verification: true, session_active: false });
     }
-  } else {
-    const { count } = await supabase.from('device_sessions').select('*', { count: 'exact', head: true }).eq('user_email', email).eq('is_active', 1);
-    return res.json({ requires_verification: count > 0, session_active: false });
+
+    return res.json({ requires_verification: true, session_active: false });
   }
+
+  // Dispositivo desconocido: siempre OTP. Cubre el primer ingreso y también
+  // el caso de desinstalar/reinstalar la app, que borra el device_id local y
+  // por lo tanto debe tratarse como un dispositivo nuevo.
+  const { count } = await supabase.from('device_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_email', email)
+    .eq('is_active', 1);
+
+  return res.json({ requires_verification: true, session_active: false, has_other_sessions: count > 0 });
 });
 
 app.post('/device-session/register', async (req, res) => {
   const { email, device_id, device_info } = req.body;
   
   // 1. Cierra automáticamente cualquier otra sesión vieja de este correo
-  await supabase.from('device_sessions')
+  const { data: desplazadas } = await supabase.from('device_sessions')
     .update({ is_active: 0 })
     .eq('user_email', email)
-    .neq('device_id', device_id);
+    .neq('device_id', device_id)
+    .eq('is_active', 1)
+    .select('device_id');
 
   // 2. Upsert del dispositivo que acaba de acceder — 1 sola query
   await supabase.from('device_sessions').upsert(
@@ -674,17 +860,42 @@ app.post('/device-session/register', async (req, res) => {
     { onConflict: 'user_email,device_id' }
   );
 
-  res.json({ success: true });
+  // 3. Avisar en el acto a los equipos desplazados, en vez de que ellos
+  //    pregunten cada 30 segundos. El aviso llega solo a su sala.
+  for (const s of desplazadas || []) {
+    io.to(salaDispositivo(email, s.device_id)).emit('sessionClosed', {
+      reason: 'other_device',
+      device_id: s.device_id
+    });
+  }
+
+  res.json({ success: true, closed_sessions: (desplazadas || []).length });
 });
 
 app.get('/device-session/status', async (req, res) => {
   const { email, device_id } = req.query;
-  const { data: session } = await supabase.from('device_sessions').select('is_active').eq('user_email', email).eq('device_id', device_id).single();
-  if (session) {
-    res.json({ is_active: session.is_active === 1 });
-  } else {
-    res.json({ is_active: false });
+  const { data: session } = await supabase.from('device_sessions').select('id, is_active, last_activity').eq('user_email', email).eq('device_id', device_id).single();
+
+  if (session && session.is_active === 1 && session.last_activity < fechaLimiteSesion()) {
+    // Caducó por inactividad: no es un cierre remoto, es tiempo cumplido.
+    await supabase.from('device_sessions').update({ is_active: 0 }).eq('id', session.id);
+    return res.json({ is_active: false, closed_remotely: false, expired: true });
   }
+
+  if (session && session.is_active === 1) {
+    return res.json({ is_active: true, closed_remotely: false });
+  }
+
+  // Solo es un cierre remoto si OTRO dispositivo tiene la sesión activa ahora mismo.
+  // Sin fila, o sin ningún otro activo, es simplemente "no hay sesión": el cliente
+  // debe volver al login sin acusar de que entraron desde otro lado.
+  const { count } = await supabase.from('device_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_email', email)
+    .eq('is_active', 1)
+    .neq('device_id', device_id);
+
+  res.json({ is_active: false, closed_remotely: count > 0 });
 });
 
 app.post('/device-session/logout', async (req, res) => {
@@ -705,8 +916,21 @@ app.get('/device-session/list', async (req, res) => {
 
 app.post('/device-session/close-others', async (req, res) => {
   const { email, keep_device_id } = req.body;
-  await supabase.from('device_sessions').update({ is_active: 0 }).eq('user_email', email).neq('device_id', keep_device_id);
-  res.json({ success: true });
+  const { data: cerradas } = await supabase.from('device_sessions')
+    .update({ is_active: 0 })
+    .eq('user_email', email)
+    .neq('device_id', keep_device_id)
+    .eq('is_active', 1)
+    .select('device_id');
+
+  for (const s of cerradas || []) {
+    io.to(salaDispositivo(email, s.device_id)).emit('sessionClosed', {
+      reason: 'closed_by_user',
+      device_id: s.device_id
+    });
+  }
+
+  res.json({ success: true, closed_count: (cerradas || []).length });
 });
 
 

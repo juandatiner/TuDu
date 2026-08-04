@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'services/auth_store.dart';
 import 'providers/theme_provider.dart';
 import 'providers/language_provider.dart';
 import 'providers/user_avatar_provider.dart';
@@ -12,6 +14,9 @@ import 'l10n/app_localizations.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // El token tiene que estar en memoria antes de la primera petición.
+  await AuthStore.load();
+
   // Inicialización optimizada - cargar solo lo necesario para la splash
   final languageProvider = LanguageProvider();
   await languageProvider.loadLanguage();
@@ -19,16 +24,22 @@ void main() async {
   // Reproducir sonido de forma asíncrona sin bloquear la UI
   _playSound();
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider.value(value: languageProvider),
-        ChangeNotifierProvider(create: (_) => SessionService()),
-        ChangeNotifierProvider(create: (_) => UserAvatarProvider()),
-      ],
-      child: const MyApp(),
+  // `runWithClient` sustituye el cliente que usan las funciones de nivel
+  // superior de `package:http`. Así toda llamada de la app (http.get, http.post,
+  // …) viaja firmada con el token, sin tener que modificar cada pantalla.
+  http.runWithClient(
+    () => runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => ThemeProvider()),
+          ChangeNotifierProvider.value(value: languageProvider),
+          ChangeNotifierProvider(create: (_) => SessionService()),
+          ChangeNotifierProvider(create: (_) => UserAvatarProvider()),
+        ],
+        child: const MyApp(),
+      ),
     ),
+    () => AuthenticatedClient(),
   );
 }
 

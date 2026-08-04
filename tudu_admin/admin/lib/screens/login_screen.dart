@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../config.dart';
+import '../services/auth_store.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,35 +15,58 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController =
       TextEditingController(text: 'admin');
-  final TextEditingController _passwordController =
-      TextEditingController(text: '123');
+  final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  /// Autentica contra el backend de administración (3003).
+  ///
+  /// Antes esto comparaba 'admin'/'123' dentro de la propia app: cualquiera con
+  /// el APK entraba al panel y el servidor ni se enteraba. Ahora la contraseña
+  /// la valida el servidor contra un hash bcrypt y devuelve un JWT con rol
+  /// admin, que es lo que abre los endpoints `/api/admin/*`.
   Future<void> _login() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    await Future.delayed(const Duration(seconds: 1));
+    setState(() => _isLoading = true);
 
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (username == 'admin' && password == '123') {
-      Navigator.pushReplacementNamed(context, '/dashboard');
-    } else {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${Config.adminBaseUrl}/api/admin/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'username': username, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        await AuthStore.saveSession(data);
+
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nombre de usuario o contraseña incorrectos'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Nombre de usuario o contraseña incorrectos'),
+          content: Text('No se pudo conectar con el servidor'),
           backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   @override

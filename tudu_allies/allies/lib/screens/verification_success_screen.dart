@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'dart:convert';
 import 'dart:async';
-import '../config.dart';
+import '../services/ally_routing.dart';
 import '../services/session_service.dart';
-import 'registration_screen.dart';
-import 'kyc_verification_screen.dart';
 import 'home_screen.dart';
 
 class VerificationSuccessScreen extends StatefulWidget {
@@ -52,62 +48,14 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
   }
 
   Future<void> _checkAlly() async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse('${Config.baseUrl}/check-ally'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': widget.email}),
-          )
-          .timeout(const Duration(seconds: 10));
+    final destino =
+        await AllyRouting.resolveDestination(widget.email, onLogin: true);
+    if (!mounted) return;
 
-      if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['exists'] == true) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AllyHomeScreen(allyEmail: widget.email),
-            ),
-          );
-        } else {
-          // Si faltan datos personales o servicios
-          if (data['partial'] == 'service') {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    KycVerificationScreen(email: widget.email),
-              ),
-            );
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => RegistrationScreen(email: widget.email),
-              ),
-            );
-          }
-        }
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => RegistrationScreen(email: widget.email),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => RegistrationScreen(email: widget.email),
-        ),
-      );
-    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => destino),
+    );
   }
 
   @override

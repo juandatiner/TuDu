@@ -9,6 +9,7 @@ import '../models/service.dart';
 import '../providers/theme_provider.dart';
 import '../providers/language_provider.dart';
 import '../providers/user_avatar_provider.dart';
+import '../services/auth_store.dart';
 import '../services/session_service.dart';
 import '../l10n/app_localizations.dart';
 import 'all_services_screen.dart';
@@ -28,7 +29,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final PageController _suggestionsController = PageController();
   final PageController _newServicesController = PageController();
   final TextEditingController _searchController = TextEditingController();
@@ -58,9 +59,20 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _fetchServices();
     _initializeTheme();
+    WidgetsBinding.instance.addObserver(this);
     _startSessionCheck();
     _connectSocket();
     _checkUnnotifiedPhotoRequests();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Al volver del segundo plano el socket pudo haberse caído y perdido el
+    // aviso de cierre. Una sola comprobación acá cubre ese hueco, sin volver
+    // al sondeo permanente.
+    if (state == AppLifecycleState.resumed) {
+      _checkSessionStatus();
+    }
   }
 
   void _connectSocket() {
@@ -72,11 +84,24 @@ class _HomeScreenState extends State<HomeScreen> {
         'autoConnect': true, 
         'forceNew': true,
         'auth': {
+          'token': AuthStore.token,
           'email': widget.userEmail,
+          'device_id': sessionService.deviceId,
           'device': sessionService.deviceInfo ?? '{}'
         }
       },
     );
+
+    // El servidor avisa en el momento en que otro equipo toma la sesión.
+    // Sustituye al sondeo cada 30 s: menos batería, menos datos, y el aviso
+    // llega al instante en vez de con hasta medio minuto de retraso.
+    _socket.off('sessionClosed');
+    _socket.on('sessionClosed', (data) async {
+      if (!mounted) return;
+      await Provider.of<SessionService>(context, listen: false)
+          .clearAllSessionData();
+      if (mounted) _showSessionExpiredDialog();
+    });
 
     _socket.off('photoRequestUpdated'); // Prevent duplicate listeners
     _socket.on('photoRequestUpdated', (data) async {
@@ -254,12 +279,13 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  /// Inicia la verificación periódica de sesión
+  /// El estado de la sesión ya no se sondea cada 30 segundos: el servidor
+  /// empuja `sessionClosed` por socket en cuanto otro equipo la toma.
+  ///
+  /// Queda una sola comprobación al volver del segundo plano, por si el aviso
+  /// se perdió mientras la app estaba dormida y el socket desconectado.
   void _startSessionCheck() {
-    // Verificar la sesión cada 30 segundos
-    _sessionCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _checkSessionStatus();
-    });
+    _checkSessionStatus();
   }
 
   /// Verifica si la sesión sigue activa
@@ -273,8 +299,15 @@ class _HomeScreenState extends State<HomeScreen> {
       final isActive = await sessionService.verifySessionStatus();
 
       if (!isActive && mounted) {
-        // La sesión fue cerrada desde otro dispositivo
-        _showSessionExpiredDialog();
+        if (sessionService.closedRemotely) {
+          // Otro dispositivo tomó la sesión: ahí sí corresponde avisar.
+          _showSessionExpiredDialog();
+        } else {
+          // Simplemente no hay sesión en este dispositivo (fila nueva, reinstalación,
+          // logout previo). Volver al login sin acusar de un cierre remoto que no pasó.
+          _sessionCheckTimer?.cancel();
+          _navigateToLogin();
+        }
       }
     } catch (e) {
       debugPrint('Error verificando sesión: $e');
@@ -426,6 +459,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _socket.disconnect();
     _suggestionsController.dispose();
     _newServicesController.dispose();

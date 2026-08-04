@@ -1,18 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'screens/onboarding_screen.dart';
+import 'services/auth_store.dart';
 import 'services/session_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => SessionService()),
-      ],
-      child: const MyApp(),
+
+  // El token debe estar en memoria antes de la primera petición.
+  await AuthStore.load();
+
+  // `runWithClient` hace que todas las llamadas de `package:http` de la app
+  // pasen por el cliente que añade el `Authorization: Bearer`.
+  http.runWithClient(
+    () => runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => SessionService()),
+        ],
+        child: const MyApp(),
+      ),
     ),
+    () => AuthenticatedClient(),
   );
 }
 

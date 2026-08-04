@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../config.dart';
+import 'auth_store.dart';
 
 /// Servicio para gestionar las sesiones de dispositivo
 /// Maneja el registro, verificación y cierre de sesiones
@@ -18,6 +19,12 @@ class SessionService extends ChangeNotifier {
   String? _userEmail;
   bool _isSessionActive = false;
   bool _isInitialized = false;
+
+  /// True solo si el servidor confirmó que OTRO dispositivo tiene la sesión activa.
+  /// Sin esto, quedarse sin sesión (fila borrada, device_id nuevo tras reinstalar)
+  /// se mostraba igual que un cierre remoto.
+  bool _closedRemotely = false;
+  bool get closedRemotely => _closedRemotely;
 
   // Getters
   String? get deviceId => _deviceId;
@@ -168,6 +175,7 @@ class SessionService extends ChangeNotifier {
       if (response.statusCode == 200) {
         _userEmail = email;
         _isSessionActive = true;
+        _closedRemotely = false;
 
         // Guardar en preferencias
         final prefs = await SharedPreferences.getInstance();
@@ -200,9 +208,9 @@ class SessionService extends ChangeNotifier {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final isActive = data['is_active'] ?? false;
+        _closedRemotely = data['closed_remotely'] ?? false;
 
         if (!isActive && _isSessionActive) {
-          // La sesión fue cerrada desde otro dispositivo
           await _handleSessionClosed();
         }
 
@@ -247,6 +255,9 @@ class SessionService extends ChangeNotifier {
   Future<void> _clearLocalSession() async {
     _isSessionActive = false;
     _userEmail = null;
+
+    // Sin token no hay identidad: cerrar sesión tiene que invalidarlo también.
+    await AuthStore.clear();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userEmailKey);
