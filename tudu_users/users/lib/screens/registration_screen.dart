@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../config.dart';
+import '../services/auth_api.dart';
 import 'verification_success_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -52,19 +50,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
 
     try {
-      final response = await http
-          .post(
-            Uri.parse('${Config.baseUrl}/register-user'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'email': widget.email,
-              'nombre': _nombreController.text,
-              'apellido': _apellidoController.text,
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
+      await AuthApi.registrarUsuario(
+        email: widget.email,
+        nombre: _nombreController.text,
+        apellido: _apellidoController.text,
+      );
 
-      if (response.statusCode == 200) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -74,15 +65,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
           ),
         );
-      } else {
-        final error = jsonDecode(response.body)['error'];
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error ?? 'Error registrando usuario'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

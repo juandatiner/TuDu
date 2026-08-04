@@ -1,10 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
-import '../config.dart';
+import '../services/ally_api.dart';
 import '../services/session_service.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
@@ -33,19 +30,12 @@ class _KycPendingScreenState extends State<KycPendingScreen> {
     setState(() => _isChecking = true);
 
     try {
-      final response = await http
-          .post(
-            Uri.parse('${Config.baseUrl}/check-ally'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': widget.email}),
-          )
-          .timeout(const Duration(seconds: 10));
+      // Sin `onLogin`: refrescar el estado nunca debe descartar el registro.
+      final data = await AliadoApi.estado(widget.email);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
+      {
         if (data['exists'] == true) {
           Navigator.pushReplacement(
             context,

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'dart:ui';
 import 'package:provider/provider.dart';
-import '../config.dart';
+import '../services/api.dart';
+import '../services/user_api.dart';
 import '../providers/theme_provider.dart';
 import '../l10n/app_localizations.dart';
 
@@ -53,22 +52,12 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
   Future<void> _loadAddresses() async {
     try {
-      final response = await http.get(
-        Uri.parse(
-            '${Config.baseUrl}/user-addresses?user_email=${widget.userEmail}'),
-      );
+      final data = await DireccionService.listar(widget.userEmail);
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          _addresses = data['addresses'];
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _addresses = data;
+        _isLoading = false;
+      });
     } catch (e) {
       print('Error cargando direcciones: $e');
       setState(() {
@@ -189,10 +178,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/user-addresses'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
+      await DireccionService.crear({
           'user_email': widget.userEmail,
           'address_name': _addressNameController.text,
           'department_id': _selectedDepartmentId,
@@ -210,30 +196,27 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
               : null,
           'address_icon':
               _selectedIcon != null ? _getIconName(_selectedIcon!) : null,
-        }),
-      );
+      });
 
-      if (response.statusCode == 200) {
-        _addressNameController.clear();
-        _selectedIcon = null;
-        _selectedDepartmentId = null;
-        _selectedCityId = null;
-        _selectedTypeVia = null;
-        _numberPrincipalController.clear();
-        _numberSecondaryController.clear();
-        _numberFinalController.clear();
-        _additionalInfoController.clear();
-        _cities.clear();
-        _loadAddresses();
-        Navigator.pop(context);
-      } else {
-        final errorData = json.decode(response.body);
-        setDialogState(() {
-          _generalError = errorData['error'];
-        });
-      }
+      _addressNameController.clear();
+      _selectedIcon = null;
+      _selectedDepartmentId = null;
+      _selectedCityId = null;
+      _selectedTypeVia = null;
+      _numberPrincipalController.clear();
+      _numberSecondaryController.clear();
+      _numberFinalController.clear();
+      _additionalInfoController.clear();
+      _cities.clear();
+      _loadAddresses();
+      if (mounted) Navigator.pop(context);
+    } on ApiException catch (e) {
+      // El backend devuelve el motivo exacto (nombre duplicado, número inválido).
+      setDialogState(() {
+        _generalError = e.message;
+      });
     } catch (e) {
-      print('Error agregando dirección: $e');
+      debugPrint('Error agregando dirección: $e');
       setDialogState(() {
         _generalError = loc.translate('error_adding_address');
       });
@@ -257,10 +240,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     });
 
     try {
-      final response = await http.put(
-        Uri.parse('${Config.baseUrl}/user-addresses/$_editingAddressId'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
+      // `_editingAddressId` ya se comprobó no nulo al entrar en la función.
+      await DireccionService.actualizar(_editingAddressId!, {
           'address_name': _addressNameController.text,
           'department_id': _selectedDepartmentId,
           'city_id': _selectedCityId,
@@ -277,31 +258,27 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
               : null,
           'address_icon':
               _selectedIcon != null ? _getIconName(_selectedIcon!) : null,
-        }),
-      );
+      });
 
-      if (response.statusCode == 200) {
-        _addressNameController.clear();
-        _selectedIcon = null;
-        _selectedDepartmentId = null;
-        _selectedCityId = null;
-        _selectedTypeVia = null;
-        _numberPrincipalController.clear();
-        _numberSecondaryController.clear();
-        _numberFinalController.clear();
-        _additionalInfoController.clear();
-        _cities.clear();
-        _editingAddressId = null;
-        _loadAddresses();
-        Navigator.pop(context);
-      } else {
-        final errorData = json.decode(response.body);
-        setDialogState(() {
-          _generalError = errorData['error'];
-        });
-      }
+      _addressNameController.clear();
+      _selectedIcon = null;
+      _selectedDepartmentId = null;
+      _selectedCityId = null;
+      _selectedTypeVia = null;
+      _numberPrincipalController.clear();
+      _numberSecondaryController.clear();
+      _numberFinalController.clear();
+      _additionalInfoController.clear();
+      _cities.clear();
+      _editingAddressId = null;
+      _loadAddresses();
+      if (mounted) Navigator.pop(context);
+    } on ApiException catch (e) {
+      setDialogState(() {
+        _generalError = e.message;
+      });
     } catch (e) {
-      print('Error actualizando dirección: $e');
+      debugPrint('Error actualizando dirección: $e');
       setDialogState(() {
         _generalError = loc.translate('error_updating_address');
       });
@@ -314,13 +291,8 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
   Future<void> _deleteAddress(int id) async {
     try {
-      final response = await http.delete(
-        Uri.parse('${Config.baseUrl}/user-addresses/$id'),
-      );
-
-      if (response.statusCode == 200) {
-        _loadAddresses();
-      }
+      await DireccionService.eliminar(id);
+      _loadAddresses();
     } catch (e) {
       print('Error eliminando dirección: $e');
     }
@@ -387,14 +359,10 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
   Future<void> _loadDepartments() async {
     try {
-      final response =
-          await http.get(Uri.parse('${Config.baseUrl}/departments'));
-      if (response.statusCode == 200) {
-        setState(() {
-          _departments = json.decode(response.body)['departments'];
-        });
-        print('Departamentos cargados: ${_departments.length}');
-      }
+      final departamentos = await DireccionService.departamentos();
+      setState(() {
+        _departments = departamentos;
+      });
     } catch (e) {
       print('Error al cargar departamentos: $e');
     }
@@ -402,14 +370,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
   Future<List<dynamic>> _loadCities(int departmentId) async {
     try {
-      final response = await http.get(
-        Uri.parse('${Config.baseUrl}/cities?department_id=$departmentId'),
-      );
-      if (response.statusCode == 200) {
-        final cities = json.decode(response.body)['cities'];
-        print('Ciudades cargadas: ${cities.length}');
-        return cities;
-      }
+      return await DireccionService.ciudades(departmentId);
     } catch (e) {
       print('Error al cargar ciudades: $e');
     }

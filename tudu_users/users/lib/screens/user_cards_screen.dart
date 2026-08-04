@@ -3,9 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/theme_provider.dart';
-import '../config.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import '../services/user_api.dart';
 import 'dart:ui';
 
 class MyCardsScreen extends StatefulWidget {
@@ -57,12 +55,9 @@ class _MyCardsScreenState extends State<MyCardsScreen>
   Future<void> _loadCreditCards() async {
     try {
       // Cargar las tarjetas del usuario desde el backend
-      final response = await http.get(
-        Uri.parse('${Config.baseUrl}/users/cards/${widget.userEmail}'),
-      );
+      final data = await TarjetaService.listar(widget.userEmail);
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      {
         setState(() {
           final now = DateTime.now();
           final currentYear = now.year % 100;
@@ -104,15 +99,10 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 
           // Lanzar el borrado en background de forma asíncrona
           for (final id in expiredIds) {
-            http.delete(Uri.parse('${Config.baseUrl}/users/cards/$id')).catchError((e) {
+            TarjetaService.eliminar(int.parse(id)).catchError((e) {
               debugPrint("Error borrando tarjeta vencida: $e");
-              return http.Response('error', 500);
             });
           }
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
         });
       }
     } catch (e) {
@@ -144,24 +134,19 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     try {
       // Enviar datos a la API para guardar la tarjeta de forma segura
       // NOTA: El CVV no se envía ni almacena por seguridad (PCI-DSS)
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/users/cards'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'user_email': widget.userEmail,
-          'card_number': card.cardNumber,
-          'card_holder': card.cardHolder,
-          'expiry_date': card.expiryDate,
-          // CVV no se envía por seguridad
-          'is_default': card.isDefault,
-          'card_type': card.cardType.toString().split('.').last,
-          'document_type': card.documentType,
-          'document_number': card.documentNumber,
-          'card_mode': card.cardMode,
-        }),
-      );
+      await TarjetaService.crear({
+        'user_email': widget.userEmail,
+        'card_number': card.cardNumber,
+        'card_holder': card.cardHolder,
+        'expiry_date': card.expiryDate,
+        // CVV no se envía ni se almacena por seguridad (PCI-DSS)
+        'is_default': card.isDefault,
+        'card_type': card.cardType.toString().split('.').last,
+        'document_type': card.documentType,
+        'document_number': card.documentNumber,
+        'card_mode': card.cardMode,
+      });
 
-      if (response.statusCode == 200) {
         // Recargar las tarjetas desde la base de datos
         await _loadCreditCards();
 
@@ -195,12 +180,6 @@ class _MyCardsScreenState extends State<MyCardsScreen>
             backgroundColor: const Color(0xFF78BF32),
           ),
         );
-      } else {
-        final errorData = json.decode(response.body);
-        final errorMessage =
-            errorData['error'] ?? 'Error al guardar la tarjeta';
-        throw Exception(errorMessage);
-      }
     } catch (e) {
       debugPrint('Error saving credit card: $e');
 
@@ -330,11 +309,9 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 
       try {
         // Enviar solicitud a la API para eliminar la tarjeta
-        final response = await http.delete(
-          Uri.parse('${Config.baseUrl}/users/cards/$id'),
-        );
+        await TarjetaService.eliminar(int.parse(id));
 
-        if (response.statusCode == 200) {
+        {
           // Eliminar la tarjeta localmente después de la animación
           setState(() {
             _creditCards.removeWhere((card) => card.id == id);
@@ -354,12 +331,6 @@ class _MyCardsScreenState extends State<MyCardsScreen>
               backgroundColor: const Color(0xFF78BF32),
             ),
           );
-        } else {
-          // Revertir animación si hay error
-          setState(() {
-            _cardExitAnimations.remove(id);
-          });
-          throw Exception('Error al eliminar la tarjeta');
         }
       } catch (e) {
         debugPrint('Error deleting credit card: $e');
@@ -391,20 +362,10 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 
     try {
       // Enviar solicitud a la API para establecer la tarjeta favorita
-      final response = await http.put(
-        Uri.parse('${Config.baseUrl}/users/cards/$id/default'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'user_email': widget.userEmail}),
-      );
-
-      if (response.statusCode == 200) {
-        // Recargar las tarjetas desde la base de datos
-        await _loadCreditCards();
-      } else {
-        throw Exception('Error al establecer la tarjeta favorita');
-      }
+      await TarjetaService.marcarPredeterminada(int.parse(id), widget.userEmail);
+      await _loadCreditCards();
     } catch (e) {
-      print('Error setting favorite card: $e');
+      debugPrint('Error setting favorite card: $e');
     }
   }
 

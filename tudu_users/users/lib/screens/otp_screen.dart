@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'dart:async';
-import 'dart:convert';
-import '../config.dart';
-import '../services/auth_store.dart';
+import '../services/api.dart';
+import '../services/auth_api.dart';
 import '../services/session_service.dart';
 import 'verification_success_screen.dart';
 import 'registration_screen.dart';
@@ -79,15 +77,9 @@ class _OtpScreenState extends State<OtpScreen> {
 
   Future<void> _checkUserAfterOtp() async {
     try {
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/check-user'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': widget.email}),
-      ).timeout(const Duration(seconds: 10));
+      final existe = await AuthApi.existeUsuario(widget.email);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['exists']) {
+        if (existe) {
           // Usuario existe, ir a verificación exitosa
           Navigator.pushReplacement(
             context,
@@ -100,13 +92,6 @@ class _OtpScreenState extends State<OtpScreen> {
             MaterialPageRoute(builder: (context) => RegistrationScreen(email: widget.email)),
           );
         }
-      } else {
-        // Error, asumir no existe
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => RegistrationScreen(email: widget.email)),
-        );
-      }
     } catch (e) {
       // Error de conexión, asumir no existe
       Navigator.pushReplacement(
@@ -132,30 +117,22 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/verify-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': widget.email,
-          'otp': _otpCode,
-          'device_id': Provider.of<SessionService>(context, listen: false).deviceId,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      // Guarda la sesión (acceso + refresco) al verificar correctamente.
+      await AuthApi.verificarCodigo(
+        email: widget.email,
+        codigo: _otpCode,
+        deviceId: Provider.of<SessionService>(context, listen: false).deviceId,
+      );
 
-      if (response.statusCode == 200) {
-        // Identidad probada: se guardan el token de acceso y el de refresco.
-        await AuthStore.saveSession(jsonDecode(response.body));
-
-        _checkUserAfterOtp();
-      } else {
-        final error = jsonDecode(response.body)['error'];
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error ?? 'Error verificando OTP'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _checkUserAfterOtp();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red,
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -180,13 +157,8 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/send-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': widget.email}),
-      ).timeout(const Duration(seconds: 10));
+      await AuthApi.enviarCodigo(widget.email);
 
-      if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Código OTP reenviado'),
@@ -194,17 +166,6 @@ class _OtpScreenState extends State<OtpScreen> {
           ),
         );
         _startResendTimer();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error reenviando OTP'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() {
-          _canResend = true;
-        });
-      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

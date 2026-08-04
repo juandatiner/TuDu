@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:provider/provider.dart';
-import '../config.dart';
+import '../services/user_api.dart';
 import '../providers/theme_provider.dart';
 import '../l10n/app_localizations.dart';
 
@@ -163,7 +161,6 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
       return;
     }
 
-    final url = Uri.parse('${Config.baseUrl}/publish-service');
     try {
       final body = {
         'user_email': widget.userEmail,
@@ -174,18 +171,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
         'budget': numericBudget,
         'worker_info': _workerInfoController.text,
       };
-      print('Enviando datos: $body');
+      await ServicioService.publicar(body);
 
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      );
-
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(loc?.translate('service_published_success') ??
@@ -194,16 +181,6 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
           ),
         );
         Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${loc?.translate('error_publishing_service') ?? 'Error al publicar el servicio'}: ${response.statusCode} - ${response.body}',
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     } catch (e) {
       print('Exception: $e');
       ScaffoldMessenger.of(context).showSnackBar(

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -10,6 +8,7 @@ import '../providers/theme_provider.dart';
 import '../providers/language_provider.dart';
 import '../providers/user_avatar_provider.dart';
 import '../services/auth_store.dart';
+import '../services/user_api.dart';
 import '../services/session_service.dart';
 import '../l10n/app_localizations.dart';
 import 'all_services_screen.dart';
@@ -109,8 +108,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         // Mark as notified so it won't re-appear on next app open
         if (data['id'] != null) {
           try {
-            await http.put(Uri.parse(
-                '${Config.baseUrl}/api/user/photo-change-request/mark-notified/${data['id']}'));
+            await SolicitudFotoService.marcarNotificada(data['id']);
           } catch (e) {
             debugPrint('Error marcando notificación en vivo como leída: $e');
           }
@@ -145,17 +143,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _checkUnnotifiedPhotoRequests() async {
     try {
-      final response = await http.get(Uri.parse(
-          '${Config.baseUrl}/api/user/photo-change-request/unnotified?user_email=${widget.userEmail}'));
+      final data = await SolicitudFotoService.sinNotificar(widget.userEmail);
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> body = json.decode(response.body);
-        final data = body['data'];
-        
-        if (body['success'] == true && data != null) {
+      {
+        if (data != null) {
           // Marcar como notificada inmediatamente para que no salte de nuevo
-          await http.put(Uri.parse(
-              '${Config.baseUrl}/api/user/photo-change-request/mark-notified/${data['id']}'));
+          await SolicitudFotoService.marcarNotificada(data['id']);
 
           _showPhotoRequestStatusDialog(
             status: data['status'],
@@ -524,10 +517,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _fetchServices() async {
     try {
-      final response = await http.get(Uri.parse('${Config.baseUrl}/services'));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final List<dynamic> servicesJson = data['services'];
+      final servicesJson = await ServicioService.catalogo();
+      {
         setState(() {
           _services =
               servicesJson.map((json) => Service.fromJson(json)).toList();
@@ -538,12 +529,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ..shuffle()
             ..take(5).toList();
         });
-      } else {
-        // Manejar error
-        print('Error fetching services: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error: $e');
+      debugPrint('Error cargando servicios: $e');
     }
   }
 

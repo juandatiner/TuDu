@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config.dart';
+import '../services/admin_api.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 class PhotoChangeRequestsScreen extends StatefulWidget {
@@ -69,21 +69,13 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
 
   Future<void> _loadRequests() async {
     try {
-      final response = await http.get(
-        Uri.parse('${Config.baseUrl}/api/admin/photo-change-requests'),
-      );
+      final todas = await SolicitudFotoAdminApi.listar();
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      {
         setState(() {
           // Mostrar todas las solicitudes pendientes (leídas o no)
-          _requests = (data['data'] as List)
-              .where((r) => r['status'] == 'pending')
-              .toList();
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
+          _requests =
+              todas.where((r) => r['status'] == 'pending').toList();
           _isLoading = false;
         });
       }
@@ -97,10 +89,7 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
 
   Future<void> _markAsRead(int id) async {
     try {
-      await http.put(
-        Uri.parse('${Config.baseUrl}/api/admin/photo-change-requests/$id/read'),
-        headers: {'Content-Type': 'application/json'},
-      );
+      await SolicitudFotoAdminApi.marcarLeida(id);
       // Actualizar localmente para reflejar el cambio
       setState(() {
         final idx = _requests.indexWhere((r) => r['id'] == id);
@@ -120,13 +109,9 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
       if (rejectionReason != null && rejectionReason.isNotEmpty) {
         body['rejection_reason'] = rejectionReason;
       }
-      final response = await http.put(
-        Uri.parse('${Config.baseUrl}/api/admin/photo-change-requests/$id'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(body),
-      );
+      await SolicitudFotoAdminApi.resolver(id, status,
+          motivoRechazo: body['rejection_reason'] as String?);
 
-      if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(status == 'approved'
@@ -136,15 +121,6 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
           ),
         );
         _loadRequests();
-      } else {
-        final error = json.decode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error['error'] ?? 'Error al procesar solicitud'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

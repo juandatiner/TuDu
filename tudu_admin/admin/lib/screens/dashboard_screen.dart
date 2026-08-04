@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import '../config.dart';
+import '../services/admin_api.dart';
 import 'photo_change_requests_screen.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
@@ -74,15 +73,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadPendingRequestsCount() async {
     try {
-      final response = await http.get(
-        Uri.parse('${Config.baseUrl}/api/admin/photo-change-requests'),
-      );
+      final todas = await SolicitudFotoAdminApi.listar();
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final allPending = (data['data'] as List)
-            .where((r) => r['status'] == 'pending')
-            .toList();
+        final allPending =
+            todas.where((r) => r['status'] == 'pending').toList();
         final unread = allPending
             .where((r) => r['read_at'] == null)
             .toList();
@@ -91,11 +85,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _unreadRequestsCount = unread.length;
           _isLoading = false;
         });
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     } catch (e) {
       print('Error loading pending requests count: $e');
       setState(() {

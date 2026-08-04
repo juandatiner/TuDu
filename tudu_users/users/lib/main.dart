@@ -11,34 +11,40 @@ import 'services/session_service.dart';
 import 'screens/onboarding_screen.dart';
 import 'l10n/app_localizations.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // El token tiene que estar en memoria antes de la primera petición.
-  await AuthStore.load();
-
-  // Inicialización optimizada - cargar solo lo necesario para la splash
-  final languageProvider = LanguageProvider();
-  await languageProvider.loadLanguage();
-
-  // Reproducir sonido de forma asíncrona sin bloquear la UI
-  _playSound();
-
-  // `runWithClient` sustituye el cliente que usan las funciones de nivel
-  // superior de `package:http`. Así toda llamada de la app (http.get, http.post,
-  // …) viaja firmada con el token, sin tener que modificar cada pantalla.
+/// `runWithClient` sustituye el cliente que usan las funciones de nivel superior
+/// de `package:http`. Así toda llamada de la app (http.get, http.post, …) viaja
+/// firmada con el token, sin tener que modificar cada pantalla.
+///
+/// TODO el arranque va dentro de la zona, incluido `ensureInitialized()`: si el
+/// binding se inicializa fuera, Flutter avisa de "Zone mismatch" y la
+/// configuración de zona queda repartida entre dos zonas distintas.
+void main() {
   http.runWithClient(
-    () => runApp(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => ThemeProvider()),
-          ChangeNotifierProvider.value(value: languageProvider),
-          ChangeNotifierProvider(create: (_) => SessionService()),
-          ChangeNotifierProvider(create: (_) => UserAvatarProvider()),
-        ],
-        child: const MyApp(),
-      ),
-    ),
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      // El token tiene que estar en memoria antes de la primera petición.
+      await AuthStore.load();
+
+      // Inicialización optimizada - cargar solo lo necesario para la splash
+      final languageProvider = LanguageProvider();
+      await languageProvider.loadLanguage();
+
+      // Reproducir sonido de forma asíncrona sin bloquear la UI
+      _playSound();
+
+      runApp(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ThemeProvider()),
+            ChangeNotifierProvider.value(value: languageProvider),
+            ChangeNotifierProvider(create: (_) => SessionService()),
+            ChangeNotifierProvider(create: (_) => UserAvatarProvider()),
+          ],
+          child: const MyApp(),
+        ),
+      );
+    },
     () => AuthenticatedClient(),
   );
 }

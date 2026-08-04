@@ -1,9 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
-import '../config.dart';
+import 'ally_api.dart';
 import '../screens/home_screen.dart';
 import '../screens/kyc_pending_screen.dart';
 import '../screens/kyc_verification_screen.dart';
@@ -29,19 +26,8 @@ class AllyRouting {
   static Future<Widget> resolveDestination(String email,
       {bool onLogin = false}) async {
     try {
-      final response = await http
-          .post(
-            Uri.parse('${Config.baseUrl}/check-ally'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': email, 'on_login': onLogin}),
-          )
-          .timeout(const Duration(seconds: 10));
+      final data = await AliadoApi.estado(email, onLogin: onLogin);
 
-      if (response.statusCode != 200) {
-        return RegistrationScreen(email: email);
-      }
-
-      final data = jsonDecode(response.body);
       if (data['exists'] == true) {
         return AllyHomeScreen(allyEmail: email);
       }

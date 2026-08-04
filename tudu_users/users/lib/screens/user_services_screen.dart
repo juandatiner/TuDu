@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:provider/provider.dart';
-import '../config.dart';
+import '../services/user_api.dart';
 import '../models/service_in_search.dart';
 import '../models/service.dart';
 import '../providers/theme_provider.dart';
@@ -104,14 +102,7 @@ class _UserServicesScreenState extends State<UserServicesScreen>
 
   Future<void> _fetchUserServices() async {
     try {
-      final response = await http.get(
-        Uri.parse(
-          '${Config.baseUrl}/services-in-search?user_email=${widget.userEmail}',
-        ),
-      );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final List<dynamic> servicesJson = data['services_in_search'];
+      final servicesJson = await ServicioService.misServicios(widget.userEmail);
         setState(() {
           _userServices = servicesJson
               .map((json) => ServiceInSearch.fromJson(json))
@@ -119,12 +110,6 @@ class _UserServicesScreenState extends State<UserServicesScreen>
           _isLoading = false;
           _applyFilters();
         });
-      } else {
-        debugPrint('Error fetching user services: ${response.statusCode}');
-        setState(() {
-          _isLoading = false;
-        });
-      }
     } catch (e) {
       debugPrint('Error: $e');
       setState(() {
@@ -135,17 +120,11 @@ class _UserServicesScreenState extends State<UserServicesScreen>
 
   Future<void> _fetchAllServices() async {
     try {
-      final response = await http.get(Uri.parse('${Config.baseUrl}/services'));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final List<dynamic> servicesJson = data['services'];
-        setState(() {
-          _services =
-              servicesJson.map((json) => Service.fromJson(json)).toList();
-        });
-      } else {
-        debugPrint('Error fetching services: ${response.statusCode}');
-      }
+      final servicesJson = await ServicioService.catalogo();
+      setState(() {
+        _services =
+            servicesJson.map((json) => Service.fromJson(json)).toList();
+      });
     } catch (e) {
       debugPrint('Error: $e');
     }

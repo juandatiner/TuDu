@@ -6,23 +6,28 @@ import 'screens/onboarding_screen.dart';
 import 'services/auth_store.dart';
 import 'services/session_service.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // El token debe estar en memoria antes de la primera petición.
-  await AuthStore.load();
-
-  // `runWithClient` hace que todas las llamadas de `package:http` de la app
-  // pasen por el cliente que añade el `Authorization: Bearer`.
+/// `runWithClient` hace que todas las llamadas de `package:http` de la app pasen
+/// por el cliente que añade el `Authorization: Bearer`.
+///
+/// El arranque entero va dentro de la zona, `ensureInitialized()` incluido, para
+/// no provocar el aviso de "Zone mismatch" de Flutter.
+void main() {
   http.runWithClient(
-    () => runApp(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => SessionService()),
-        ],
-        child: const MyApp(),
-      ),
-    ),
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      // El token debe estar en memoria antes de la primera petición.
+      await AuthStore.load();
+
+      runApp(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => SessionService()),
+          ],
+          child: const MyApp(),
+        ),
+      );
+    },
     () => AuthenticatedClient(),
   );
 }

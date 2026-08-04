@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
 import '../models/service_in_search.dart';
 import '../providers/theme_provider.dart';
-import '../config.dart';
+import '../services/user_api.dart';
 import '../l10n/app_localizations.dart';
 
 class ServiceDetailScreen extends StatefulWidget {
@@ -244,19 +243,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     });
 
     try {
-      final url =
-          '${Config.baseUrl}/services-in-search/${widget.service.id}?user_email=${Uri.encodeComponent(widget.userEmail)}';
-      print('DELETE URL: $url');
+      await ServicioService.eliminar(widget.service.id, widget.userEmail);
 
-      final response = await http.delete(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -267,9 +255,6 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           );
           Navigator.pop(context, true); // Regresar con resultado true
         }
-      } else {
-        throw Exception('Error al eliminar: ${response.body}');
-      }
     } catch (e) {
       print('Error deleting service: $e');
       if (mounted) {

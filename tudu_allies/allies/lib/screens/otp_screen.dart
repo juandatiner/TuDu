@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'dart:convert';
-import '../config.dart';
-import '../services/auth_store.dart';
+import '../services/api.dart';
+import '../services/ally_api.dart';
 import '../services/session_service.dart';
 import 'verification_success_screen.dart';
-import 'registration_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String email;
@@ -99,23 +96,14 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      final response = await http
-          .post(
-            Uri.parse('${Config.baseUrl}/verify-otp'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'email': widget.email,
-              'otp': _otpCode,
-              'device_id':
-                  Provider.of<SessionService>(context, listen: false).deviceId,
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
+      // Guarda la sesión (acceso + refresco) al verificar correctamente.
+      await AuthApi.verificarCodigo(
+        email: widget.email,
+        codigo: _otpCode,
+        deviceId: Provider.of<SessionService>(context, listen: false).deviceId,
+      );
 
-      if (response.statusCode == 200) {
-        // Identidad probada: se guardan el token de acceso y el de refresco.
-        await AuthStore.saveSession(jsonDecode(response.body));
-
+      {
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -124,10 +112,9 @@ class _OtpScreenState extends State<OtpScreen> {
             ),
           );
         }
-      } else {
-        final error = jsonDecode(response.body)['error'];
-        _showSnack(error ?? 'Error verificando OTP');
       }
+    } on ApiException catch (e) {
+      _showSnack(e.message);
     } catch (e) {
       _showSnack('Error de conexión. Verifica tu conexión a internet.');
     } finally {
@@ -149,15 +136,8 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      final response = await http
-          .post(
-            Uri.parse('${Config.baseUrl}/send-otp'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': widget.email}),
-          )
-          .timeout(const Duration(seconds: 10));
+      await AuthApi.enviarCodigo(widget.email);
 
-      if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Código OTP reenviado'),
@@ -165,17 +145,6 @@ class _OtpScreenState extends State<OtpScreen> {
           ),
         );
         _startResendTimer();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error reenviando OTP'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() {
-          _canResend = true;
-        });
-      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

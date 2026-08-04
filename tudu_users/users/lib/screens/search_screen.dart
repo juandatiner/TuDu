@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'dart:math';
 import 'package:provider/provider.dart';
-import '../config.dart';
+import '../services/user_api.dart';
 import '../models/service.dart';
 import '../providers/theme_provider.dart';
 import '../l10n/app_localizations.dart';
@@ -70,10 +68,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _fetchAllServices() async {
     try {
-      final response = await http.get(Uri.parse('${Config.baseUrl}/services'));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final List<dynamic> servicesJson = data['services'];
+      final servicesJson = await ServicioService.catalogo();
         setState(() {
           _allServices =
               servicesJson.map((json) => Service.fromJson(json)).toList();
@@ -87,9 +82,6 @@ class _SearchScreenState extends State<SearchScreen> {
             'Nombres de servicios aleatorios: ${_randomServices.map((s) => s.name).toList()}',
           );
         });
-      } else {
-        print('Error fetching services: ${response.statusCode}');
-      }
     } catch (e) {
       print('Error: $e');
     }
@@ -97,26 +89,10 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _fetchSearchHistory() async {
     try {
-      final encodedEmail = Uri.encodeComponent(widget.userEmail);
-      final url = '${Config.baseUrl}/search-history?user_email=$encodedEmail';
-      print('Fetching search history from: $url');
-      print('User email: ${widget.userEmail}');
-
-      final response = await http.get(Uri.parse(url));
-
-      print('Response status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        print('Search history data: $data');
-        setState(() {
-          _searchHistory = data['search_history'] ?? [];
-        });
-        print('Search history loaded: ${_searchHistory.length} items');
-      } else {
-        print('Error fetching search history: ${response.statusCode}');
-      }
+      final historial = await HistorialService.listar(widget.userEmail);
+      setState(() {
+        _searchHistory = historial;
+      });
     } catch (e) {
       print('Error fetching search history: $e');
     }
@@ -127,15 +103,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Future<void> _saveSearchQuery(String query) async {
     try {
       print('Saving search query: $query for user: ${widget.userEmail}');
-      final response = await http.post(
-        Uri.parse('${Config.baseUrl}/search-history'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'user_email': widget.userEmail,
-          'search_query': query,
-        }),
-      );
-      print('Save search response: ${response.statusCode} - ${response.body}');
+      await HistorialService.guardar(widget.userEmail, query);
       _fetchSearchHistory();
     } catch (e) {
       print('Error saving search query: $e');
@@ -144,10 +112,10 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _deleteSearchHistory(int id) async {
     try {
-      await http.delete(Uri.parse('${Config.baseUrl}/search-history/$id'));
+      await HistorialService.eliminar(id);
       _fetchSearchHistory();
     } catch (e) {
-      print('Error deleting search history: $e');
+      debugPrint('Error deleting search history: $e');
     }
   }
 

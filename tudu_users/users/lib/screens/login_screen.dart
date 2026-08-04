@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'dart:convert';
-import '../config.dart';
+import '../services/auth_api.dart';
 import '../services/session_service.dart';
 import 'otp_screen.dart';
 import 'home_screen.dart';
@@ -84,33 +82,16 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         } else {
           // Necesita verificación, enviar OTP y navegar a la pantalla OTP
-          final response = await http
-              .post(
-                Uri.parse('${Config.baseUrl}/send-otp'),
-                headers: {'Content-Type': 'application/json'},
-                body: jsonEncode({'email': _emailController.text}),
-              )
-              .timeout(const Duration(seconds: 10));
+          await AuthApi.enviarCodigo(_emailController.text);
 
-          if (response.statusCode == 200) {
-            if (mounted) {
-              // Navegar a la pantalla OTP
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => OtpScreen(email: _emailController.text),
-                ),
-              );
-            }
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Error enviando el código de verificación'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
+          if (mounted) {
+            // Navegar a la pantalla OTP
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OtpScreen(email: _emailController.text),
+              ),
+            );
           }
         }
       } catch (e) {

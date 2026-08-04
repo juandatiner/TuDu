@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'dart:convert';
 import 'dart:async';
-import '../config.dart';
+import '../services/auth_api.dart';
 import '../services/session_service.dart';
 import 'registration_screen.dart';
 import 'home_screen.dart';
@@ -51,19 +49,11 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
 
   Future<void> _checkUser() async {
     try {
-      final response = await http
-          .post(
-            Uri.parse('${Config.baseUrl}/check-user'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': widget.email}),
-          )
-          .timeout(const Duration(seconds: 10));
+      final existe = await AuthApi.existeUsuario(widget.email);
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['exists']) {
+        if (existe) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -78,14 +68,6 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
             ),
           );
         }
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => RegistrationScreen(email: widget.email),
-          ),
-        );
-      }
     } catch (e) {
       if (!mounted) return;
       Navigator.pushReplacement(

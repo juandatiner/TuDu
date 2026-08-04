@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../config.dart';
+import '../services/api.dart';
 
 /// Provider para manejar el idioma de la aplicación
 /// Soporta español (es) e inglés (en)
@@ -54,13 +52,9 @@ class LanguageProvider extends ChangeNotifier {
     }
 
     try {
-      final response = await http.get(
-        Uri.parse(
-            '${Config.baseUrl}/users/language/${Uri.encodeComponent(_userEmail!)}'),
-      );
+      final data = await Api.get('/users/language/${Uri.encodeComponent(_userEmail!)}');
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      {
         final languageCode = data['language'] ?? 'es';
         _locale = Locale(languageCode, languageCode == 'es' ? 'CO' : 'US');
 
@@ -112,14 +106,10 @@ class LanguageProvider extends ChangeNotifier {
     if (_userEmail == null || _userEmail!.isEmpty) return;
 
     try {
-      await http.put(
-        Uri.parse('${Config.baseUrl}/users/language'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': _userEmail,
-          'language': _locale.languageCode,
-        }),
-      );
+      await Api.put('/users/language', {
+        'email': _userEmail,
+        'language': _locale.languageCode,
+      });
     } catch (e) {
       // Ignorar errores de red - el idioma se guardó localmente
       debugPrint('Error guardando idioma en backend: $e');

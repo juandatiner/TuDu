@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'dart:ui';
-import '../config.dart';
+import '../services/api.dart';
+import '../services/ally_api.dart';
 import 'kyc_verification_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -202,22 +201,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await http
-          .post(
-            Uri.parse('${Config.baseUrl}/register-ally'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'email': widget.email,
-              'nombre': _nombreController.text.trim(),
-              'apellido': _apellidoController.text.trim(),
-              'fecha_nacimiento': _fechaNacimiento!.toIso8601String().split('T')[0],
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
+      await AliadoApi.registrar(
+        email: widget.email,
+        nombre: _nombreController.text.trim(),
+        apellido: _apellidoController.text.trim(),
+        fechaNacimiento: _fechaNacimiento!.toIso8601String().split('T')[0],
+      );
 
       if (!mounted) return;
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      {
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
@@ -227,10 +220,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             transitionDuration: const Duration(milliseconds: 300),
           ),
         );
-      } else {
-        final error = jsonDecode(response.body)['error'];
-        _showSnack(error ?? 'Error registrando aliado', isError: true);
       }
+    } on ApiException catch (e) {
+      _showSnack(e.message, isError: true);
     } catch (e) {
       _showSnack('Error de conexión. Verifica tu internet.', isError: true);
     } finally {

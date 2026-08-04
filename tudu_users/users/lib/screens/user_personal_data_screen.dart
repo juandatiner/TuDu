@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
@@ -10,7 +9,8 @@ import 'package:intl_phone_field/country_picker_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config.dart';
+import '../services/api.dart';
+import '../services/user_api.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_avatar_provider.dart';
 import '../l10n/app_localizations.dart';
@@ -129,46 +129,30 @@ class _MyDataScreenState extends State<MyDataScreen> {
   /// Obtiene el código ISO del país desde el código de marcación usando la API
   Future<String> _getCountryCodeFromDialCode(String dialCode) async {
     try {
-      final response = await http.get(
-        Uri.parse('${Config.baseUrl}/countries/by-dial/$dialCode'),
-      );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['iso_code'] ?? 'CO';
-      }
+      final data = await Api.get('/countries/by-dial/$dialCode');
+      if (data is Map) return data['iso_code'] ?? 'CO';
     } catch (e) {
-      print('Error obteniendo país: $e');
+      debugPrint('Error obteniendo país: $e');
     }
     return 'CO';
   }
 
   Future<void> _loadUserData() async {
     try {
-      // Lanzar las solicitudes a la red simultáneamente (Paralelización) para matar el tiempo de espera
-      final pendingRequestFuture = http.get(
-        Uri.parse('${Config.baseUrl}/api/user/photo-change-request/pending?user_email=${widget.userEmail}'),
-      );
+      // Ambas peticiones salen a la vez: la del perfil es la que manda en el
+      // tiempo de carga, y esperar la de la foto en serie la duplicaba.
+      final resultados = await Future.wait([
+        SolicitudFotoService.pendiente(widget.userEmail),
+        PerfilService.obtener(widget.userEmail, lite: true),
+      ]);
 
-      final profileFuture = http.get(
-        Uri.parse('${Config.baseUrl}/users/profile/${widget.userEmail}?lite=true'),
-      );
+      final solicitudPendiente = resultados[0];
+      final data = resultados[1] as Map<String, dynamic>;
 
-      // Esperar a que ambas terminen al mismo tiempo
-      final results = await Future.wait([pendingRequestFuture, profileFuture]);
-      
-      final pendingRequestResponse = results[0];
-      final response = results[1];
-
-      if (pendingRequestResponse.statusCode == 200) {
-        final pendingData = json.decode(pendingRequestResponse.body);
-        if (mounted) {
-          Provider.of<UserAvatarProvider>(context, listen: false)
-              .setPendingPhotoRequest(pendingData['data'] != null);
-        }
+      if (mounted) {
+        Provider.of<UserAvatarProvider>(context, listen: false)
+            .setPendingPhotoRequest(solicitudPendiente != null);
       }
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
 
         setState(() {
           _nameController.text = data['nombre'] ?? '';
@@ -256,11 +240,6 @@ class _MyDataScreenState extends State<MyDataScreen> {
             _phoneFieldKey = UniqueKey();
           });
         }
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     } catch (e) {
       print('Error loading user data: $e');
       setState(() {
@@ -281,28 +260,22 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
     try {
       // Guardar datos básicos
-      final response = await http.put(
-        Uri.parse('${Config.baseUrl}/users/profile/data'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': widget.userEmail,
-          'nombre': _nameController.text.trim(),
-          'apellido': _lastNameController.text.trim(),
-          'phone': _completePhone,
-          'country_code': _countryCode,
-          'country_name': _countryName,
-          'phone_number': _phoneNumber,
-          'genero': _selectedGender,
-          'fecha_nacimiento': _birthDate?.toIso8601String(),
-        }),
-      );
+      await PerfilService.actualizarDatos({
+        'email': widget.userEmail,
+        'nombre': _nameController.text.trim(),
+        'apellido': _lastNameController.text.trim(),
+        'phone': _completePhone,
+        'country_code': _countryCode,
+        'country_name': _countryName,
+        'phone_number': _phoneNumber,
+        'genero': _selectedGender,
+        'fecha_nacimiento': _birthDate?.toIso8601String(),
+      });
 
-      // Si no hay una solicitud pendiente y se cambió el avatar, actualizar directamente
+      // Con una solicitud de foto pendiente el avatar lo decide el admin, no acá.
       if (!_hasPendingPhotoRequest) {
-        final avatarResponse = await http.put(
-          Uri.parse('${Config.baseUrl}/users/profile/avatar'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
+        try {
+          await PerfilService.actualizarAvatar({
             'email': widget.userEmail,
             'avatar_image': _usePhoto ? _avatarImage : null,
             // Solo enviar color y icono si no se usa foto
@@ -310,10 +283,10 @@ class _MyDataScreenState extends State<MyDataScreen> {
               'avatar_color': _avatarColor,
               'avatar_icon': _selectedIcon,
             },
-          }),
-        );
-        if (avatarResponse.statusCode != 200) {
-          print('Error updating avatar: ${avatarResponse.statusCode}');
+          });
+        } catch (e) {
+          // El avatar es secundario: si falla, los datos ya se guardaron.
+          debugPrint('Error actualizando avatar: $e');
         }
       }
 
@@ -321,24 +294,25 @@ class _MyDataScreenState extends State<MyDataScreen> {
         _isSaving = false;
       });
 
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(loc.t('data_updated_success')),
-            backgroundColor: const Color(0xFF78BF32),
-          ),
-        );
-        Navigator.pop(
-            context, true); // Retorna true para indicar que hubo cambios
-      } else {
-        final error = json.decode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error['error'] ?? loc.t('error_saving_data')),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc.t('data_updated_success')),
+          backgroundColor: const Color(0xFF78BF32),
+        ),
+      );
+      Navigator.pop(context, true); // true indica que hubo cambios
+    } on ApiException catch (e) {
+      setState(() {
+        _isSaving = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red,
+        ),
+      );
     } catch (e) {
       setState(() {
         _isSaving = false;
@@ -766,18 +740,14 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
   Future<void> _updateAvatar(String color, String icon) async {
     try {
-      final response = await http.put(
-        Uri.parse('${Config.baseUrl}/users/profile/avatar'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': widget.userEmail,
-          'avatar_color': color,
-          'avatar_icon': icon,
-          'avatar_image': null,
-        }),
-      );
+      await PerfilService.actualizarAvatar({
+        'email': widget.userEmail,
+        'avatar_color': color,
+        'avatar_icon': icon,
+        'avatar_image': null,
+      });
 
-      if (response.statusCode == 200 && mounted) {
+      if (mounted) {
         Provider.of<UserAvatarProvider>(context, listen: false).syncFromNetwork(
           avatarImage: null,
           avatarColor: color,
@@ -785,7 +755,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
         );
       }
     } catch (e) {
-      print('Error updating avatar: $e');
+      debugPrint('Error updating avatar: $e');
     }
   }
 
@@ -849,16 +819,10 @@ class _MyDataScreenState extends State<MyDataScreen> {
 
       // Enviar solicitud de cambio de foto
       try {
-        final response = await http.post(
-          Uri.parse('${Config.baseUrl}/api/user/photo-change-request'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'user_email': widget.userEmail,
-            'new_avatar_image': 'data:image/jpeg;base64,$base64Image',
-          }),
-        );
+        await SolicitudFotoService.crear(
+            widget.userEmail, 'data:image/jpeg;base64,$base64Image');
 
-        if (response.statusCode == 200) {
+        {
           if (mounted) {
             Provider.of<UserAvatarProvider>(context, listen: false)
                 .setPendingPhotoRequest(true);
@@ -872,18 +836,17 @@ class _MyDataScreenState extends State<MyDataScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           );
-        } else {
-          final error = json.decode(response.body);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error['error'] ?? 'Error al enviar solicitud'),
-              backgroundColor: Colors.red,
-            ),
-          );
         }
-      } catch (e) {
+      } on ApiException catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
             content: Text('Error de conexión'),
             backgroundColor: Colors.red,
           ),

@@ -1,9 +1,7 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import '../config.dart';
-import '../services/auth_store.dart';
+import '../services/api.dart';
+import '../services/admin_api.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -33,30 +31,20 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text.trim();
 
     try {
-      final response = await http
-          .post(
-            Uri.parse('${Config.adminBaseUrl}/api/admin/login'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'username': username, 'password': password}),
-          )
-          .timeout(const Duration(seconds: 10));
+      await AdminAuthApi.login(usuario: username, password: password);
 
       if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        await AuthStore.saveSession(data);
-
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(context, '/dashboard');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Nombre de usuario o contraseña incorrectos'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      Navigator.pushReplacementNamed(context, '/dashboard');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.statusCode == 401
+              ? 'Nombre de usuario o contraseña incorrectos'
+              : e.message),
+          backgroundColor: Colors.red,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

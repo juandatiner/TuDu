@@ -7,20 +7,25 @@ import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // El token debe estar en memoria antes de la primera petición.
-  await AuthStore.load();
-
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
-  // Todas las llamadas del panel viajan firmadas con el token de admin.
+/// Todas las llamadas del panel viajan firmadas con el token de admin.
+///
+/// El arranque entero va dentro de la zona, `ensureInitialized()` incluido, para
+/// no provocar el aviso de "Zone mismatch" de Flutter.
+void main() {
   http.runWithClient(
-    () => runApp(const MyApp()),
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      // El token debe estar en memoria antes de la primera petición.
+      await AuthStore.load();
+
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+
+      runApp(const MyApp());
+    },
     () => AuthenticatedClient(),
   );
 }

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
-import '../config.dart';
+import '../services/user_api.dart';
 import '../providers/theme_provider.dart';
 import '../providers/language_provider.dart';
 import '../providers/user_avatar_provider.dart';
@@ -72,12 +71,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadUserProfile() async {
     try {
-      final response = await http.get(
-        Uri.parse('${Config.baseUrl}/users/profile/${widget.userEmail}'),
-      );
+      final data = await PerfilService.obtener(widget.userEmail);
 
-      if (response.statusCode == 200 && mounted) {
-        final data = json.decode(response.body);
+      if (mounted) {
         final newName =
             '${data['nombre'] ?? ''} ${data['apellido'] ?? ''}'.trim() != ''
                 ? '${data['nombre'] ?? ''} ${data['apellido'] ?? ''}'.trim()

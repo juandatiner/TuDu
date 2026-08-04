@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../config.dart';
+import '../services/ally_api.dart';
 import 'service_setup_screen.dart';
 
 class KycVerificationScreen extends StatefulWidget {
@@ -132,18 +131,12 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
       final cedulaReversoB64 = base64Encode(await _cedulaReverso!.readAsBytes());
       final selfieB64 = base64Encode(await _selfie!.readAsBytes());
 
-      await http
-          .post(
-            Uri.parse('${Config.baseUrl}/ally-kyc'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'email': widget.email,
-              'cedula_frente': cedulaFrenteB64,
-              'cedula_reverso': cedulaReversoB64,
-              'selfie': selfieB64,
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
+      await AliadoApi.enviarKyc(
+        email: widget.email,
+        cedulaFrente: cedulaFrenteB64,
+        cedulaReverso: cedulaReversoB64,
+        selfie: selfieB64,
+      );
 
       if (!mounted) return;
 

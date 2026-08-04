@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../config.dart';
+import '../services/api.dart';
 
 class ThemeProvider with ChangeNotifier {
   static const String _themeKey = 'is_dark_mode';
@@ -59,13 +57,9 @@ class ThemeProvider with ChangeNotifier {
     }
 
     try {
-      final response = await http.get(
-        Uri.parse(
-            '${Config.baseUrl}/users/theme/${Uri.encodeComponent(_userEmail!)}'),
-      );
+      final data = await Api.get('/users/theme/${Uri.encodeComponent(_userEmail!)}');
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      {
         _isDarkMode = data['dark_mode'] ?? false;
 
         // También guardar localmente como caché
@@ -130,14 +124,10 @@ class ThemeProvider with ChangeNotifier {
     if (_userEmail == null || _userEmail!.isEmpty) return;
 
     try {
-      await http.put(
-        Uri.parse('${Config.baseUrl}/users/theme'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': _userEmail,
-          'dark_mode': _isDarkMode,
-        }),
-      );
+      await Api.put('/users/theme', {
+        'email': _userEmail,
+        'dark_mode': _isDarkMode,
+      });
     } catch (e) {
       // Ignorar errores de red - el tema se guardó localmente
       debugPrint('Error guardando tema en backend: $e');

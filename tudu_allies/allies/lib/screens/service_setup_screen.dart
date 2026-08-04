@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../config.dart';
+import '../services/api.dart';
+import '../services/ally_api.dart';
 import 'package:provider/provider.dart';
 import '../services/session_service.dart';
 import 'home_screen.dart';
@@ -55,17 +54,11 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
   Future<void> _fetchServices() async {
     setState(() => _isLoading = true);
     try {
-      final response = await http
-          .get(Uri.parse('${Config.baseUrl}/services'))
-          .timeout(const Duration(seconds: 10));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> servicesJson = data['services'] ?? [];
-        setState(() {
-          _serviciosDisponibles = servicesJson.cast<Map<String, dynamic>>();
-          _serviciosFiltrados = List.from(_serviciosDisponibles);
-        });
-      }
+      final servicios = await ServicioApi.catalogo();
+      setState(() {
+        _serviciosDisponibles = servicios;
+        _serviciosFiltrados = List.from(_serviciosDisponibles);
+      });
     } catch (e) {
       debugPrint('Error cargando servicios: $e');
     } finally {
@@ -93,20 +86,13 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
     if (nombre.isEmpty) return;
 
     try {
-      final response = await http
-          .post(
-            Uri.parse('${Config.baseUrl}/services'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'name': nombre}),
-          )
-          .timeout(const Duration(seconds: 10));
+      final data = await Api.post('/services', {'name': nombre});
 
       if (!mounted) return;
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        final nuevoServicio = {
-          'id': data['id'],
+      {
+        final nuevoServicio = <String, dynamic>{
+          'id': (data as Map)['id'],
           'name': nombre,
         };
         setState(() {
@@ -117,9 +103,9 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
           _nuevoServicioController.clear();
         });
         _showSnack('Servicio "$nombre" creado exitosamente');
-      } else {
-        _showSnack('Error creando el servicio', isError: true);
       }
+    } on ApiException catch (e) {
+      _showSnack(e.message, isError: true);
     } catch (e) {
       _showSnack('Error de conexión', isError: true);
     }
@@ -146,19 +132,13 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
     setState(() => _isSaving = true);
 
     try {
-      await http
-          .post(
-            Uri.parse('${Config.baseUrl}/ally-service-profile'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'email': widget.email,
-              'service_id': _servicioSeleccionado!['id'],
-              'nombre_comercial': _nombreComercialController.text.trim(),
-              'frase_presentacion': _frasePresentacionController.text.trim(),
-              'resumen': _resumenController.text.trim(),
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
+      await AliadoApi.crearPerfilServicio({
+        'email': widget.email,
+        'service_id': _servicioSeleccionado!['id'],
+        'nombre_comercial': _nombreComercialController.text.trim(),
+        'frase_presentacion': _frasePresentacionController.text.trim(),
+        'resumen': _resumenController.text.trim(),
+      });
 
       if (!mounted) return;
 

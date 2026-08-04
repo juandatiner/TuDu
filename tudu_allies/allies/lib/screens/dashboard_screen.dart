@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../config.dart';
+import '../services/ally_api.dart';
 import '../models/service.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -22,18 +20,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _fetchServices() async {
     try {
-      final response = await http.get(Uri.parse('${Config.baseUrl}/services'));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final List<dynamic> servicesJson = data['services'];
-        setState(() {
-          _services = servicesJson.map((json) => Service.fromJson(json)).toList();
-        });
-      } else {
-        print('Error fetching services: ${response.statusCode}');
-      }
+      final servicesJson = await ServicioApi.catalogo();
+      setState(() {
+        _services = servicesJson.map((json) => Service.fromJson(json)).toList();
+      });
     } catch (e) {
-      print('Error: $e');
+      debugPrint('Error cargando servicios: $e');
     }
   }
 
