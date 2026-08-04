@@ -1,30 +1,35 @@
 import 'dart:io';
-import 'package:device_info_plus/device_info_plus.dart';
 
-// Configuración de la aplicación
-// La IP local se inyecta automáticamente desde el script run-dev.sh
-// mediante --dart-define=LOCAL_IP=<ip>
-// Si no se inyecta, se detecta en tiempo de compilación vía String.fromEnvironment.
+/// Configuración de conexión al backend.
+///
+/// Este bloque es IDÉNTICO en las tres apps salvo el puerto: si cambia la forma
+/// de resolver la URL, hay que cambiarlo en `tudu_users`, `tudu_allies` y
+/// `tudu_admin`. No se extrajo a un paquete compartido porque son tres proyectos
+/// Flutter independientes y montar un paquete local para veinte líneas añadía
+/// más complejidad de build que la que quitaba.
 class Config {
-  // IP inyectada en compilación via --dart-define=LOCAL_IP
+  /// IP inyectada en compilación con `--dart-define=LOCAL_IP`.
+  /// Vale '' cuando no se pasó el flag.
   static const String _dartDefineIp = String.fromEnvironment('LOCAL_IP');
 
-  /// Puerto del backend de allies
+  /// Puerto del backend de allies.
   static const int port = 3002;
 
-  // URL base síncrona que funciona en todas las plataformas de forma confiable.
-  static String get baseUrl {
-    if (_dartDefineIp.isNotEmpty) {
-      return 'http://$_dartDefineIp:$port';
-    }
-    if (Platform.isAndroid) {
-      return 'http://10.0.2.2:$port'; // Emulador Android
-    } else {
-      return 'http://localhost:$port'; // Simulador iOS, Web, Desktop
-    }
+  /// URL base del backend. Síncrona a propósito: se usa dentro de `build()`.
+  static String get baseUrl => _resolverUrl(port);
+
+  /// Resuelve la URL según dónde se esté ejecutando la app.
+  static String _resolverUrl(int puerto) {
+    // 1. IP inyectada: dispositivo físico en la misma red, o `run-dev.sh`.
+    if (_dartDefineIp.isNotEmpty) return 'http://$_dartDefineIp:$puerto';
+
+    // 2. El emulador de Android no ve `localhost` del Mac: usa 10.0.2.2.
+    if (Platform.isAndroid) return 'http://10.0.2.2:$puerto';
+
+    // 3. Simulador de iOS, web y escritorio hablan con localhost directamente.
+    return 'http://localhost:$puerto';
   }
 
-  static Future<String> getBaseUrl() async {
-    return baseUrl;
-  }
+  /// Variante asíncrona, mantenida por compatibilidad con código antiguo.
+  static Future<String> getBaseUrl() async => baseUrl;
 }

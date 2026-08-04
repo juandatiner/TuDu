@@ -3,11 +3,12 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
+const { corsOptions, avisarConfiguracion } = require('./cors_config');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 
 // Inicializar Supabase
@@ -27,6 +28,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const bcrypt = require('bcryptjs');
 const { signSession, requireAuth, createRefreshHandler } = require('./auth');
+const { limiteLogin } = require('./rate_limit');
 
 const BCRYPT_ROUNDS = 10;
 
@@ -48,7 +50,7 @@ app.get('/', (req, res) => {
 });
 
 // Login de admin
-app.post('/api/admin/login', async (req, res) => {
+app.post('/api/admin/login', limiteLogin, async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -219,4 +221,5 @@ app.put('/api/admins/:id/change-password', async (req, res) => {
 // Arrancar server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`TuDu Admin Backend corriendo en puerto ${PORT} usando SUPABASE 🚀`);
+  avisarConfiguracion('admin');
 });

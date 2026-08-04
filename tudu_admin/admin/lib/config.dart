@@ -1,46 +1,47 @@
 import 'dart:io';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Configuración de la aplicación
+/// Configuración de conexión al backend.
+///
+/// Este bloque es IDÉNTICO en las tres apps salvo los puertos: si cambia la
+/// forma de resolver la URL, hay que cambiarlo en `tudu_users`, `tudu_allies` y
+/// `tudu_admin`. No se extrajo a un paquete compartido porque son tres proyectos
+/// Flutter independientes y montar un paquete local para veinte líneas añadía
+/// más complejidad de build que la que quitaba.
 class Config {
-  // IP inyectada en compilación via --dart-define=LOCAL_IP
+  /// IP inyectada en compilación con `--dart-define=LOCAL_IP`.
+  /// Vale '' cuando no se pasó el flag.
   static const String _dartDefineIp = String.fromEnvironment('LOCAL_IP');
 
-  /// El backend está actualmente expuesto a través de tudu_users en el puerto 3000
+  /// El panel consume el backend de USERS para las solicitudes de cambio de
+  /// foto y los sockets: por eso su puerto principal es el 3000, no el 3003.
   static const int port = 3000;
 
-  // URL base síncrona que funciona en todas las plataformas de forma confiable.
-  static String get baseUrl {
-    if (_dartDefineIp.isNotEmpty) {
-      return 'http://$_dartDefineIp:$port';
-    }
-    if (Platform.isAndroid) {
-      return 'http://10.0.2.2:$port'; // Emulador Android
-    } else {
-      return 'http://localhost:$port'; // Simulador iOS, Web, Desktop
-    }
-  }
-
-  static Future<String> getBaseUrl() async {
-    return baseUrl;
-  }
-
-  /// Puerto del backend propio de administración (login y CRUD de admins).
-  /// El resto del panel consume el backend de users en el 3000.
+  /// Backend propio de administración: login y CRUD de administradores.
   static const int adminPort = 3003;
 
-  static String get adminBaseUrl {
-    if (_dartDefineIp.isNotEmpty) {
-      return 'http://$_dartDefineIp:$adminPort';
-    }
-    if (Platform.isAndroid) {
-      return 'http://10.0.2.2:$adminPort';
-    }
-    return 'http://localhost:$adminPort';
+  /// URL base del backend de users. Síncrona a propósito: se usa en `build()`.
+  static String get baseUrl => _resolverUrl(port);
+
+  /// URL base del backend de administración.
+  static String get adminBaseUrl => _resolverUrl(adminPort);
+
+  /// Resuelve la URL según dónde se esté ejecutando la app.
+  static String _resolverUrl(int puerto) {
+    // 1. IP inyectada: dispositivo físico en la misma red, o `run-dev.sh`.
+    if (_dartDefineIp.isNotEmpty) return 'http://$_dartDefineIp:$puerto';
+
+    // 2. El emulador de Android no ve `localhost` del Mac: usa 10.0.2.2.
+    if (Platform.isAndroid) return 'http://10.0.2.2:$puerto';
+
+    // 3. Simulador de iOS, web y escritorio hablan con localhost directamente.
+    return 'http://localhost:$puerto';
   }
+
+  /// Variante asíncrona, mantenida por compatibilidad con código antiguo.
+  static Future<String> getBaseUrl() async => baseUrl;
 
   // Colores de la aplicación (identidad de TuDu)
   static const Color backgroundColor = Color(0xFFF4F2F2);

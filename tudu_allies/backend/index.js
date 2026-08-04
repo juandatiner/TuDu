@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const mailgun = require('mailgun-js');
 const compression = require('compression'); // Acelera cargas de Base64 reduciendo 80%
+const { corsOptions, corsSocket, avisarConfiguracion } = require('./cors_config');
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
@@ -13,12 +13,7 @@ app.use(compression());
 const PORT = process.env.PORT || 3002;
 const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"]
-  }
-});
+const io = new Server(server, { cors: corsSocket });
 
 // Inicializar Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -65,24 +60,12 @@ io.on('connection', (socket) => {
   });
 });
 
-// Configurar Mailgun
-let mg = null;
-if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN && 
-    process.env.MAILGUN_API_KEY !== 'tu_api_key_de_mailgun') {
-  mg = mailgun({
-    apiKey: process.env.MAILGUN_API_KEY,
-    domain: process.env.MAILGUN_DOMAIN
-  });
-  console.log('Mailgun configurado correctamente');
-} else {
-  console.log('Mailgun no configurado - modo desarrollo activo');
-}
-
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 const { signSession, requireAuth, createRefreshHandler, authenticateSocket } = require('./auth');
+const { limiteEnvioOtp, limiteVerificacionOtp } = require('./rate_limit');
 
 // El socket exige el mismo JWT que la API REST.
 io.use(authenticateSocket);
@@ -212,7 +195,7 @@ function generateOTP() {
 // 1. AUTENTICACIÓN
 // ==========================================
 
-app.post('/send-otp', async (req, res) => {
+app.post('/send-otp', limiteEnvioOtp, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email es requerido' });
 
@@ -234,7 +217,7 @@ app.post('/send-otp', async (req, res) => {
   res.json({ message: 'OTP enviado exitosamente por Supabase' });
 });
 
-app.post('/verify-otp', async (req, res) => {
+app.post('/verify-otp', limiteVerificacionOtp, async (req, res) => {
   const { email, otp, device_id } = req.body;
   if (!email || !otp) return res.status(400).json({ error: 'Email y OTP requeridos' });
 
@@ -632,4 +615,5 @@ app.post('/ally-device-session/close-others', async (req, res) => {
 // Arrancar server permanentemente
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend Allies corriendo en puerto ${PORT} usando SUPABASE 🚀`);
+  avisarConfiguracion('allies');
 });

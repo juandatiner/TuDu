@@ -6,18 +6,20 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { createClient } = require('@supabase/supabase-js');
 const compression = require('compression'); // Compresión Zlib para B64
+const { corsOptions, corsSocket, avisarConfiguracion } = require('./cors_config');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 
 app.use(compression()); // Comprime los inmensos JSON con Base64 hasta un 80% antes de enviarlos por red
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const { signSession, requireAuth, createRefreshHandler, authenticateSocket } = require('./auth');
+const { limiteEnvioOtp, limiteVerificacionOtp } = require('./rate_limit');
 
 // Código maestro de desarrollo. Solo sirve con DEV_MODE=true.
 const OTP_DEV = process.env.DEV_OTP || '123456';
@@ -28,7 +30,6 @@ const RUTAS_PUBLICAS = [
   '/send-otp',
   '/verify-otp',
   '/check-user',
-  '/check-ally',
   '/departments',
   '/cities',
   '/countries',
@@ -113,12 +114,7 @@ app.use('/api/admin', (req, res, next) => {
   return res.status(403).json({ error: 'Se requiere rol de administrador', code: 'NOT_ADMIN' });
 });
 
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE"]
-  }
-});
+const io = new Server(server, { cors: corsSocket });
 
 // Inicializar Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -168,8 +164,13 @@ io.on('connection', (socket) => {
 // ==========================================
 // 1. AUTENTICACIÓN Y REGISTRO
 // ==========================================
+//
+// Los aliados se gestionan ENTERAMENTE en el backend de allies (puerto 3002).
+// Aquí vivían copias de /check-ally y /register-ally con lógica más simple y
+// desactualizada, que no comprobaban el KYC ni el perfil de servicio: usarlas
+// dejaba aliados en un estado que el otro backend no reconocía.
 
-app.post('/send-otp', async (req, res) => {
+app.post('/send-otp', limiteEnvioOtp, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email es requerido' });
 
@@ -192,7 +193,7 @@ app.post('/send-otp', async (req, res) => {
   res.json({ message: 'OTP enviado exitosamente por Supabase' });
 });
 
-app.post('/verify-otp', async (req, res) => {
+app.post('/verify-otp', limiteVerificacionOtp, async (req, res) => {
   const { email, otp, device_id } = req.body;
   if (!email || !otp) return res.status(400).json({ error: 'Email y OTP requeridos' });
 
@@ -256,17 +257,6 @@ app.post('/check-user', async (req, res) => {
   else res.json({ exists: false });
 });
 
-app.post('/check-ally', async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'Email es requerido' });
-
-  const { data, error } = await supabase.from('allies').select('id, nombre, apellido').eq('email', email).single();
-  if (error && error.code !== 'PGRST116') return res.status(500).json({ error: 'Error verificando aliado' });
-
-  if (data) res.json({ exists: true, ally: data });
-  else res.json({ exists: false });
-});
-
 app.post('/register-user', async (req, res) => {
   const { email, nombre, apellido } = req.body;
   if (!email || !nombre || !apellido) return res.status(400).json({ error: 'Faltan campos' });
@@ -275,16 +265,6 @@ app.post('/register-user', async (req, res) => {
   if (error) return res.status(400).json({ error: 'Error registrando o usuario ya existe' });
 
   res.json({ message: 'Usuario registrado', id: data.id });
-});
-
-app.post('/register-ally', async (req, res) => {
-  const { email, nombre, apellido } = req.body;
-  if (!email || !nombre || !apellido) return res.status(400).json({ error: 'Faltan campos' });
-
-  const { data, error } = await supabase.from('allies').insert([{ email, nombre, apellido }]).select('id').single();
-  if (error) return res.status(400).json({ error: 'Error registrando o aliado ya existe' });
-
-  res.json({ message: 'Aliado registrado', id: data.id });
 });
 
 // ==========================================
@@ -439,7 +419,14 @@ app.get('/api/user/photo-change-request/unnotified', async (req, res) => {
     .neq('status', 'pending')
     .eq('user_notified', false)
     .limit(1)
-    .single();
+    .maybeSingle();
+
+  // Antes se ignoraba `error` y siempre se respondía `success: true`, así que un
+  // fallo de la base se veía igual que "no hay nada pendiente".
+  if (error) {
+    console.error('Error consultando solicitudes sin notificar:', error.message);
+    return res.status(500).json({ success: false, error: 'Error consultando solicitudes' });
+  }
 
   res.json({ success: true, data: data || null });
 });
@@ -583,16 +570,27 @@ app.post('/users/cards', async (req, res) => {
   if (!user_email || !card_number || !card_holder || !expiry_date) return res.status(400).json({ error: 'Faltan campos' });
 
   const normalizedCard = card_number.replace(/\s+/g, '');
-  const { data: exist } = await supabase.from('user_cards').select('id').eq('user_email', user_email).like('card_number', `%${normalizedCard.slice(-4)}`).single(); // Simplificado para check de existencia aprox
-  if (exist) return res.status(400).json({ error: 'Ya existe una tarjeta similar' });
+  const maskedCard = `**** **** **** ${normalizedCard.slice(-4)}`;
+
+  // El duplicado se juzga por los 4 últimos dígitos MÁS el titular y el
+  // vencimiento. Comparar solo los 4 dígitos daba falsos positivos: dos tarjetas
+  // distintas de la misma persona pueden terminar igual y quedaban rechazadas.
+  const { data: exist } = await supabase
+    .from('user_cards')
+    .select('id')
+    .eq('user_email', user_email)
+    .eq('card_number', maskedCard)
+    .eq('card_holder', card_holder)
+    .eq('expiry_date', expiry_date)
+    .maybeSingle();
+
+  if (exist) return res.status(400).json({ error: 'Ya tienes registrada esta tarjeta' });
 
   const { count } = await supabase.from('user_cards').select('*', { count: 'exact', head: true }).eq('user_email', user_email);
   const isFirstCard = count === 0;
   const finalIsDefault = isFirstCard ? 1 : (is_default ? 1 : 0);
 
   if (finalIsDefault) await supabase.from('user_cards').update({ is_default: 0 }).eq('user_email', user_email);
-
-  const maskedCard = `**** **** **** ${normalizedCard.slice(-4)}`;
 
   const { data, error } = await supabase.from('user_cards').insert([{
     user_email, card_number: maskedCard, card_holder, expiry_date, card_type: card_type || 'visa', document_type: document_type || 'C.C', document_number, card_mode: card_mode || 'credit', is_default: finalIsDefault
@@ -652,7 +650,10 @@ app.get('/services-in-search', async (req, res) => {
 });
 
 app.put('/services-in-search/:id/assign', async (req, res) => {
-  const { error } = await supabase.from('services_in_search').update({ assigned: 1, status: 'En Proceso' }).eq('id', req.params.id);
+  // Los estados van en MAYÚSCULAS. Aquí se escribía 'En Proceso' mientras el
+  // backend de allies escribía 'EN PROCESO' sobre la misma columna, así que
+  // cualquier filtro por igualdad exacta se saltaba la mitad de las filas.
+  const { error } = await supabase.from('services_in_search').update({ assigned: 1, status: 'EN PROCESO' }).eq('id', req.params.id);
   if (error) return res.status(500).json({ error: 'Error asignando' });
   res.json({ message: 'Asignado exitosamente' });
 });
@@ -789,20 +790,27 @@ app.get('/api/user/photo-change-request/pending', async (req, res) => {
   res.json({ success: true, data: data || null });
 });
 
+/// Borra la cuenta y todo lo que cuelga de ella.
+///
+/// El borrado vive en una función de Postgres (`supabase/borrar_cuenta.sql`)
+/// para que corra dentro de UNA transacción. Antes eran siete borrados sueltos
+/// desde acá: si uno fallaba a mitad, los anteriores ya estaban hechos y
+/// quedaban filas huérfanas apuntando a un usuario inexistente.
 app.delete('/users/:email', async (req, res) => {
   const { email } = req.params;
-  // Supabase takes care of cascade deleting if FK constraints are set perfectly, 
-  // but let's delete explicitly logic just in case if FK lacks ON DELETE CASCADE
-  await supabase.from('user_addresses').delete().eq('user_email', email);
-  await supabase.from('user_phones').delete().eq('user_email', email);
-  await supabase.from('photo_change_requests').delete().eq('user_email', email);
-  await supabase.from('user_cards').delete().eq('user_email', email);
-  await supabase.from('device_sessions').delete().eq('user_email', email);
-  await supabase.from('search_history').delete().eq('user_email', email);
-  
-  const { error } = await supabase.from('users').delete().eq('email', email);
-  if (error) return res.status(500).json({ success: false, message: 'Error eliminando' });
-  res.json({ success: true, message: 'Cuenta eliminada' });
+
+  const { data, error } = await supabase.rpc('tudu_borrar_cuenta', { p_email: email });
+
+  if (error) {
+    console.error('Error eliminando cuenta:', error.message);
+    return res.status(500).json({ success: false, message: 'Error eliminando' });
+  }
+
+  if (data && data.success === false) {
+    return res.status(404).json(data);
+  }
+
+  res.json(data || { success: true, message: 'Cuenta eliminada' });
 });
 
 // ==========================================
@@ -937,4 +945,5 @@ app.post('/device-session/close-others', async (req, res) => {
 // Arrancar server permanentemente
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend Users corriendo en puerto ${PORT} usando SUPABASE 🚀`);
+  avisarConfiguracion('users');
 });
