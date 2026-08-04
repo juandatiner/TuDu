@@ -1,11 +1,31 @@
-# Archivos con claves privadas
+# ─── Claves privadas ─────────────────────────────────────────────────────────
 .env
 *.env
-tudu_users/backend/.env
 
-# Archivos temporales de SQLite (WAL mode)
+# ─── Dependencias ────────────────────────────────────────────────────────────
+# Se reinstalan con `npm install`. Versionarlas infla el repositorio con miles
+# de archivos que nadie revisa y que cambian con cada actualización.
+node_modules/
+
+# ─── Artefactos de compilación ───────────────────────────────────────────────
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+
+# iOS / CocoaPods: se regeneran con `pod install`
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# Android
+.gradle/
+android/local.properties
+android/.gradle/
+
+# ─── Sistema ─────────────────────────────────────────────────────────────────
+.DS_Store
 *.db-wal
 *.db-shm
-
-# Archivos de sistema macOS
-.DS_Store
