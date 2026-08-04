@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+import '../l10n/app_localizations.dart';
 import '../services/api.dart';
 import '../services/auth_api.dart';
 import '../services/session_service.dart';
@@ -17,10 +18,15 @@ class OtpScreen extends StatefulWidget {
 }
 
 class _OtpScreenState extends State<OtpScreen> {
-  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers =
+      List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   bool _isLoading = false;
   bool _canResend = false;
+  // El código quedó mal: los seis recuadros se marcan en rojo hasta que se
+  // vuelva a escribir. Antes solo salía un SnackBar y los recuadros seguían
+  // verdes al enfocarlos.
+  bool _codigoInvalido = false;
   int _resendTimer = 30;
   Timer? _countdownTimer;
 
@@ -79,33 +85,38 @@ class _OtpScreenState extends State<OtpScreen> {
     try {
       final existe = await AuthApi.existeUsuario(widget.email);
 
-        if (existe) {
-          // Usuario existe, ir a verificación exitosa
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => VerificationSuccessScreen(email: widget.email)),
-          );
-        } else {
-          // Usuario no existe, ir a registro
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => RegistrationScreen(email: widget.email)),
-          );
-        }
+      if (existe) {
+        // Usuario existe, ir a verificación exitosa
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) =>
+                  VerificationSuccessScreen(email: widget.email)),
+        );
+      } else {
+        // Usuario no existe, ir a registro
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) => RegistrationScreen(email: widget.email)),
+        );
+      }
     } catch (e) {
       // Error de conexión, asumir no existe
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => RegistrationScreen(email: widget.email)),
+        MaterialPageRoute(
+            builder: (context) => RegistrationScreen(email: widget.email)),
       );
     }
   }
 
   Future<void> _verifyOtp() async {
     if (_otpCode.length != 6) {
+      setState(() => _codigoInvalido = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor ingresa el código completo de 6 dígitos'),
+        SnackBar(
+          content: Text(context.tr('otp_incomplete')),
           backgroundColor: Colors.red,
         ),
       );
@@ -127,6 +138,7 @@ class _OtpScreenState extends State<OtpScreen> {
       _checkUserAfterOtp();
     } on ApiException catch (e) {
       if (!mounted) return;
+      setState(() => _codigoInvalido = true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.message),
@@ -135,8 +147,8 @@ class _OtpScreenState extends State<OtpScreen> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error de conexión. Verifica tu conexión a internet.'),
+        SnackBar(
+          content: Text(context.tr('otp_connection_error')),
           backgroundColor: Colors.red,
         ),
       );
@@ -159,17 +171,17 @@ class _OtpScreenState extends State<OtpScreen> {
     try {
       await AuthApi.enviarCodigo(widget.email);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Código OTP reenviado'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        _startResendTimer();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr('otp_resent')),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _startResendTimer();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error de conexión'),
+        SnackBar(
+          content: Text(context.tr('otp_connection_error')),
           backgroundColor: Colors.red,
         ),
       );
@@ -183,7 +195,17 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
+  /// Rojo si el código falló; si no, verde mientras el recuadro tiene el foco
+  /// y gris en reposo. Nunca los dos colores encima del mismo campo.
+  Color _colorBorde(int index) {
+    if (_codigoInvalido) return const Color(0xFFF44336);
+    return _focusNodes[index].hasFocus
+        ? const Color(0xFF78BF32)
+        : Colors.black26;
+  }
+
   void _onOtpChanged(int index, String value) {
+    if (_codigoInvalido) setState(() => _codigoInvalido = false);
     if (value.length == 1 && index < 5) {
       _focusNodes[index + 1].requestFocus();
     }
@@ -234,9 +256,9 @@ class _OtpScreenState extends State<OtpScreen> {
                 const SizedBox(height: 40),
 
                 // Título
-                const Text(
-                  'Verificación',
-                  style: TextStyle(
+                Text(
+                  context.tr('otp_title'),
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
@@ -247,7 +269,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
                 // Descripción
                 Text(
-                  'Ingresa el código de 6 dígitos enviado a\n${widget.email}',
+                  '${context.tr('otp_subtitle')}\n${widget.email}',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.black.withOpacity(0.7),
@@ -263,30 +285,36 @@ class _OtpScreenState extends State<OtpScreen> {
                     return SizedBox(
                       width: 45,
                       height: 55,
-                      child: TextField(
-                        controller: _controllers[index],
-                        focusNode: _focusNodes[index],
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        maxLength: 1,
-                        decoration: InputDecoration(
-                          counterText: '',
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
+                      child: Focus(
+                        onFocusChange: (_) => setState(() {}),
+                        child: TextField(
+                          controller: _controllers[index],
+                          focusNode: _focusNodes[index],
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          maxLength: 1,
+                          decoration: InputDecoration(
+                            counterText: '',
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                  color: _colorBorde(index), width: 2),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                  color: _colorBorde(index), width: 2),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                  color: _colorBorde(index), width: 2),
+                            ),
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.black.withOpacity(0.3)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFF78BF32), width: 2),
-                          ),
+                          onChanged: (value) => _onOtpChanged(index, value),
                         ),
-                        onChanged: (value) => _onOtpChanged(index, value),
                       ),
                     );
                   }),
@@ -299,7 +327,8 @@ class _OtpScreenState extends State<OtpScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF78BF32),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 48),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 48),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -311,12 +340,13 @@ class _OtpScreenState extends State<OtpScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text(
-                          'Verificar',
-                          style: TextStyle(
+                      : Text(
+                          context.tr('verify'),
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
@@ -329,8 +359,8 @@ class _OtpScreenState extends State<OtpScreen> {
                   onPressed: _canResend ? _resendOtp : null,
                   child: Text(
                     _canResend
-                        ? 'Reenviar código'
-                        : 'Reenviar en ${_resendTimer}s',
+                        ? context.tr('otp_resend')
+                        : '${context.tr('otp_resend_in')} ${_resendTimer}s',
                     style: TextStyle(
                       color: _canResend ? const Color(0xFF78BF32) : Colors.grey,
                       fontSize: 16,
@@ -341,9 +371,9 @@ class _OtpScreenState extends State<OtpScreen> {
                 // Cambiar email
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    'Cambiar correo electrónico',
-                    style: TextStyle(
+                  child: Text(
+                    context.tr('otp_change_email'),
+                    style: const TextStyle(
                       color: Colors.black54,
                       fontSize: 14,
                     ),

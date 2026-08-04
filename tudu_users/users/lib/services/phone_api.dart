@@ -5,15 +5,20 @@ import 'api.dart';
 /// Mismo principio que el correo: el número no se guarda hasta que la persona
 /// demuestra que lo controla.
 ///
-/// En desarrollo no se envía ningún SMS y vale el código maestro `123456`. En
-/// producción falta enchufar un proveedor de SMS en el backend; hasta entonces,
-/// `enviarCodigo` responde 501 fuera de DEV_MODE.
+/// Con Twilio configurado en el backend llega un SMS real. Sin credenciales y
+/// en DEV_MODE no se envía nada y vale el código maestro `123456`; sin
+/// credenciales y sin DEV_MODE, `enviarCodigo` responde 501.
 class TelefonoApi {
-  static Future<void> enviarCodigo({
+  /// Devuelve true si el backend simuló el envío (modo desarrollo): en ese caso
+  /// no llega ningún SMS y hay que usar el código maestro.
+  static Future<bool> enviarCodigo({
     required String email,
     required String telefono,
-  }) =>
-      Api.post('/users/phone/send-otp', {'email': email, 'phone': telefono});
+  }) async {
+    final data =
+        await Api.post('/users/phone/send-otp', {'email': email, 'phone': telefono});
+    return data is Map && data['dev_mode'] == true;
+  }
 
   /// Comprueba el código y, si es correcto, guarda el teléfono ya verificado.
   static Future<String> verificarCodigo({

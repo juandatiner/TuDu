@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../services/ally_api.dart';
@@ -58,8 +60,8 @@ class _KycPendingScreenState extends State<KycPendingScreen> {
 
         // Sigue en revisión: no hay nada que hacer más que esperar.
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tu verificación sigue en revisión'),
+          SnackBar(
+            content: Text(context.tr('still_under_review')),
             backgroundColor: Color(0xFF595959),
           ),
         );
@@ -67,8 +69,8 @@ class _KycPendingScreenState extends State<KycPendingScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo consultar el estado. Revisa tu conexión.'),
+        SnackBar(
+          content: Text(context.tr('status_check_failed')),
           backgroundColor: Color(0xFFF44336),
         ),
       );
@@ -135,8 +137,7 @@ class _KycPendingScreenState extends State<KycPendingScreen> {
                   ),
                 ),
                 const SizedBox(height: 28),
-                const Text(
-                  'Tu cuenta está siendo verificada',
+                Text(context.tr('account_under_review'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 22,
@@ -178,8 +179,7 @@ class _KycPendingScreenState extends State<KycPendingScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Actualizar estado',
+                        : Text(context.tr('refresh_status'),
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -190,8 +190,7 @@ class _KycPendingScreenState extends State<KycPendingScreen> {
                 const SizedBox(height: 12),
                 TextButton(
                   onPressed: _logout,
-                  child: const Text(
-                    'Cerrar sesión',
+                  child: Text(context.tr('close_session'),
                     style: TextStyle(color: Color(0xFF595959)),
                   ),
                 ),

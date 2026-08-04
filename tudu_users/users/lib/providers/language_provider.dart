@@ -18,16 +18,28 @@ class LanguageProvider extends ChangeNotifier {
   bool get isSpanish => _locale.languageCode == 'es';
   bool get isEnglish => _locale.languageCode == 'en';
 
-  /// Inicializa el idioma desde SharedPreferences (para uso antes del login)
+  /// Inicializa el idioma desde SharedPreferences (para uso antes del login).
+  ///
+  /// Si todavía no hay preferencia guardada se usa el idioma del teléfono. Antes
+  /// se quedaba fijo en español, así que un dispositivo en inglés veía en
+  /// español toda la parte previa al login (onboarding, login, OTP, registro).
   Future<void> loadLanguage() async {
     final prefs = await SharedPreferences.getInstance();
     final languageCode = prefs.getString(_languageKey);
 
     if (languageCode != null) {
       _locale = Locale(languageCode, languageCode == 'es' ? 'CO' : 'US');
+    } else {
+      _locale = _localeDelDispositivo();
     }
     _isInitialized = true;
     notifyListeners();
+  }
+
+  /// Idioma del sistema, limitado a los que la app soporta.
+  static Locale _localeDelDispositivo() {
+    final idioma = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+    return idioma == 'en' ? const Locale('en', 'US') : const Locale('es', 'CO');
   }
 
   /// Inicializa el idioma con el email del usuario para sincronizar con el backend
@@ -71,9 +83,9 @@ class LanguageProvider extends ChangeNotifier {
       try {
         final prefs = await SharedPreferences.getInstance();
         final languageCode = prefs.getString(_languageKey);
-        if (languageCode != null) {
-          _locale = Locale(languageCode, languageCode == 'es' ? 'CO' : 'US');
-        }
+        _locale = languageCode != null
+            ? Locale(languageCode, languageCode == 'es' ? 'CO' : 'US')
+            : _localeDelDispositivo();
       } catch (e2) {
         // Mantener el idioma por defecto
       }

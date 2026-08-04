@@ -295,6 +295,9 @@ PORT=3000
 SUPABASE_URL=                 # REQUERIDO — process.exit(1) si falta
 SUPABASE_SERVICE_ROLE_KEY=    # REQUERIDO — process.exit(1) si falta
 DEV_MODE=true                 # bypass de /send-otp solo para cosmodavid2009@gmail.com
+TWILIO_ACCOUNT_SID=           # opcional — con las 3 puestas, /users/phone/send-otp manda SMS real
+TWILIO_AUTH_TOKEN=
+TWILIO_FROM=                  # número emisor en formato E.164 (+57...)
 ```
 
 **`tudu_allies/backend/.env`**

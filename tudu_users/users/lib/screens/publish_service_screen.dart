@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/user_api.dart';
 import '../providers/theme_provider.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/validacion_formulario.dart';
 
 class PublishServiceScreen extends StatefulWidget {
   final String userEmail;
@@ -34,6 +35,13 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
   bool _descriptionError = false;
   bool _budgetError = false;
   bool _budgetMaxError = false;
+
+  // Motivo por campo (null = sin problema) y aviso general del formulario.
+  String? _errorTitulo;
+  String? _errorDescripcion;
+  String? _errorPresupuesto;
+  String? _errorInfoTrabajador;
+  String? _avisoGeneral;
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
@@ -86,80 +94,67 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
       _budgetController.text = formatted;
     }
 
-    // Verificar que tudus los campos estén llenos (sin solo espacios en blanco)
     final title = _titleController.text.trim();
     final description = _descriptionController.text.trim();
     final budget = _budgetController.text.trim();
     final workerInfo = _workerInfoController.text.trim();
 
-    // Validar campos vacíos
-    if (title.isEmpty ||
-        description.isEmpty ||
-        budget.isEmpty ||
-        workerInfo.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(loc?.translate('all_fields_required') ??
-              'tudus los campos son obligatorios'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+    // Se revisa todo de una: cada campo con problema queda marcado en rojo con
+    // su motivo, y abajo aparece un único aviso general. Antes se avisaba de a
+    // un campo por SnackBar y había que descubrir los errores uno por uno.
+    final requerido = loc?.translate('field_required') ?? 'Campo obligatorio';
+    String? errorTitulo;
+    String? errorDescripcion;
+    String? errorPresupuesto;
+    String? errorInfo;
+
+    if (title.isEmpty) {
+      errorTitulo = requerido;
+    } else if (_countWords(title) < 3) {
+      errorTitulo = loc?.translate('title_min_3_words') ??
+          'El título debe tener al menos 3 palabras';
     }
 
-    // Validar título (mínimo 3 palabras)
-    if (_countWords(title) < 3) {
-      setState(() {
-        _titleError = true;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(loc?.translate('title_min_3_words') ??
-              'El título debe tener al menos 3 palabras'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+    if (description.isEmpty) {
+      errorDescripcion = requerido;
+    } else if (_countWords(description) < 20) {
+      errorDescripcion = loc?.translate('description_min_20_words') ??
+          'La descripción debe tener al menos 20 palabras';
     }
 
-    // Validar descripción (mínimo 20 palabras)
-    if (_countWords(description) < 20) {
-      setState(() {
-        _descriptionError = true;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(loc?.translate('description_min_20_words') ??
-              'La descripción debe tener al menos 20 palabras'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+    final valorPresupuesto = double.tryParse(budget.replaceAll(',', '')) ?? 0;
+    if (budget.isEmpty) {
+      errorPresupuesto = requerido;
+    } else if (valorPresupuesto < 5000) {
+      errorPresupuesto = loc?.translate('min_budget_error') ??
+          'El presupuesto mínimo es de \$5.000 pesos';
+    } else if (valorPresupuesto > 100000000) {
+      errorPresupuesto = loc?.translate('max_budget_error') ??
+          'El presupuesto máximo es de \$100.000.000 de pesos';
     }
 
-    // Validar presupuesto mínimo de 5.000 pesos y máximo de 100.000.000
-    final numericBudget = budget.replaceAll(',', '');
-    final budgetValue = double.tryParse(numericBudget) ?? 0;
-    if (budgetValue < 5000) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(loc?.translate('min_budget_error') ??
-              'El presupuesto mínimo es de \$5.000 pesos'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-    if (budgetValue > 100000000) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(loc?.translate('max_budget_error') ??
-              'El presupuesto máximo es de \$100.000.000 de pesos'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    if (workerInfo.isEmpty) errorInfo = requerido;
+
+    final hayErrores = errorTitulo != null ||
+        errorDescripcion != null ||
+        errorPresupuesto != null ||
+        errorInfo != null;
+
+    setState(() {
+      _errorTitulo = errorTitulo;
+      _errorDescripcion = errorDescripcion;
+      _errorPresupuesto = errorPresupuesto;
+      _errorInfoTrabajador = errorInfo;
+      _titleError = errorTitulo != null;
+      _descriptionError = errorDescripcion != null;
+      _budgetError = errorPresupuesto != null;
+      _avisoGeneral = hayErrores
+          ? (loc?.translate('complete_all_fields') ??
+              'Completa todos los campos marcados en rojo')
+          : null;
+    });
+
+    if (hayErrores) return;
 
     try {
       final body = {
@@ -168,19 +163,19 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
         'description': _descriptionController.text,
         'time_quantity': _selectedQuantity,
         'time_unit': _units[_selectedUnitIndex].toLowerCase(),
-        'budget': numericBudget,
+        'budget': budget.replaceAll(',', ''),
         'worker_info': _workerInfoController.text,
       };
       await ServicioService.publicar(body);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(loc?.translate('service_published_success') ??
-                'Servicio publicado exitosamente!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc?.translate('service_published_success') ??
+              'Servicio publicado exitosamente!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
     } catch (e) {
       print('Exception: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -205,6 +200,51 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     super.dispose();
   }
 
+  /// Bordes del campo: rojo si falla, verde solo mientras tiene el foco, gris
+  /// en reposo. Los pinta el propio TextField; el Container ya no dibuja borde
+  /// para que no queden dos a la vez.
+  InputDecoration _decoracionCampo(InputDecoration base, {String? error}) {
+    const radio = 25.0;
+    OutlineInputBorder linea(Color color, double grosor) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radio),
+          borderSide: BorderSide(color: color, width: grosor),
+        );
+
+    if (error != null) {
+      final rojo = linea(Validacion.colorError, 2);
+      return base.copyWith(
+        border: rojo,
+        enabledBorder: rojo,
+        focusedBorder: rojo,
+        errorBorder: rojo,
+        focusedErrorBorder: rojo,
+      );
+    }
+
+    return base.copyWith(
+      border: linea(Colors.transparent, 0),
+      enabledBorder: linea(Colors.transparent, 0),
+      focusedBorder: linea(Validacion.colorOk, 2),
+    );
+  }
+
+  /// El aviso general solo tiene sentido mientras quede algún campo en rojo.
+  void _revisarAviso() {
+    if (_errorTitulo == null &&
+        _errorDescripcion == null &&
+        _errorPresupuesto == null &&
+        _errorInfoTrabajador == null) {
+      _avisoGeneral = null;
+    }
+  }
+
+  /// El presupuesto está dentro del rango permitido.
+  bool get _presupuestoValido {
+    final valor =
+        double.tryParse(_budgetController.text.trim().replaceAll(',', '')) ?? 0;
+    return valor >= 5000 && valor <= 100000000;
+  }
+
   // Función para contar palabras
   int _countWords(String text) {
     if (text.trim().isEmpty) return 0;
@@ -216,6 +256,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     final wordCount = _countWords(value);
     setState(() {
       _titleError = wordCount < 3 && value.trim().isNotEmpty;
+      _errorTitulo = null;
+      _revisarAviso();
     });
   }
 
@@ -224,6 +266,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     final wordCount = _countWords(value);
     setState(() {
       _descriptionError = wordCount < 20 && value.trim().isNotEmpty;
+      _errorDescripcion = null;
+      _revisarAviso();
     });
   }
 
@@ -234,6 +278,8 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     setState(() {
       _budgetError = value.isNotEmpty && number < 5000;
       _budgetMaxError = value.isNotEmpty && number > 100000000;
+      _errorPresupuesto = null;
+      _revisarAviso();
     });
   }
 
@@ -404,9 +450,6 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
               decoration: BoxDecoration(
                 color: themeProvider.cardBgColor,
                 borderRadius: BorderRadius.circular(25.0),
-                border: _titleError
-                    ? Border.all(color: Colors.red, width: 1.5)
-                    : null,
               ),
               child: TextField(
                 controller: _titleController,
@@ -415,27 +458,31 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                 maxLength: 30,
                 onChanged: _validateTitle,
                 style: TextStyle(fontSize: 16, color: themeProvider.textColor),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 15,
+                decoration: _decoracionCampo(
+                  InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 15,
+                    ),
+                    counterText: '',
+                    hintText: _titleError
+                        ? loc?.translate('min_3_words') ??
+                            'Mínimo 3 palabras para mayor claridad'
+                        : loc?.translate('describe_need_placeholder') ??
+                            'Describe en al menos 3 palabras tu necesidad',
+                    hintStyle: TextStyle(
+                      fontSize: 16,
+                      color: _titleError
+                          ? Colors.red[400]
+                          : themeProvider.secondaryTextColor,
+                    ),
                   ),
-                  counterText: '',
-                  hintText: _titleError
-                      ? loc?.translate('min_3_words') ??
-                          'Mínimo 3 palabras para mayor claridad'
-                      : loc?.translate('describe_need_placeholder') ??
-                          'Describe en al menos 3 palabras tu necesidad',
-                  hintStyle: TextStyle(
-                    fontSize: 16,
-                    color: _titleError
-                        ? Colors.red[400]
-                        : themeProvider.secondaryTextColor,
-                  ),
+                  error: _errorTitulo,
                 ),
               ),
             ),
+            Validacion.mensajeCampo(_errorTitulo),
             const SizedBox(height: 12),
             Text(
               loc?.translate('how_long_service') ??
@@ -613,9 +660,6 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                     ? themeProvider.cardBgColor
                     : Colors.grey[200],
                 borderRadius: BorderRadius.circular(25.0),
-                border: (_budgetError || _budgetMaxError)
-                    ? Border.all(color: Colors.red, width: 1.5)
-                    : null,
               ),
               child: TextField(
                 controller: _budgetController,
@@ -688,36 +732,40 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                     );
                   }
                 },
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 15,
+                decoration: _decoracionCampo(
+                  InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 15,
+                    ),
+                    hintText: _budgetError
+                        ? loc?.translate('min_budget') ??
+                            'El mínimo es \$5.000 pesos'
+                        : _budgetMaxError
+                            ? loc?.translate('max_budget') ??
+                                'El máximo es \$100.000.000 pesos'
+                            : loc?.translate('enter_budget') ??
+                                'Ingresa el presupuesto',
+                    hintStyle: TextStyle(
+                      fontSize: 16,
+                      color: (_budgetError || _budgetMaxError)
+                          ? Colors.red[400]
+                          : themeProvider.secondaryTextColor,
+                    ),
+                    suffixText: 'COP',
+                    suffixStyle: TextStyle(
+                      fontSize: 16,
+                      color: (_budgetError || _budgetMaxError)
+                          ? Colors.red[400]
+                          : themeProvider.secondaryTextColor,
+                    ),
                   ),
-                  hintText: _budgetError
-                      ? loc?.translate('min_budget') ??
-                          'El mínimo es \$5.000 pesos'
-                      : _budgetMaxError
-                          ? loc?.translate('max_budget') ??
-                              'El máximo es \$100.000.000 pesos'
-                          : loc?.translate('enter_budget') ??
-                              'Ingresa el presupuesto',
-                  hintStyle: TextStyle(
-                    fontSize: 16,
-                    color: (_budgetError || _budgetMaxError)
-                        ? Colors.red[400]
-                        : themeProvider.secondaryTextColor,
-                  ),
-                  suffixText: 'COP',
-                  suffixStyle: TextStyle(
-                    fontSize: 16,
-                    color: (_budgetError || _budgetMaxError)
-                        ? Colors.red[400]
-                        : themeProvider.secondaryTextColor,
-                  ),
+                  error: _errorPresupuesto,
                 ),
               ),
             ),
+            Validacion.mensajeCampo(_errorPresupuesto),
             const SizedBox(height: 12),
             Text(
               loc?.translate('describe_better') ??
@@ -729,9 +777,6 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
               decoration: BoxDecoration(
                 color: themeProvider.cardBgColor,
                 borderRadius: BorderRadius.circular(25.0),
-                border: _descriptionError
-                    ? Border.all(color: Colors.red, width: 1.5)
-                    : null,
               ),
               child: TextField(
                 controller: _descriptionController,
@@ -740,27 +785,31 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                 maxLength: 200,
                 onChanged: _validateDescription,
                 style: TextStyle(fontSize: 16, color: themeProvider.textColor),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 15,
+                decoration: _decoracionCampo(
+                  InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 15,
+                    ),
+                    counterText: '',
+                    hintText: _descriptionError
+                        ? loc?.translate('min_20_words') ??
+                            'Describe con más detalle (mínimo 20 palabras)'
+                        : loc?.translate('describe_better_placeholder') ??
+                            'Describe con detalle lo que necesitas (mínimo 20 palabras)',
+                    hintStyle: TextStyle(
+                      fontSize: 16,
+                      color: _descriptionError
+                          ? Colors.red[400]
+                          : themeProvider.secondaryTextColor,
+                    ),
                   ),
-                  counterText: '',
-                  hintText: _descriptionError
-                      ? loc?.translate('min_20_words') ??
-                          'Describe con más detalle (mínimo 20 palabras)'
-                      : loc?.translate('describe_better_placeholder') ??
-                          'Describe con detalle lo que necesitas (mínimo 20 palabras)',
-                  hintStyle: TextStyle(
-                    fontSize: 16,
-                    color: _descriptionError
-                        ? Colors.red[400]
-                        : themeProvider.secondaryTextColor,
-                  ),
+                  error: _errorDescripcion,
                 ),
               ),
             ),
+            Validacion.mensajeCampo(_errorDescripcion),
             const SizedBox(height: 12),
             Text(
               loc?.translate('worker_know_before') ??
@@ -775,27 +824,36 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
               ),
               child: TextField(
                 controller: _workerInfoController,
+                onChanged: (_) => setState(() {
+                  _errorInfoTrabajador = null;
+                  _revisarAviso();
+                }),
                 maxLines: null,
                 minLines: 2,
                 maxLength: 100,
                 style: TextStyle(fontSize: 16, color: themeProvider.textColor),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 15,
+                decoration: _decoracionCampo(
+                  InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 15,
+                    ),
+                    counterText: '',
+                    hintText: loc?.translate('additional_info_worker') ??
+                        'Información adicional para el trabajador',
+                    hintStyle: TextStyle(
+                      fontSize: 16,
+                      color: themeProvider.secondaryTextColor,
+                    ),
                   ),
-                  counterText: '',
-                  hintText: loc?.translate('additional_info_worker') ??
-                      'Información adicional para el trabajador',
-                  hintStyle: TextStyle(
-                    fontSize: 16,
-                    color: themeProvider.secondaryTextColor,
-                  ),
+                  error: _errorInfoTrabajador,
                 ),
               ),
             ),
+            Validacion.mensajeCampo(_errorInfoTrabajador),
             const SizedBox(height: 16),
+            Validacion.aviso(context, _avisoGeneral),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

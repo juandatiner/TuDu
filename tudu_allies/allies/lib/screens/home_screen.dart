@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../services/session_service.dart';
@@ -95,10 +97,10 @@ class _AllyHomeScreenState extends State<AllyHomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _navItem(index: 0, icon: Icons.home, label: 'Inicio'),
-              _navItem(index: 1, icon: Icons.message, label: 'Mensajes'),
-              _navItem(index: 2, icon: Icons.work, label: 'Mis servicios'),
-              _navItem(index: 3, icon: Icons.person, label: 'Perfil'),
+              _navItem(index: 0, icon: Icons.home, label: context.tr('home')),
+              _navItem(index: 1, icon: Icons.message, label: context.tr('messages')),
+              _navItem(index: 2, icon: Icons.work, label: context.tr('my_services')),
+              _navItem(index: 3, icon: Icons.person, label: context.tr('profile')),
             ],
           ),
         ),
@@ -172,7 +174,7 @@ class _InicioTab extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '¡Hola, Aliado! 👋',
+                    context.tr('hello_ally'),
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -230,8 +232,7 @@ class _InicioTab extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Sección solicitudes
-          const Text(
-            '📋 Solicitudes disponibles',
+          Text(context.tr('available_requests'),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -241,7 +242,7 @@ class _InicioTab extends StatelessWidget {
           const SizedBox(height: 12),
           _EmptyStateCard(
             icon: Icons.assignment_outlined,
-            message: 'No hay solicitudes disponibles en este momento.\n¡Vuelve más tarde!',
+            message: context.tr('no_requests'),
           ),
         ],
       ),
@@ -276,8 +277,7 @@ class _StatusCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Verificación en revisión',
+                Text(context.tr('verification_in_review'),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -410,8 +410,7 @@ class _MensajesTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Mensajes',
+          Text(context.tr('messages'),
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -421,7 +420,7 @@ class _MensajesTab extends StatelessWidget {
           const SizedBox(height: 20),
           _EmptyStateCard(
             icon: Icons.chat_bubble_outline,
-            message: 'No tienes mensajes aún.\nAquí aparecerán tus conversaciones con clientes.',
+            message: context.tr('no_messages'),
           ),
         ],
       ),
@@ -447,8 +446,7 @@ class _MisServiciosTab extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Mis Servicios',
+              Text(context.tr('my_services_title'),
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -458,7 +456,7 @@ class _MisServiciosTab extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Agregar'),
+                label: Text(context.tr('add')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF78BF32),
                   foregroundColor: Colors.white,
@@ -474,7 +472,7 @@ class _MisServiciosTab extends StatelessWidget {
           const SizedBox(height: 20),
           _EmptyStateCard(
             icon: Icons.work_outline,
-            message: 'Aún no tienes servicios activos.\nTu servicio inicial está siendo revisado.',
+            message: context.tr('no_active_services'),
           ),
         ],
       ),
@@ -533,8 +531,7 @@ class _PerfilTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: const Color(0xFFFFCC02)),
                   ),
-                  child: const Text(
-                    'Verificación Pendiente',
+                  child: Text(context.tr('pending_verification'),
                     style: TextStyle(
                       fontSize: 12,
                       color: Color(0xFF5D4200),
@@ -550,22 +547,22 @@ class _PerfilTab extends StatelessWidget {
           // Opciones del perfil
           _profileOption(
             icon: Icons.person_outline,
-            label: 'Mis datos',
+            label: context.tr('my_data'),
             onTap: () {},
           ),
           _profileOption(
             icon: Icons.account_balance_wallet_outlined,
-            label: 'Billetera',
+            label: context.tr('wallet'),
             onTap: () {},
           ),
           _profileOption(
             icon: Icons.star_outline,
-            label: 'Mis calificaciones',
+            label: context.tr('my_ratings'),
             onTap: () {},
           ),
           _profileOption(
             icon: Icons.help_outline,
-            label: 'Soporte',
+            label: context.tr('support'),
             onTap: () {},
           ),
           const SizedBox(height: 8),
@@ -593,8 +590,7 @@ class _PerfilTab extends StatelessWidget {
                 ),
                 child: const Icon(Icons.logout, color: Colors.red, size: 20),
               ),
-              title: const Text(
-                'Cerrar sesión',
+              title: Text(context.tr('close_session'),
                 style: TextStyle(
                   color: Colors.red,
                   fontWeight: FontWeight.w600,

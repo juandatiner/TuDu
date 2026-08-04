@@ -179,6 +179,17 @@ class ThemeProvider with ChangeNotifier {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
+        // El rojo del error tiene que ganarle al verde de foco: sin estos dos
+        // bordes, Flutter mezclaba ambos y el campo con error quedaba de un
+        // color indefinido al enfocarlo.
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFF44336), width: 2),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFF44336), width: 2),
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -233,6 +244,17 @@ class ThemeProvider with ChangeNotifier {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primaryColor, width: 2),
+        ),
+        // El rojo del error tiene que ganarle al verde de foco: sin estos dos
+        // bordes, Flutter mezclaba ambos y el campo con error quedaba de un
+        // color indefinido al enfocarlo.
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFF44336), width: 2),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFF44336), width: 2),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

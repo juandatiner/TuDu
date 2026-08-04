@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
+import '../providers/theme_provider.dart';
+import '../widgets/validacion_formulario.dart';
 import '../services/api.dart';
 import '../services/phone_api.dart';
 
@@ -54,6 +58,7 @@ class _DialogoOtpTelefonoState extends State<_DialogoOtpTelefono> {
   bool _enviando = false;
   bool _verificando = false;
   String? _error;
+  bool _tieneFoco = false;
 
   String get _telefonoCompleto => '${widget.countryCode}${widget.phoneNumber}';
 
@@ -76,11 +81,13 @@ class _DialogoOtpTelefonoState extends State<_DialogoOtpTelefono> {
     });
 
     try {
-      await TelefonoApi.enviarCodigo(email: widget.email, telefono: _telefonoCompleto);
+      final simulado = await TelefonoApi.enviarCodigo(
+          email: widget.email, telefono: _telefonoCompleto);
       if (!mounted) return;
 
-      // En desarrollo no llega ningún SMS: se rellena el código maestro.
-      _controlador.text = _codigoDesarrollo;
+      // Solo en desarrollo no llega ningún SMS: ahí se rellena el código
+      // maestro. Con SMS real el campo queda vacío.
+      if (simulado) _controlador.text = _codigoDesarrollo;
       setState(() => _enviando = false);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -92,7 +99,7 @@ class _DialogoOtpTelefonoState extends State<_DialogoOtpTelefono> {
       if (!mounted) return;
       setState(() {
         _enviando = false;
-        _error = 'No se pudo enviar el código';
+        _error = context.tr('phone_otp_send_error');
       });
     }
   }
@@ -101,7 +108,7 @@ class _DialogoOtpTelefonoState extends State<_DialogoOtpTelefono> {
     final codigo = _controlador.text.trim();
 
     if (codigo.length != 6) {
-      setState(() => _error = 'El código tiene 6 dígitos');
+      setState(() => _error = context.tr('phone_otp_length'));
       return;
     }
 
@@ -131,14 +138,36 @@ class _DialogoOtpTelefonoState extends State<_DialogoOtpTelefono> {
       if (!mounted) return;
       setState(() {
         _verificando = false;
-        _error = 'No se pudo verificar el código';
+        _error = context.tr('phone_otp_verify_error');
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // El diálogo se abre desde los datos personales, ya con sesión: ahí sí
+    // aplica el modo oscuro, así que los colores salen del tema y no fijos.
+    final tema = context.watch<ThemeProvider>();
+    final oscuro = tema.isDarkMode;
+    final loc = context.loc;
+
+    final colorTexto =
+        oscuro ? ThemeProvider.darkText : ThemeProvider.lightText;
+    final colorSecundario = oscuro
+        ? ThemeProvider.darkSecondaryText
+        : ThemeProvider.lightSecondaryText;
+    final colorCampo = oscuro ? ThemeProvider.darkScaffoldBg : Colors.white;
+
+    // Un solo color de borde a la vez: rojo si el código está mal, verde solo
+    // mientras el campo tiene el foco, gris en reposo.
+    final colorBorde = _error != null
+        ? Validacion.colorError
+        : _tieneFoco
+            ? ThemeProvider.primaryColor
+            : (oscuro ? ThemeProvider.darkBorder : Colors.black26);
+
     return Dialog(
+      backgroundColor: oscuro ? ThemeProvider.darkCardBg : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -155,45 +184,62 @@ class _DialogoOtpTelefonoState extends State<_DialogoOtpTelefono> {
                   size: 40, color: Color(0xFF78BF32)),
             ),
             const SizedBox(height: 18),
-            const Text(
-              'Verifica tu teléfono',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            Text(
+              loc.t('phone_otp_title'),
+              style: TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.bold, color: colorTexto),
             ),
             const SizedBox(height: 8),
             Text(
-              'Enviamos un código de 6 dígitos a\n$_telefonoCompleto',
+              '${loc.t('phone_otp_subtitle')}\n$_telefonoCompleto',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.6)),
+              style: TextStyle(fontSize: 14, color: colorSecundario),
             ),
             const SizedBox(height: 20),
-
             if (_enviando)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: CircularProgressIndicator(color: Color(0xFF78BF32)),
               )
             else
-              TextField(
-                controller: _controlador,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                maxLength: 6,
-                autofocus: true,
-                style: const TextStyle(
-                    fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: 10),
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: '000000',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+              Focus(
+                onFocusChange: (foco) => setState(() => _tieneFoco = foco),
+                child: TextField(
+                  controller: _controlador,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 6,
+                  autofocus: true,
+                  style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 10,
+                      color: colorTexto),
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: '000000',
+                    hintStyle:
+                        TextStyle(color: colorSecundario, letterSpacing: 10),
+                    filled: true,
+                    fillColor: colorCampo,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colorBorde, width: 2),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colorBorde, width: 2),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colorBorde, width: 2),
+                    ),
                   ),
+                  onChanged: (_) => setState(() => _error = null),
+                  onSubmitted: (_) => _verificar(),
                 ),
-                onSubmitted: (_) => _verificar(),
               ),
-
             if (_error != null) ...[
               const SizedBox(height: 10),
               Text(
@@ -202,7 +248,6 @@ class _DialogoOtpTelefonoState extends State<_DialogoOtpTelefono> {
                 style: const TextStyle(color: Colors.red, fontSize: 13),
               ),
             ],
-
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
@@ -221,8 +266,8 @@ class _DialogoOtpTelefonoState extends State<_DialogoOtpTelefono> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('Verificar',
-                        style: TextStyle(
+                    : Text(loc.t('verify'),
+                        style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.bold)),
@@ -233,12 +278,14 @@ class _DialogoOtpTelefonoState extends State<_DialogoOtpTelefono> {
               children: [
                 TextButton(
                   onPressed: _enviando ? null : _enviarCodigo,
-                  child: const Text('Reenviar'),
+                  child: Text(loc.t('phone_otp_resend'),
+                      style:
+                          const TextStyle(color: ThemeProvider.primaryColor)),
                 ),
                 TextButton(
                   onPressed: _verificando ? null : () => Navigator.pop(context),
-                  child: const Text('Cancelar',
-                      style: TextStyle(color: Color(0xFF595959))),
+                  child: Text(loc.t('cancel'),
+                      style: TextStyle(color: colorSecundario)),
                 ),
               ],
             ),

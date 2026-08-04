@@ -5,6 +5,7 @@ import '../services/api.dart';
 import '../services/user_api.dart';
 import '../providers/theme_provider.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/validacion_formulario.dart';
 
 class UserAddressesScreen extends StatefulWidget {
   final String userEmail;
@@ -179,23 +180,23 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
 
     try {
       await DireccionService.crear({
-          'user_email': widget.userEmail,
-          'address_name': _addressNameController.text,
-          'department_id': _selectedDepartmentId,
-          'city_id': _selectedCityId,
-          'type_via': _selectedTypeVia,
-          'number_principal': _numberPrincipalController.text,
-          'number_secondary': _numberSecondaryController.text.isNotEmpty
-              ? _numberSecondaryController.text
-              : null,
-          'number_final': _numberFinalController.text.isNotEmpty
-              ? _numberFinalController.text
-              : null,
-          'additional_info': _additionalInfoController.text.isNotEmpty
-              ? _additionalInfoController.text
-              : null,
-          'address_icon':
-              _selectedIcon != null ? _getIconName(_selectedIcon!) : null,
+        'user_email': widget.userEmail,
+        'address_name': _addressNameController.text,
+        'department_id': _selectedDepartmentId,
+        'city_id': _selectedCityId,
+        'type_via': _selectedTypeVia,
+        'number_principal': _numberPrincipalController.text,
+        'number_secondary': _numberSecondaryController.text.isNotEmpty
+            ? _numberSecondaryController.text
+            : null,
+        'number_final': _numberFinalController.text.isNotEmpty
+            ? _numberFinalController.text
+            : null,
+        'additional_info': _additionalInfoController.text.isNotEmpty
+            ? _additionalInfoController.text
+            : null,
+        'address_icon':
+            _selectedIcon != null ? _getIconName(_selectedIcon!) : null,
       });
 
       _addressNameController.clear();
@@ -242,22 +243,22 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     try {
       // `_editingAddressId` ya se comprobó no nulo al entrar en la función.
       await DireccionService.actualizar(_editingAddressId!, {
-          'address_name': _addressNameController.text,
-          'department_id': _selectedDepartmentId,
-          'city_id': _selectedCityId,
-          'type_via': _selectedTypeVia,
-          'number_principal': _numberPrincipalController.text,
-          'number_secondary': _numberSecondaryController.text.isNotEmpty
-              ? _numberSecondaryController.text
-              : null,
-          'number_final': _numberFinalController.text.isNotEmpty
-              ? _numberFinalController.text
-              : null,
-          'additional_info': _additionalInfoController.text.isNotEmpty
-              ? _additionalInfoController.text
-              : null,
-          'address_icon':
-              _selectedIcon != null ? _getIconName(_selectedIcon!) : null,
+        'address_name': _addressNameController.text,
+        'department_id': _selectedDepartmentId,
+        'city_id': _selectedCityId,
+        'type_via': _selectedTypeVia,
+        'number_principal': _numberPrincipalController.text,
+        'number_secondary': _numberSecondaryController.text.isNotEmpty
+            ? _numberSecondaryController.text
+            : null,
+        'number_final': _numberFinalController.text.isNotEmpty
+            ? _numberFinalController.text
+            : null,
+        'additional_info': _additionalInfoController.text.isNotEmpty
+            ? _additionalInfoController.text
+            : null,
+        'address_icon':
+            _selectedIcon != null ? _getIconName(_selectedIcon!) : null,
       });
 
       _addressNameController.clear();
@@ -339,8 +340,6 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
     'Carretera',
     'Camino'
   ];
-
-
 
   String _getTranslatedViaName(String name, AppLocalizations loc) {
     final Map<String, String> viaTranslations = {
@@ -784,7 +783,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ],
                       border: Border.all(
                         color: _addressNameError != null
-                            ? Colors.red
+                            ? Validacion.colorError
                             : Colors.transparent,
                         width: 2,
                       ),
@@ -801,6 +800,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         prefixIcon: const Icon(Icons.label_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        // El rojo lo pinta el Container; el campo solo aporta
+                        // el verde mientras tiene el foco.
+                        focusedBorder: _addressNameError != null
+                            ? InputBorder.none
+                            : const OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: Validacion.colorOk, width: 2),
+                              ),
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 10,
@@ -852,7 +862,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               ],
                               border: Border.all(
                                 color: _departmentError != null
-                                    ? Colors.red
+                                    ? Validacion.colorError
                                     : Colors.transparent,
                                 width: 2,
                               ),
@@ -864,6 +874,18 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                     fontSize: 13,
                                     color: themeProvider.secondaryTextColor),
                                 border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                // El rojo lo pinta el Container; el campo solo aporta
+                                // el verde mientras tiene el foco.
+                                focusedBorder: _departmentError != null
+                                    ? InputBorder.none
+                                    : const OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                            color: Validacion.colorOk,
+                                            width: 2),
+                                      ),
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 10),
                               ),
@@ -924,7 +946,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               ],
                               border: Border.all(
                                 color: _cityError != null
-                                    ? Colors.red
+                                    ? Validacion.colorError
                                     : Colors.transparent,
                                 width: 2,
                               ),
@@ -936,6 +958,18 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                     fontSize: 13,
                                     color: themeProvider.secondaryTextColor),
                                 border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                // El rojo lo pinta el Container; el campo solo aporta
+                                // el verde mientras tiene el foco.
+                                focusedBorder: _cityError != null
+                                    ? InputBorder.none
+                                    : const OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                            color: Validacion.colorOk,
+                                            width: 2),
+                                      ),
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 10),
                               ),
@@ -1011,7 +1045,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               ],
                               border: Border.all(
                                 color: _typeViaError != null
-                                    ? Colors.red
+                                    ? Validacion.colorError
                                     : Colors.transparent,
                                 width: 2,
                               ),
@@ -1023,6 +1057,18 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                     fontSize: 13,
                                     color: themeProvider.secondaryTextColor),
                                 border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                // El rojo lo pinta el Container; el campo solo aporta
+                                // el verde mientras tiene el foco.
+                                focusedBorder: _typeViaError != null
+                                    ? InputBorder.none
+                                    : const OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                            color: Validacion.colorOk,
+                                            width: 2),
+                                      ),
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 10),
                               ),
@@ -1073,7 +1119,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ],
                             border: Border.all(
                               color: _numberPrincipalError != null
-                                  ? Colors.red
+                                  ? Validacion.colorError
                                   : Colors.transparent,
                               width: 2,
                             ),
@@ -1093,6 +1139,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 ),
                               ),
                               border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              // El rojo lo pinta el Container; el campo solo aporta
+                              // el verde mientras tiene el foco.
+                              focusedBorder: _numberPrincipalError != null
+                                  ? InputBorder.none
+                                  : const OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                          color: Validacion.colorOk, width: 2),
+                                    ),
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 10,
@@ -1145,7 +1202,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ],
                             border: Border.all(
                               color: _numberSecondaryError != null
-                                  ? Colors.red
+                                  ? Validacion.colorError
                                   : Colors.transparent,
                               width: 2,
                             ),
@@ -1165,6 +1222,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 ),
                               ),
                               border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              // El rojo lo pinta el Container; el campo solo aporta
+                              // el verde mientras tiene el foco.
+                              focusedBorder: _numberSecondaryError != null
+                                  ? InputBorder.none
+                                  : const OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                          color: Validacion.colorOk, width: 2),
+                                    ),
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 10,
@@ -1201,7 +1269,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ],
                             border: Border.all(
                               color: _numberFinalError != null
-                                  ? Colors.red
+                                  ? Validacion.colorError
                                   : Colors.transparent,
                               width: 2,
                             ),
@@ -1221,6 +1289,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 ),
                               ),
                               border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              // El rojo lo pinta el Container; el campo solo aporta
+                              // el verde mientras tiene el foco.
+                              focusedBorder: _numberFinalError != null
+                                  ? InputBorder.none
+                                  : const OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                          color: Validacion.colorOk, width: 2),
+                                    ),
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 10,
@@ -1271,7 +1350,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ],
                       border: Border.all(
                         color: _additionalInfoError != null
-                            ? Colors.red
+                            ? Validacion.colorError
                             : Colors.transparent,
                         width: 2,
                       ),
@@ -1288,6 +1367,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         prefixIcon: const Icon(Icons.info_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        // El rojo lo pinta el Container; el campo solo aporta
+                        // el verde mientras tiene el foco.
+                        focusedBorder: _additionalInfoError != null
+                            ? InputBorder.none
+                            : const OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: Validacion.colorOk, width: 2),
+                              ),
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 12,
@@ -1335,7 +1425,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ],
                       border: Border.all(
                         color: _addressIconError != null
-                            ? Colors.red
+                            ? Validacion.colorError
                             : Colors.transparent,
                         width: 2,
                       ),
@@ -1594,7 +1684,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ],
                       border: Border.all(
                         color: _addressNameError != null
-                            ? Colors.red
+                            ? Validacion.colorError
                             : Colors.transparent,
                         width: 2,
                       ),
@@ -1611,6 +1701,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         prefixIcon: const Icon(Icons.label_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        // El rojo lo pinta el Container; el campo solo aporta
+                        // el verde mientras tiene el foco.
+                        focusedBorder: _addressNameError != null
+                            ? InputBorder.none
+                            : const OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: Validacion.colorOk, width: 2),
+                              ),
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 10,
@@ -1662,7 +1763,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               ],
                               border: Border.all(
                                 color: _departmentError != null
-                                    ? Colors.red
+                                    ? Validacion.colorError
                                     : Colors.transparent,
                                 width: 2,
                               ),
@@ -1674,6 +1775,18 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                     fontSize: 13,
                                     color: themeProvider.secondaryTextColor),
                                 border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                // El rojo lo pinta el Container; el campo solo aporta
+                                // el verde mientras tiene el foco.
+                                focusedBorder: _departmentError != null
+                                    ? InputBorder.none
+                                    : const OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                            color: Validacion.colorOk,
+                                            width: 2),
+                                      ),
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 10),
                               ),
@@ -1734,7 +1847,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               ],
                               border: Border.all(
                                 color: _cityError != null
-                                    ? Colors.red
+                                    ? Validacion.colorError
                                     : Colors.transparent,
                                 width: 2,
                               ),
@@ -1746,6 +1859,18 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                     fontSize: 13,
                                     color: themeProvider.secondaryTextColor),
                                 border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                // El rojo lo pinta el Container; el campo solo aporta
+                                // el verde mientras tiene el foco.
+                                focusedBorder: _cityError != null
+                                    ? InputBorder.none
+                                    : const OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                            color: Validacion.colorOk,
+                                            width: 2),
+                                      ),
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 10),
                               ),
@@ -1821,7 +1946,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                               ],
                               border: Border.all(
                                 color: _typeViaError != null
-                                    ? Colors.red
+                                    ? Validacion.colorError
                                     : Colors.transparent,
                                 width: 2,
                               ),
@@ -1833,6 +1958,18 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                     fontSize: 13,
                                     color: themeProvider.secondaryTextColor),
                                 border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                // El rojo lo pinta el Container; el campo solo aporta
+                                // el verde mientras tiene el foco.
+                                focusedBorder: _typeViaError != null
+                                    ? InputBorder.none
+                                    : const OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                            color: Validacion.colorOk,
+                                            width: 2),
+                                      ),
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 10),
                               ),
@@ -1883,7 +2020,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ],
                             border: Border.all(
                               color: _numberPrincipalError != null
-                                  ? Colors.red
+                                  ? Validacion.colorError
                                   : Colors.transparent,
                               width: 2,
                             ),
@@ -1903,6 +2040,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 ),
                               ),
                               border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              // El rojo lo pinta el Container; el campo solo aporta
+                              // el verde mientras tiene el foco.
+                              focusedBorder: _numberPrincipalError != null
+                                  ? InputBorder.none
+                                  : const OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                          color: Validacion.colorOk, width: 2),
+                                    ),
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 10,
@@ -1955,7 +2103,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ],
                             border: Border.all(
                               color: _numberSecondaryError != null
-                                  ? Colors.red
+                                  ? Validacion.colorError
                                   : Colors.transparent,
                               width: 2,
                             ),
@@ -1975,6 +2123,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 ),
                               ),
                               border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              // El rojo lo pinta el Container; el campo solo aporta
+                              // el verde mientras tiene el foco.
+                              focusedBorder: _numberSecondaryError != null
+                                  ? InputBorder.none
+                                  : const OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                          color: Validacion.colorOk, width: 2),
+                                    ),
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 10,
@@ -2011,7 +2170,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ],
                             border: Border.all(
                               color: _numberFinalError != null
-                                  ? Colors.red
+                                  ? Validacion.colorError
                                   : Colors.transparent,
                               width: 2,
                             ),
@@ -2031,6 +2190,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                                 ),
                               ),
                               border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              // El rojo lo pinta el Container; el campo solo aporta
+                              // el verde mientras tiene el foco.
+                              focusedBorder: _numberFinalError != null
+                                  ? InputBorder.none
+                                  : const OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                          color: Validacion.colorOk, width: 2),
+                                    ),
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 10,
@@ -2081,7 +2251,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ],
                       border: Border.all(
                         color: _additionalInfoError != null
-                            ? Colors.red
+                            ? Validacion.colorError
                             : Colors.transparent,
                         width: 2,
                       ),
@@ -2098,6 +2268,17 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         prefixIcon: const Icon(Icons.info_outline,
                             color: Color(0xFF78BF32), size: 18),
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        // El rojo lo pinta el Container; el campo solo aporta
+                        // el verde mientras tiene el foco.
+                        focusedBorder: _additionalInfoError != null
+                            ? InputBorder.none
+                            : const OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: Validacion.colorOk, width: 2),
+                              ),
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 12,
@@ -2145,7 +2326,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ],
                       border: Border.all(
                         color: _addressIconError != null
-                            ? Colors.red
+                            ? Validacion.colorError
                             : Colors.transparent,
                         width: 2,
                       ),

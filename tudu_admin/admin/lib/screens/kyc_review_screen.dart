@@ -137,7 +137,7 @@ class _KycReviewScreenState extends State<KycReviewScreen> {
       color: Config.primaryColor,
       onRefresh: _cargar,
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.all(16),
         itemCount: _aliados.length,
         itemBuilder: (_, i) => _tarjeta(_aliados[i]),
       ),
@@ -169,35 +169,87 @@ class _KycReviewScreenState extends State<KycReviewScreen> {
     );
   }
 
+  /// Misma tarjeta que las solicitudes de cambio de foto: borde rojo y punto
+  /// mientras está sin revisar, nombre / correo / fecha a la izquierda y la
+  /// etiqueta de estado en píldora de color sólido a la derecha.
   Widget _tarjeta(Map<String, dynamic> a) {
     final estado = a['kyc_status'] ?? 'pending';
+    final sinRevisar = estado == 'submitted';
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: Config.primaryColor.withOpacity(0.15),
-          child: const Icon(Icons.badge_outlined, color: Config.primaryColor),
+    return GestureDetector(
+      onTap: () => _abrirDetalle(a['email']),
+      child: Card(
+        elevation: 2,
+        margin: const EdgeInsets.only(bottom: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: sinRevisar ? Colors.red.withOpacity(0.6) : Colors.transparent,
+            width: 2,
+          ),
         ),
-        title: Text(
-          '${a['nombre'] ?? ''} ${a['apellido'] ?? ''}'.trim(),
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Indicador de pendiente
+              if (sinRevisar)
+                Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.only(right: 10),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${a['nombre'] ?? ''} ${a['apellido'] ?? ''}'.trim(),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight:
+                            sinRevisar ? FontWeight.bold : FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      a['email'] ?? '',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _fechaCorta(a['kyc_submitted_at'] ?? a['created_at']),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _etiquetaEstado(estado),
+            ],
+          ),
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(a['email'] ?? '', style: const TextStyle(fontSize: 13)),
-            const SizedBox(height: 6),
-            _etiquetaEstado(estado),
-          ],
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => _abrirDetalle(a['email']),
       ),
     );
+  }
+
+  static String _fechaCorta(dynamic iso) {
+    if (iso == null) return '';
+    final d = DateTime.tryParse(iso.toString());
+    if (d == null) return '';
+    final l = d.toLocal();
+    final dia = l.day.toString().padLeft(2, '0');
+    final mes = l.month.toString().padLeft(2, '0');
+    final hora = l.hour.toString().padLeft(2, '0');
+    final min = l.minute.toString().padLeft(2, '0');
+    return '$dia/$mes/${l.year} $hora:$min';
   }
 
   static Widget _etiquetaEstado(String estado) {
@@ -207,15 +259,15 @@ class _KycReviewScreenState extends State<KycReviewScreen> {
     switch (estado) {
       case 'approved':
         color = Colors.green;
-        texto = 'Aprobado';
+        texto = 'Aprobada';
         break;
       case 'rejected':
         color = Colors.red;
-        texto = 'Rechazado';
+        texto = 'Rechazada';
         break;
       case 'submitted':
         color = Colors.orange;
-        texto = 'Pendiente de revisión';
+        texto = 'Pendiente';
         break;
       default:
         color = Colors.grey;
@@ -223,14 +275,18 @@ class _KycReviewScreenState extends State<KycReviewScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         texto,
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

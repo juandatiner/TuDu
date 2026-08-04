@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import '../services/ally_api.dart';
 import '../models/service.dart';
 
@@ -39,7 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            const Text('Servicios disponibles:', style: TextStyle(fontSize: 18)),
+            Text(context.tr('available_services'), style: TextStyle(fontSize: 18)),
             Expanded(
               child: ListView.builder(
                 itemCount: _services.length,
@@ -51,7 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       onPressed: () {
                         // Acción para aceptar servicio
                       },
-                      child: const Text('Aceptar'),
+                      child: Text(context.tr('accept')),
                     ),
                   );
                 },

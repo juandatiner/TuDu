@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
+
+import '../widgets/validacion_formulario.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
@@ -19,6 +23,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _apellidoController = TextEditingController();
   DateTime? _fechaNacimiento;
+
+  // Un motivo por campo + el aviso general del formulario.
+  String? _errorNombre;
+  String? _errorApellido;
+  String? _errorFecha;
+  String? _avisoGeneral;
   bool _isLoading = false;
 
   static const Color _brandColor = Color(0xFF78BF32);
@@ -84,12 +94,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
                     ),
                     // Título
-                    const Padding(
-                      padding: EdgeInsets.all(20),
+                    Padding(
+                      padding: const EdgeInsets.all(20),
                       child: Column(
                         children: [
                           Text(
-                            'Fecha de nacimiento',
+                            context.tr('birth_date'),
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -98,7 +108,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'Debes ser mayor de 18 años',
+                            context.tr('must_be_18_short'),
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.black54,
@@ -143,12 +153,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                             if (age < 18) {
                               setModalState(() {
-                                tempError = 'Debes ser mayor de 18 años';
+                                tempError = context.tr('must_be_18_short');
                               });
                               return;
                             }
 
-                            setState(() => _fechaNacimiento = tempBirthDate);
+                            setState(() {
+                              _fechaNacimiento = tempBirthDate;
+                              _errorFecha = null;
+                              _revisarAviso();
+                            });
                             Navigator.pop(context);
                           },
                           style: ElevatedButton.styleFrom(
@@ -159,8 +173,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             ),
                             elevation: 0,
                           ),
-                          child: const Text(
-                            'Confirmar',
+                          child: Text(context.tr('confirm'),
                             style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -184,19 +197,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return '${date.day} de ${months[date.month - 1]} de ${date.year}';
   }
 
+  /// El aviso general solo tiene sentido mientras quede algún campo en rojo.
+  void _revisarAviso() {
+    if (_errorNombre == null && _errorApellido == null && _errorFecha == null) {
+      _avisoGeneral = null;
+    }
+  }
+
   Future<void> _continuar() async {
-    if (_nombreController.text.trim().isEmpty) {
-      _showSnack('Por favor ingresa tu nombre');
-      return;
-    }
-    if (_apellidoController.text.trim().isEmpty) {
-      _showSnack('Por favor ingresa tu apellido');
-      return;
-    }
-    if (_fechaNacimiento == null) {
-      _showSnack('Por favor selecciona tu fecha de nacimiento');
-      return;
-    }
+    // Se revisa todo de una: lo que falte queda marcado en rojo.
+    final errorNombre =
+        _nombreController.text.trim().isEmpty ? Validacion.requerido : null;
+    final errorApellido =
+        _apellidoController.text.trim().isEmpty ? Validacion.requerido : null;
+    final errorFecha = _fechaNacimiento == null ? Validacion.requerido : null;
+
+    final hayErrores =
+        errorNombre != null || errorApellido != null || errorFecha != null;
+
+    setState(() {
+      _errorNombre = errorNombre;
+      _errorApellido = errorApellido;
+      _errorFecha = errorFecha;
+      _avisoGeneral = hayErrores ? Validacion.textoCamposFaltantes : null;
+    });
+
+    if (hayErrores) return;
 
     setState(() => _isLoading = true);
 
@@ -224,7 +250,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     } on ApiException catch (e) {
       _showSnack(e.message, isError: true);
     } catch (e) {
-      _showSnack('Error de conexión. Verifica tu internet.', isError: true);
+      _showSnack(context.tr('connection_error_check'), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -302,8 +328,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               const SizedBox(height: 28),
 
               // Título
-              const Text(
-                'Datos personales',
+              Text(context.tr('personal_data'),
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -313,7 +338,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Cuéntanos un poco sobre ti',
+                context.tr('tell_us_about_you'),
                 style: TextStyle(
                   fontSize: 15,
                   color: Colors.black.withOpacity(0.55),
@@ -330,7 +355,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]")),
                 ],
-                decoration: _inputDecoration('Nombre', icon: Icons.person_outline),
+                onChanged: (_) => setState(() {
+                  _errorNombre = null;
+                  _revisarAviso();
+                }),
+                decoration: Validacion.decorar(
+                  _inputDecoration(context.tr('first_name'),
+                      icon: Icons.person_outline),
+                  error: _errorNombre,
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -342,7 +375,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r"[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]")),
                 ],
-                decoration: _inputDecoration('Apellidos', icon: Icons.person_outline),
+                onChanged: (_) => setState(() {
+                  _errorApellido = null;
+                  _revisarAviso();
+                }),
+                decoration: Validacion.decorar(
+                  _inputDecoration(context.tr('last_name'),
+                      icon: Icons.person_outline),
+                  error: _errorApellido,
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -355,10 +396,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: _fechaNacimiento != null
-                          ? _brandColor
-                          : Colors.black.withOpacity(0.3),
-                      width: _fechaNacimiento != null ? 2 : 1,
+                      color: _errorFecha != null
+                          ? Validacion.colorError
+                          : _fechaNacimiento != null
+                              ? _brandColor
+                              : Colors.black.withOpacity(0.3),
+                      width: (_errorFecha != null || _fechaNacimiento != null) ? 2 : 1,
                     ),
                   ),
                   child: Row(
@@ -373,7 +416,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         child: Text(
                           _fechaNacimiento != null
                               ? _formatDate(_fechaNacimiento!)
-                              : 'Fecha de nacimiento',
+                              : context.tr('birth_date'),
                           style: TextStyle(
                             fontSize: 16,
                             color: _fechaNacimiento != null
@@ -390,11 +433,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                 ),
               ),
+              Validacion.mensajeCampo(_errorFecha),
               const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Text(
-                  'Debes ser mayor de 18 años para ser aliado',
+                  context.tr('must_be_18'),
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.black.withOpacity(0.45),
@@ -402,7 +446,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               ),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 28),
+
+              Validacion.aviso(_avisoGeneral),
 
               // Botón Continuar
               SizedBox(
@@ -427,8 +473,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text(
-                          'Continuar',
+                      : Text(context.tr('continue_button'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -473,9 +518,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _stepLabel('Datos', step >= 1),
-            _stepLabel('Verificación', step >= 2),
-            _stepLabel('Servicio', step >= 3),
+            _stepLabel(context.tr('step_data'), step >= 1),
+            _stepLabel(context.tr('step_verification'), step >= 2),
+            _stepLabel(context.tr('step_service'), step >= 3),
           ],
         ),
       ],

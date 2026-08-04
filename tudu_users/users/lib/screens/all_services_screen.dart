@@ -17,7 +17,7 @@ class AllServicesScreen extends StatefulWidget {
     required this.services,
     this.initialSearchQuery = '',
     required this.userEmail,
-    this.title = 'tudus los Servicios',
+    this.title = 'Todos los Servicios',
   });
 
   @override

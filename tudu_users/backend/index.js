@@ -21,6 +21,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const { signSession, requireAuth, createRefreshHandler, authenticateSocket } = require('./auth');
 const { limiteEnvioOtp, limiteVerificacionOtp } = require('./rate_limit');
+const { smsConfigurado, emitirCodigo, comprobarCodigo } = require('./sms_otp');
 
 // Código maestro de desarrollo. Solo sirve con DEV_MODE=true.
 const OTP_DEV = process.env.DEV_OTP || '123456';
@@ -343,22 +344,33 @@ app.put('/users/profile/avatar', async (req, res) => {
 // Mismo principio que el correo: el número no se guarda hasta que la persona
 // demuestra que lo controla.
 //
-// EN DESARROLLO (DEV_MODE=true) no se envía ningún SMS y vale el código maestro,
-// igual que con el correo. En producción hay que enchufar aquí un proveedor de
-// SMS (Twilio, Supabase Phone Auth…): es lo único que falta.
+// El SMS sale por Twilio (ver `sms_otp.js`). Si no hay credenciales y estamos
+// en DEV_MODE, se omite el envío y vale el código maestro; sin credenciales y
+// sin DEV_MODE no se puede verificar nada y se dice, no se finge el envío.
 
-/// Envía el código al teléfono. Hoy solo simula el envío.
+/// Envía el código al teléfono.
 app.post('/users/phone/send-otp', limiteEnvioOtp, async (req, res) => {
   const { email, phone } = req.body;
   if (!email || !phone) return res.status(400).json({ error: 'Faltan email y teléfono' });
+
+  if (smsConfigurado()) {
+    try {
+      await emitirCodigo(email, phone);
+      return res.json({ message: 'Código enviado por SMS' });
+    } catch (e) {
+      console.error('Error enviando SMS:', e.message);
+      return res.status(502).json({
+        error: 'No se pudo enviar el SMS, intenta de nuevo',
+        code: 'SMS_FALLO_ENVIO'
+      });
+    }
+  }
 
   if (process.env.DEV_MODE === 'true') {
     console.log(`🔓 DEV_MODE: SMS omitido para ${phone} — usar el código ${OTP_DEV}`);
     return res.json({ message: 'Código simulado en modo desarrollo', dev_mode: true });
   }
 
-  // TODO: integrar proveedor de SMS. Mientras no exista, no se puede verificar
-  // un teléfono en producción y hay que decirlo, no fingir que se envió.
   console.warn(`⚠️  Verificación de teléfono solicitada para ${phone} sin proveedor de SMS configurado.`);
   return res.status(501).json({
     error: 'El envío de SMS todavía no está disponible',
@@ -375,12 +387,16 @@ app.post('/users/phone/verify-otp', limiteVerificacionOtp, async (req, res) => {
     return res.status(400).json({ error: 'Faltan los datos del teléfono' });
   }
 
-  const valido = process.env.DEV_MODE === 'true' && otp === OTP_DEV;
-  if (!valido) {
+  const telefonoCompleto = `${country_code}${phone_number}`;
+
+  if (smsConfigurado()) {
+    const resultado = comprobarCodigo(email, telefonoCompleto, otp);
+    if (!resultado.ok) {
+      return res.status(400).json({ error: resultado.error, code: resultado.code });
+    }
+  } else if (!(process.env.DEV_MODE === 'true' && otp === OTP_DEV)) {
     return res.status(400).json({ error: 'Código incorrecto', code: 'OTP_INVALIDO' });
   }
-
-  const telefonoCompleto = `${country_code}${phone_number}`;
 
   const [phoneRes, userRes] = await Promise.all([
     supabase.from('user_phones').upsert(
@@ -555,6 +571,29 @@ app.get('/cities', async (req, res) => {
 app.get('/countries', async (req, res) => {
   const { data } = await supabase.from('countries').select('*').order('name');
   res.json(data || []);
+});
+
+// Los datos personales necesitan el ISO a partir del código de marcación para
+// pintar la bandera. La ruta se llamaba desde Flutter pero no existía: la
+// pantalla caía siempre al 'CO' por defecto.
+app.get('/countries/by-dial/:dial', async (req, res) => {
+  // Llega tanto '57' como '+57'; en la tabla siempre está con '+'.
+  const dial = req.params.dial.startsWith('+') ? req.params.dial : `+${req.params.dial}`;
+
+  const { data, error } = await supabase
+    .from('countries')
+    .select('id, iso_code, name, dial_code')
+    .eq('dial_code', dial)
+    .order('name')
+    .limit(1)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    return res.status(500).json({ error: 'Error consultando países' });
+  }
+  if (!data) return res.status(404).json({ error: 'País no encontrado' });
+
+  res.json(data);
 });
 
 app.get('/user-addresses', async (req, res) => {

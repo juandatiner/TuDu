@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
+
+import '../widgets/validacion_formulario.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
@@ -22,6 +26,12 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
   File? _cedulaFrente;
   File? _cedulaReverso;
   File? _selfie;
+
+  // Qué documento falta: se marca la tarjeta en rojo en vez de decirlo abajo.
+  bool _faltaFrente = false;
+  bool _faltaReverso = false;
+  bool _faltaSelfie = false;
+  String? _avisoGeneral;
 
   bool _isUploading = false;
 
@@ -73,7 +83,11 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
       maxWidth: 800,
     );
     if (picked != null) {
-      setState(() => _selfie = File(picked.path));
+      setState(() {
+        _selfie = File(picked.path);
+        _faltaSelfie = false;
+        _revisarAviso();
+      });
     }
   }
 
@@ -110,18 +124,24 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
   bool get _canContinue =>
       _cedulaFrente != null && _cedulaReverso != null && _selfie != null;
 
+  /// El aviso general solo tiene sentido mientras falte algún documento.
+  void _revisarAviso() {
+    if (!_faltaFrente && !_faltaReverso && !_faltaSelfie) _avisoGeneral = null;
+  }
+
   Future<void> _continuar() async {
     if (!_canContinue) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Por favor completa los tres documentos'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      // Se marcan los tres a la vez: así se ve de un vistazo cuáles faltan.
+      setState(() {
+        _faltaFrente = _cedulaFrente == null;
+        _faltaReverso = _cedulaReverso == null;
+        _faltaSelfie = _selfie == null;
+        _avisoGeneral = context.tr('upload_marked_documents');
+      });
       return;
     }
+
+    setState(() => _avisoGeneral = null);
 
     setState(() => _isUploading = true);
 
@@ -211,8 +231,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
               const SizedBox(height: 28),
 
               // Título
-              const Text(
-                'Verificación de identidad',
+              Text(context.tr('identity_verification'),
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -222,7 +241,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
               ),
               const SizedBox(height: 6),
               Text(
-                'Necesitamos confirmar que eres tú.\nTus documentos son revisados por nuestro equipo.',
+                context.tr('kyc_intro'),
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.black.withOpacity(0.55),
@@ -234,10 +253,11 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
 
               // Tarjeta cédula frente
               _buildDocumentCard(
-                title: 'Cédula – Parte frontal',
-                subtitle: 'Asegúrate de que sea legible',
+                title: context.tr('id_front'),
+                subtitle: context.tr('id_front_hint'),
                 icon: Icons.credit_card,
                 file: _cedulaFrente,
+                falta: _faltaFrente,
                 onTap: () => showModalBottomSheet(
                   context: context,
                   backgroundColor: Colors.white,
@@ -249,14 +269,21 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                       Navigator.pop(context);
                       _pickImage(
                         fromCamera: true,
-                        onPicked: (f) => setState(() => _cedulaFrente = f),
+                        onPicked: (f) => setState(() {
+                          _cedulaFrente = f;
+                          _faltaFrente = false;
+                          _revisarAviso();
+                        }),
                       );
                     },
                     onGallery: () {
                       Navigator.pop(context);
                       _pickImage(
                         fromCamera: false,
-                        onPicked: (f) => setState(() => _cedulaFrente = f),
+                        onPicked: (f) => setState(() {
+                          _cedulaFrente = f;
+                          _faltaFrente = false;
+                        }),
                       );
                     },
                   ),
@@ -266,10 +293,11 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
 
               // Tarjeta cédula reverso
               _buildDocumentCard(
-                title: 'Cédula – Parte trasera',
-                subtitle: 'Con todos los datos visibles',
+                title: context.tr('id_back'),
+                subtitle: context.tr('id_back_hint'),
                 icon: Icons.credit_card_outlined,
                 file: _cedulaReverso,
+                falta: _faltaReverso,
                 onTap: () => showModalBottomSheet(
                   context: context,
                   backgroundColor: Colors.white,
@@ -281,14 +309,21 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                       Navigator.pop(context);
                       _pickImage(
                         fromCamera: true,
-                        onPicked: (f) => setState(() => _cedulaReverso = f),
+                        onPicked: (f) => setState(() {
+                          _cedulaReverso = f;
+                          _faltaReverso = false;
+                          _revisarAviso();
+                        }),
                       );
                     },
                     onGallery: () {
                       Navigator.pop(context);
                       _pickImage(
                         fromCamera: false,
-                        onPicked: (f) => setState(() => _cedulaReverso = f),
+                        onPicked: (f) => setState(() {
+                          _cedulaReverso = f;
+                          _faltaReverso = false;
+                        }),
                       );
                     },
                   ),
@@ -314,7 +349,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Tus documentos están cifrados y seguros. Solo nuestro equipo de verificación los revisa.',
+                        context.tr('documents_safe'),
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.black.withOpacity(0.65),
@@ -325,7 +360,9 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+
+              Validacion.aviso(_avisoGeneral),
 
               // Botón continuar
               SizedBox(
@@ -351,8 +388,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text(
-                          'Continuar',
+                      : Text(context.tr('continue_button'),
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                 ),
@@ -371,6 +407,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
     required IconData icon,
     required File? file,
     required VoidCallback onTap,
+    bool falta = false,
   }) {
     final hasFile = file != null;
 
@@ -382,8 +419,12 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: hasFile ? _brandColor : Colors.black.withOpacity(0.15),
-            width: hasFile ? 2 : 1,
+            color: falta
+                ? Validacion.colorError
+                : hasFile
+                    ? _brandColor
+                    : Colors.black.withOpacity(0.15),
+            width: (hasFile || falta) ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
@@ -419,7 +460,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                       Icon(icon, size: 44, color: Colors.black.withOpacity(0.2)),
                       const SizedBox(height: 8),
                       Text(
-                        'Toca para agregar',
+                        context.tr('tap_to_add'),
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.black.withOpacity(0.4),
@@ -461,7 +502,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                           ),
                         if (hasFile)
                           Text(
-                            '¡Foto agregada! Toca para cambiarla',
+                            context.tr('photo_added'),
                             style: TextStyle(
                               fontSize: 12,
                               color: _brandColor.withOpacity(0.8),
@@ -494,8 +535,12 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: hasFile ? _brandColor : Colors.black.withOpacity(0.15),
-            width: hasFile ? 2 : 1,
+            color: _faltaSelfie
+                ? Validacion.colorError
+                : hasFile
+                    ? _brandColor
+                    : Colors.black.withOpacity(0.15),
+            width: (hasFile || _faltaSelfie) ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
@@ -549,7 +594,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Selfie de verificación',
+                      context.tr('selfie'),
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -559,8 +604,8 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                     const SizedBox(height: 4),
                     Text(
                       hasFile
-                          ? '¡Selfie tomada! Toca para repetirla'
-                          : 'Se tomará con tu cámara frontal.\nNo se puede adjuntar de galería.',
+                          ? context.tr('selfie_taken')
+                          : context.tr('selfie_hint'),
                       style: TextStyle(
                         fontSize: 12,
                         color: hasFile
@@ -583,7 +628,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                             Icon(Icons.lock_outline, size: 12, color: _brandColor),
                             const SizedBox(width: 4),
                             Text(
-                              'Solo cámara',
+                              context.tr('camera_only'),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: _brandColor,
@@ -626,14 +671,13 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
-            'Agregar foto',
+          Text(context.tr('add_photo'),
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
-          _actionTile(icon: Icons.camera_alt_outlined, label: 'Usar cámara', onTap: onCamera),
+          _actionTile(icon: Icons.camera_alt_outlined, label: context.tr('use_camera'), onTap: onCamera),
           const SizedBox(height: 8),
-          _actionTile(icon: Icons.photo_library_outlined, label: 'Elegir de galería', onTap: onGallery),
+          _actionTile(icon: Icons.photo_library_outlined, label: context.tr('choose_gallery'), onTap: onGallery),
           const SizedBox(height: 8),
         ],
       ),
@@ -671,9 +715,9 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _stepLabel('Datos', step >= 1),
-            _stepLabel('Verificación', step >= 2),
-            _stepLabel('Servicio', step >= 3),
+            _stepLabel(context.tr('step_data'), step >= 1),
+            _stepLabel(context.tr('step_verification'), step >= 2),
+            _stepLabel(context.tr('step_service'), step >= 3),
           ],
         ),
       ],

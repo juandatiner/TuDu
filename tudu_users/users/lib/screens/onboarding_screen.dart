@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'dart:async';
 import 'login_screen.dart';
 import 'home_screen.dart';
@@ -212,8 +214,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 // ── Tagline ──────────────────────────────────────────────
                 Opacity(
                   opacity: _taglineFadeAnimation.value,
-                  child: const Text(
-                    'Todo lo que necesitas, aquí.',
+                  child: Text(context.tr('onboarding_tagline'),
                     style: TextStyle(
                       fontFamily: 'TitanOne',
                       fontSize: 15,

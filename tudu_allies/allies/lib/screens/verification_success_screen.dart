@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import '../services/ally_routing.dart';
@@ -96,8 +98,7 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
                   color: Color(0xFF78BF32),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  '¡Verificación exitosa!',
+                Text(context.tr('verification_success'),
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -105,8 +106,7 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Redirigiendo...',
+                Text(context.tr('redirecting'),
                   style: TextStyle(fontSize: 16, color: Colors.black54),
                 ),
               ],

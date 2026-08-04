@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/validacion_formulario.dart';
 import '../providers/theme_provider.dart';
 import '../services/user_api.dart';
 import 'dart:ui';
@@ -41,14 +42,22 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     if (value == null) return CardType.unknown;
     final clean = value.toLowerCase().trim();
     switch (clean) {
-      case 'visa': return CardType.visa;
-      case 'mastercard': return CardType.mastercard;
-      case 'amex': return CardType.amex;
-      case 'discover': return CardType.discover;
-      case 'diners': return CardType.diners;
-      case 'jcb': return CardType.jcb;
-      case 'unionpay': return CardType.unionpay;
-      default: return CardType.unknown;
+      case 'visa':
+        return CardType.visa;
+      case 'mastercard':
+        return CardType.mastercard;
+      case 'amex':
+        return CardType.amex;
+      case 'discover':
+        return CardType.discover;
+      case 'diners':
+        return CardType.diners;
+      case 'jcb':
+        return CardType.jcb;
+      case 'unionpay':
+        return CardType.unionpay;
+      default:
+        return CardType.unknown;
     }
   }
 
@@ -147,39 +156,39 @@ class _MyCardsScreenState extends State<MyCardsScreen>
         'card_mode': card.cardMode,
       });
 
-        // Recargar las tarjetas desde la base de datos
-        await _loadCreditCards();
+      // Recargar las tarjetas desde la base de datos
+      await _loadCreditCards();
 
-        // Determinar qué tarjeta es la nueva (puede ser favorita o no)
-        String? newCardId;
-        if (card.isDefault && _favoriteCard != null) {
-          // Si la nueva tarjeta es favorita, animar la tarjeta favorita
-          newCardId = _favoriteCard!.id;
-        } else if (_otherCards.isNotEmpty) {
-          // Si no es favorita, la nueva tarjeta será la primera en otras tarjetas
-          newCardId = _otherCards.first.id;
-        }
+      // Determinar qué tarjeta es la nueva (puede ser favorita o no)
+      String? newCardId;
+      if (card.isDefault && _favoriteCard != null) {
+        // Si la nueva tarjeta es favorita, animar la tarjeta favorita
+        newCardId = _favoriteCard!.id;
+      } else if (_otherCards.isNotEmpty) {
+        // Si no es favorita, la nueva tarjeta será la primera en otras tarjetas
+        newCardId = _otherCards.first.id;
+      }
 
-        if (newCardId != null) {
-          // Marcar la tarjeta como entrante (se animará con TweenAnimationBuilder)
-          setState(() {
-            _enteringCardId = newCardId;
-          });
+      if (newCardId != null) {
+        // Marcar la tarjeta como entrante (se animará con TweenAnimationBuilder)
+        setState(() {
+          _enteringCardId = newCardId;
+        });
 
-          // Remover la animación después de que termine
-          await Future.delayed(const Duration(milliseconds: 400));
-          setState(() {
-            _enteringCardId = null;
-          });
-        }
+        // Remover la animación después de que termine
+        await Future.delayed(const Duration(milliseconds: 400));
+        setState(() {
+          _enteringCardId = null;
+        });
+      }
 
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context)!.t('card_saved')),
-            backgroundColor: const Color(0xFF78BF32),
-          ),
-        );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.t('card_saved')),
+          backgroundColor: const Color(0xFF78BF32),
+        ),
+      );
     } catch (e) {
       debugPrint('Error saving credit card: $e');
 
@@ -338,7 +347,7 @@ class _MyCardsScreenState extends State<MyCardsScreen>
         setState(() {
           _cardExitAnimations.remove(id);
         });
-        
+
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -352,8 +361,6 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     }
   }
 
-
-
   Future<void> _setFavoriteCard(String id) async {
     // Deseleccionar la tarjeta actual
     setState(() {
@@ -362,7 +369,8 @@ class _MyCardsScreenState extends State<MyCardsScreen>
 
     try {
       // Enviar solicitud a la API para establecer la tarjeta favorita
-      await TarjetaService.marcarPredeterminada(int.parse(id), widget.userEmail);
+      await TarjetaService.marcarPredeterminada(
+          int.parse(id), widget.userEmail);
       await _loadCreditCards();
     } catch (e) {
       debugPrint('Error setting favorite card: $e');
@@ -710,8 +718,8 @@ class _MyCardsScreenState extends State<MyCardsScreen>
     final logoPath = _getCardLogoPath(card.cardType);
 
     final cleanedNumber = card.cardNumber.replaceAll(RegExp(r'\s+'), '');
-    final lastFour = cleanedNumber.length >= 4 
-        ? cleanedNumber.substring(cleanedNumber.length - 4) 
+    final lastFour = cleanedNumber.length >= 4
+        ? cleanedNumber.substring(cleanedNumber.length - 4)
         : cleanedNumber;
     String maskedCardNumber = '**** **** **** $lastFour';
 
@@ -891,6 +899,9 @@ class _AddCardDialog extends StatefulWidget {
 }
 
 class _AddCardDialogState extends State<_AddCardDialog> {
+  // Aviso general: los campos ya se marcan solos con los validator del Form.
+  String? _avisoGeneral;
+
   final _formKey = GlobalKey<FormState>();
   final _cardNumberController = TextEditingController();
   final _cardHolderController = TextEditingController();
@@ -1627,36 +1638,44 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                 // Número de Tarjeta
                 TextFormField(
                   controller: _cardNumberController,
+                  onChanged: (_) => setState(() {
+                    if (_avisoGeneral != null &&
+                        (_formKey.currentState?.validate() ?? false)) {
+                      _avisoGeneral = null;
+                    }
+                  }),
                   keyboardType: TextInputType.number,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
                     CardNumberFormatter(),
                   ],
                   style: TextStyle(color: themeProvider.textColor),
-                  decoration: InputDecoration(
-                    labelText: loc.t('card_number'),
-                    labelStyle:
-                        TextStyle(color: themeProvider.secondaryTextColor),
-                    hintText: loc.t('card_number_hint'),
-                    prefixIcon:
-                        const Icon(Icons.credit_card, color: Color(0xFF78BF32)),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(
-                        color: themeProvider.isDarkMode
-                            ? Colors.grey[600]!
-                            : Colors.grey[300]!,
+                  decoration: Validacion.decorar(
+                    InputDecoration(
+                      labelText: loc.t('card_number'),
+                      labelStyle:
+                          TextStyle(color: themeProvider.secondaryTextColor),
+                      hintText: loc.t('card_number_hint'),
+                      prefixIcon: const Icon(Icons.credit_card,
+                          color: Color(0xFF78BF32)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: themeProvider.isDarkMode
+                              ? Colors.grey[600]!
+                              : Colors.grey[300]!,
+                        ),
                       ),
+                      filled: true,
+                      fillColor: themeProvider.isDarkMode
+                          ? Colors.grey[800]!
+                          : Colors.white,
+                      errorStyle: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red,
+                      ),
+                      errorMaxLines: 2,
                     ),
-                    filled: true,
-                    fillColor: themeProvider.isDarkMode
-                        ? Colors.grey[800]!
-                        : Colors.white,
-                    errorStyle: TextStyle(
-                      fontSize: 12,
-                      color: Colors.red,
-                    ),
-                    errorMaxLines: 2,
                   ),
                   validator: _validateCardNumber,
                 ),
@@ -1665,6 +1684,12 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                 // Titular de la Tarjeta
                 TextFormField(
                   controller: _cardHolderController,
+                  onChanged: (_) => setState(() {
+                    if (_avisoGeneral != null &&
+                        (_formKey.currentState?.validate() ?? false)) {
+                      _avisoGeneral = null;
+                    }
+                  }),
                   style: TextStyle(color: themeProvider.textColor),
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(
@@ -1673,30 +1698,32 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                     _TrimLeftFormatter(),
                     _UpperCaseFormatter(),
                   ],
-                  decoration: InputDecoration(
-                    labelText: loc.t('card_holder'),
-                    labelStyle:
-                        TextStyle(color: themeProvider.secondaryTextColor),
-                    hintText: loc.t('card_holder_hint'),
-                    prefixIcon:
-                        const Icon(Icons.person, color: Color(0xFF78BF32)),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(
-                        color: themeProvider.isDarkMode
-                            ? Colors.grey[600]!
-                            : Colors.grey[300]!,
+                  decoration: Validacion.decorar(
+                    InputDecoration(
+                      labelText: loc.t('card_holder'),
+                      labelStyle:
+                          TextStyle(color: themeProvider.secondaryTextColor),
+                      hintText: loc.t('card_holder_hint'),
+                      prefixIcon:
+                          const Icon(Icons.person, color: Color(0xFF78BF32)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: themeProvider.isDarkMode
+                              ? Colors.grey[600]!
+                              : Colors.grey[300]!,
+                        ),
                       ),
+                      filled: true,
+                      fillColor: themeProvider.isDarkMode
+                          ? Colors.grey[800]!
+                          : Colors.white,
+                      errorStyle: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red,
+                      ),
+                      errorMaxLines: 2,
                     ),
-                    filled: true,
-                    fillColor: themeProvider.isDarkMode
-                        ? Colors.grey[800]!
-                        : Colors.white,
-                    errorStyle: TextStyle(
-                      fontSize: 12,
-                      color: Colors.red,
-                    ),
-                    errorMaxLines: 2,
                   ),
                   validator: _validateCardHolder,
                 ),
@@ -1709,36 +1736,44 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _expiryDateController,
+                        onChanged: (_) => setState(() {
+                    if (_avisoGeneral != null &&
+                        (_formKey.currentState?.validate() ?? false)) {
+                      _avisoGeneral = null;
+                    }
+                  }),
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           ExpiryDateFormatter(),
                         ],
                         style: TextStyle(color: themeProvider.textColor),
-                        decoration: InputDecoration(
-                          labelText: loc.t('expiry_date'),
-                          labelStyle: TextStyle(
-                              color: themeProvider.secondaryTextColor),
-                          hintText: loc.t('expiry_date_hint'),
-                          prefixIcon: const Icon(Icons.calendar_today,
-                              color: Color(0xFF78BF32)),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: themeProvider.isDarkMode
-                                  ? Colors.grey[600]!
-                                  : Colors.grey[300]!,
+                        decoration: Validacion.decorar(
+                          InputDecoration(
+                            labelText: loc.t('expiry_date'),
+                            labelStyle: TextStyle(
+                                color: themeProvider.secondaryTextColor),
+                            hintText: loc.t('expiry_date_hint'),
+                            prefixIcon: const Icon(Icons.calendar_today,
+                                color: Color(0xFF78BF32)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(
+                                color: themeProvider.isDarkMode
+                                    ? Colors.grey[600]!
+                                    : Colors.grey[300]!,
+                              ),
                             ),
+                            filled: true,
+                            fillColor: themeProvider.isDarkMode
+                                ? Colors.grey[800]!
+                                : Colors.white,
+                            errorStyle: TextStyle(
+                              fontSize: 10,
+                              color: Colors.red,
+                            ),
+                            errorMaxLines: 2,
                           ),
-                          filled: true,
-                          fillColor: themeProvider.isDarkMode
-                              ? Colors.grey[800]!
-                              : Colors.white,
-                          errorStyle: TextStyle(
-                            fontSize: 10,
-                            color: Colors.red,
-                          ),
-                          errorMaxLines: 2,
                         ),
                         validator: _validateExpiryDate,
                       ),
@@ -1831,33 +1866,41 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _documentController,
+                        onChanged: (_) => setState(() {
+                    if (_avisoGeneral != null &&
+                        (_formKey.currentState?.validate() ?? false)) {
+                      _avisoGeneral = null;
+                    }
+                  }),
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(10),
                         ],
                         style: TextStyle(color: themeProvider.textColor),
-                        decoration: InputDecoration(
-                          labelText: loc.t('document'),
-                          labelStyle: TextStyle(
-                              color: themeProvider.secondaryTextColor),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: themeProvider.isDarkMode
-                                  ? Colors.grey[600]!
-                                  : Colors.grey[300]!,
+                        decoration: Validacion.decorar(
+                          InputDecoration(
+                            labelText: loc.t('document'),
+                            labelStyle: TextStyle(
+                                color: themeProvider.secondaryTextColor),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(
+                                color: themeProvider.isDarkMode
+                                    ? Colors.grey[600]!
+                                    : Colors.grey[300]!,
+                              ),
                             ),
+                            filled: true,
+                            fillColor: themeProvider.isDarkMode
+                                ? Colors.grey[800]!
+                                : Colors.white,
+                            errorStyle: TextStyle(
+                              fontSize: 10,
+                              color: Colors.red,
+                            ),
+                            errorMaxLines: 2,
                           ),
-                          filled: true,
-                          fillColor: themeProvider.isDarkMode
-                              ? Colors.grey[800]!
-                              : Colors.white,
-                          errorStyle: TextStyle(
-                            fontSize: 10,
-                            color: Colors.red,
-                          ),
-                          errorMaxLines: 2,
                         ),
                         validator: _validateDocument,
                       ),
@@ -1865,6 +1908,7 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                   ],
                 ),
                 const SizedBox(height: 24),
+                Validacion.aviso(context, _avisoGeneral),
 
                 // Botones Cancelar y Agregar
                 Row(
@@ -1898,7 +1942,13 @@ class _AddCardDialogState extends State<_AddCardDialog> {
                         margin: const EdgeInsets.only(left: 8),
                         child: ElevatedButton(
                           onPressed: () {
-                            if (_formKey.currentState!.validate()) {
+                            if (!_formKey.currentState!.validate()) {
+                              setState(() => _avisoGeneral =
+                                  Validacion.textoCamposFaltantes(context));
+                              return;
+                            }
+                            setState(() => _avisoGeneral = null);
+                            {
                               final cardNumber = _cardNumberController.text
                                   .replaceAll(RegExp(r'\s+'), '');
                               final expiryDate = _expiryDateController.text;
@@ -2030,7 +2080,6 @@ class _CreditCardWidget extends StatefulWidget {
 }
 
 class _CreditCardWidgetState extends State<_CreditCardWidget> {
-
   // Obtener colores según el tipo de tarjeta
   List<Color> _getCardColors(CardType cardType) {
     switch (cardType) {

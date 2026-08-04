@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../services/api.dart';
 import '../services/ally_api.dart';
@@ -22,6 +24,8 @@ class _OtpScreenState extends State<OtpScreen> {
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   bool _isLoading = false;
   bool _canResend = false;
+  // Código mal: los seis recuadros quedan rojos hasta volver a escribir.
+  bool _codigoInvalido = false;
   int _resendTimer = 30;
 
   @override
@@ -87,7 +91,8 @@ class _OtpScreenState extends State<OtpScreen> {
 
   Future<void> _verifyOtp() async {
     if (_otpCode.length != 6) {
-      _showSnack('Por favor ingresa el código completo de 6 dígitos');
+      setState(() => _codigoInvalido = true);
+      _showSnack(context.tr('otp_incomplete'));
       return;
     }
 
@@ -108,15 +113,17 @@ class _OtpScreenState extends State<OtpScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => VerificationSuccessScreen(email: widget.email),
+              builder: (context) =>
+                  VerificationSuccessScreen(email: widget.email),
             ),
           );
         }
       }
     } on ApiException catch (e) {
+      if (mounted) setState(() => _codigoInvalido = true);
       _showSnack(e.message);
     } catch (e) {
-      _showSnack('Error de conexión. Verifica tu conexión a internet.');
+      _showSnack(context.tr('connection_error_check'));
     } finally {
       if (mounted) {
         setState(() {
@@ -138,17 +145,17 @@ class _OtpScreenState extends State<OtpScreen> {
     try {
       await AuthApi.enviarCodigo(widget.email);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Código OTP reenviado'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        _startResendTimer();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr('otp_resent')),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _startResendTimer();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error de conexión'),
+        SnackBar(
+          content: Text(context.tr('connection_error')),
           backgroundColor: Colors.red,
         ),
       );
@@ -162,7 +169,17 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
+  /// Rojo si el código falló; si no, verde mientras el recuadro tiene el foco
+  /// y gris en reposo.
+  Color _colorBorde(int index) {
+    if (_codigoInvalido) return const Color(0xFFF44336);
+    return _focusNodes[index].hasFocus
+        ? const Color(0xFF78BF32)
+        : Colors.black26;
+  }
+
   void _onOtpChanged(int index, String value) {
+    if (_codigoInvalido) setState(() => _codigoInvalido = false);
     if (value.length == 1 && index < 5) {
       _focusNodes[index + 1].requestFocus();
     }
@@ -213,8 +230,8 @@ class _OtpScreenState extends State<OtpScreen> {
                 const SizedBox(height: 40),
 
                 // Título
-                const Text(
-                  'Verificación',
+                Text(
+                  context.tr('otp_title'),
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -226,7 +243,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
                 // Descripción
                 Text(
-                  'Ingresa el código de 6 dígitos enviado a\n${widget.email}',
+                  '${context.tr('otp_subtitle')}\n${widget.email}',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.black.withOpacity(0.7),
@@ -242,37 +259,36 @@ class _OtpScreenState extends State<OtpScreen> {
                     return SizedBox(
                       width: 45,
                       height: 55,
-                      child: TextField(
-                        controller: _controllers[index],
-                        focusNode: _focusNodes[index],
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        maxLength: 1,
-                        decoration: InputDecoration(
-                          counterText: '',
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: Colors.black.withOpacity(0.3),
+                      child: Focus(
+                        onFocusChange: (_) => setState(() {}),
+                        child: TextField(
+                          controller: _controllers[index],
+                          focusNode: _focusNodes[index],
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          maxLength: 1,
+                          decoration: InputDecoration(
+                            counterText: '',
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                  color: _colorBorde(index), width: 2),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                  color: _colorBorde(index), width: 2),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                  color: _colorBorde(index), width: 2),
                             ),
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: Colors.black.withOpacity(0.3),
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF78BF32),
-                              width: 2,
-                            ),
-                          ),
+                          onChanged: (value) => _onOtpChanged(index, value),
                         ),
-                        onChanged: (value) => _onOtpChanged(index, value),
                       ),
                     );
                   }),
@@ -305,8 +321,8 @@ class _OtpScreenState extends State<OtpScreen> {
                             ),
                           ),
                         )
-                      : const Text(
-                          'Verificar',
+                      : Text(
+                          context.tr('verify'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -320,8 +336,8 @@ class _OtpScreenState extends State<OtpScreen> {
                   onPressed: _canResend ? _resendOtp : null,
                   child: Text(
                     _canResend
-                        ? 'Reenviar código'
-                        : 'Reenviar en ${_resendTimer}s',
+                        ? context.tr('otp_resend')
+                        : '${context.tr('otp_resend_in')} ${_resendTimer}s',
                     style: TextStyle(
                       color: _canResend ? const Color(0xFF78BF32) : Colors.grey,
                       fontSize: 16,
@@ -332,8 +348,8 @@ class _OtpScreenState extends State<OtpScreen> {
                 // Cambiar email
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    'Cambiar correo electrónico',
+                  child: Text(
+                    context.tr('otp_change_email'),
                     style: TextStyle(color: Colors.black54, fontSize: 14),
                   ),
                 ),

@@ -58,6 +58,24 @@ class AppLocalizations {
       'verification_success': 'Verificación exitosa',
       'verification_failed': 'Verificación fallida',
 
+      // OTP del correo
+      'otp_title': 'Verificación',
+      'otp_subtitle': 'Ingresa el código de 6 dígitos enviado a',
+      'otp_incomplete': 'Por favor ingresa el código completo de 6 dígitos',
+      'otp_connection_error': 'Error de conexión. Verifica tu conexión a internet.',
+      'otp_resent': 'Código OTP reenviado',
+      'otp_resend': 'Reenviar código',
+      'otp_resend_in': 'Reenviar en',
+      'otp_change_email': 'Cambiar correo electrónico',
+
+      // OTP del teléfono
+      'phone_otp_title': 'Verifica tu teléfono',
+      'phone_otp_subtitle': 'Enviamos un código de 6 dígitos a',
+      'phone_otp_length': 'El código tiene 6 dígitos',
+      'phone_otp_send_error': 'No se pudo enviar el código',
+      'phone_otp_verify_error': 'No se pudo verificar el código',
+      'phone_otp_resend': 'Reenviar código',
+
       // Perfil
       'my_data': 'Mis Datos',
       'my_addresses': 'Mis direcciones',
@@ -104,7 +122,7 @@ class AppLocalizations {
           'El idioma seleccionado se guardará automáticamente y se aplicará cada vez que abras la aplicación.',
 
       // Servicios
-      'all_services': 'tudus los Servicios',
+      'all_services': 'Todos los Servicios',
       'my_services': 'Mis Servicios',
       'publish_service': 'Publicar Servicio',
       'service_detail': 'Detalle del Servicio',
@@ -141,6 +159,20 @@ class AppLocalizations {
       'number_final': 'Número final',
       'additional_info': 'Información Adicional',
       'field_required': 'Campo obligatorio',
+      'complete_all_fields': 'Completa todos los campos marcados en rojo',
+      'max_20_chars': 'Máximo 20 caracteres',
+      'same_photo_selected': 'La foto seleccionada es la misma que la actual',
+      'complete_registration': 'Completa tu registro',
+      'register_button': 'Registrar',
+      'enter_email_prompt': 'Ingresa tu correo electrónico',
+      'invalid_email': 'Ingresa un correo electrónico válido',
+      'continue_google': 'Continuar con Google',
+      'continue_facebook': 'Continuar con Facebook',
+      'social_soon': 'Próximamente',
+      'redirecting': 'Redirigiendo...',
+      'verification_success_title': '¡Verificación exitosa!',
+      'onboarding_tagline': 'Todo lo que necesitas, aquí.',
+
       'must_contain_digit': 'Debe contener al menos un dígito',
       'error_adding_address': 'Error al agregar dirección',
       'error_updating_address': 'Error al actualizar dirección',
@@ -247,7 +279,7 @@ class AppLocalizations {
           'Usted es responsable de mantener la confidencialidad de su cuenta y contraseña. Debe notificarnos inmediatamente si detecta cualquier uso no autorizado de su cuenta.',
       'terms_intellectual_property_title': '4. Propiedad intelectual',
       'terms_intellectual_property_text':
-          'tudus los derechos reservados. La aplicación y su contenido son propiedad exclusiva de nuestra empresa y están protegidos por las leyes de propiedad intelectual.',
+          'Todos los derechos reservados. La aplicación y su contenido son propiedad exclusiva de nuestra empresa y están protegidos por las leyes de propiedad intelectual.',
       'terms_modifications_title': '5. Modificaciones',
       'terms_modifications_text':
           'Nos reservamos el derecho de modificar estos términos y condiciones en cualquier momento. Las modificaciones entrarán en vigor inmediatamente al publicarlas en la aplicación.',
@@ -370,7 +402,7 @@ class AppLocalizations {
       'services_count': 'servicios',
       'of': 'de',
       'status_label': 'Estado:',
-      'all': 'tudus',
+      'all': 'Todos',
       'sort_by': 'Ordenar por:',
       'newest': 'Más reciente',
       'oldest': 'Más antiguo',
@@ -469,7 +501,7 @@ class AppLocalizations {
       'worker_know_before':
           '¿Hay algo que el trabajador deba saber antes de postularse?',
       'additional_info_worker': 'Información adicional para el trabajador',
-      'all_fields_required': 'tudus los campos son obligatorios',
+      'all_fields_required': 'Todos los campos son obligatorios',
       'title_min_3_words': 'El título debe tener al menos 3 palabras',
       'description_min_20_words':
           'La descripción debe tener al menos 20 palabras',
@@ -530,6 +562,24 @@ class AppLocalizations {
       'verify': 'Verify',
       'verification_success': 'Verification successful',
       'verification_failed': 'Verification failed',
+
+      // Email OTP
+      'otp_title': 'Verification',
+      'otp_subtitle': 'Enter the 6-digit code sent to',
+      'otp_incomplete': 'Please enter the full 6-digit code',
+      'otp_connection_error': 'Connection error. Check your internet connection.',
+      'otp_resent': 'OTP code resent',
+      'otp_resend': 'Resend code',
+      'otp_resend_in': 'Resend in',
+      'otp_change_email': 'Change email address',
+
+      // Phone OTP
+      'phone_otp_title': 'Verify your phone',
+      'phone_otp_subtitle': 'We sent a 6-digit code to',
+      'phone_otp_length': 'The code has 6 digits',
+      'phone_otp_send_error': 'The code could not be sent',
+      'phone_otp_verify_error': 'The code could not be verified',
+      'phone_otp_resend': 'Resend code',
 
       // Profile
       'my_data': 'My Data',
@@ -614,6 +664,20 @@ class AppLocalizations {
       'number_final': 'Final number',
       'additional_info': 'Additional Information',
       'field_required': 'Required field',
+      'complete_all_fields': 'Please complete all the fields marked in red',
+      'max_20_chars': '20 characters maximum',
+      'same_photo_selected': 'The selected photo is the same as the current one',
+      'complete_registration': 'Complete your registration',
+      'register_button': 'Register',
+      'enter_email_prompt': 'Enter your email address',
+      'invalid_email': 'Enter a valid email address',
+      'continue_google': 'Continue with Google',
+      'continue_facebook': 'Continue with Facebook',
+      'social_soon': 'Coming soon',
+      'redirecting': 'Redirecting...',
+      'verification_success_title': 'Verification successful!',
+      'onboarding_tagline': 'Everything you need, right here.',
+
       'must_contain_digit': 'Must contain at least one digit',
       'error_adding_address': 'Error adding address',
       'error_updating_address': 'Error updating address',

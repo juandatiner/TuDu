@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
+
+import '../widgets/validacion_formulario.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -57,11 +61,18 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // Aviso general del formulario.
+  String? _avisoGeneral;
+
+  bool get _correoValido => RegExp(r'^[^@]+@[^@]+\.[^@]+')
+      .hasMatch(_emailController.text.trim());
+
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
+      setState(() => _avisoGeneral = null);
       // Verificar que el campo de email tenga contenido
       if (_emailController.text.isEmpty) {
-        _showSnack('Por favor ingresa tu correo electrónico');
+        _showSnack(context.tr('enter_email'));
         return;
       }
 
@@ -112,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } catch (e) {
         if (mounted) {
           debugPrint('Error de conexión detallado: $e');
-          _showSnack('Error de conexión. Verifica tu conexión a internet.');
+          _showSnack(context.tr('connection_error_check'));
         }
       } finally {
         if (mounted) {
@@ -122,16 +133,17 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } else {
-      // Mostrar mensaje si la validación falla
-      _showSnack('Ingresa un correo electrónico válido para continuar');
+      // El campo ya queda marcado en rojo por el validator; abajo solo va el
+      // aviso general.
+      setState(() => _avisoGeneral = Validacion.textoCamposFaltantes);
     }
   }
 
   void _loginWithGoogle() {
     // Implementar login con Google
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Login con Google - Próximamente'),
+      SnackBar(
+        content: Text("Google - ${context.tr('social_soon')}"),
         backgroundColor: Colors.blue,
       ),
     );
@@ -140,8 +152,8 @@ class _LoginScreenState extends State<LoginScreen> {
   void _loginWithFacebook() {
     // Implementar login con Facebook
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Login con Facebook - Próximamente'),
+      SnackBar(
+        content: Text("Facebook - ${context.tr('social_soon')}"),
         backgroundColor: Colors.blue,
       ),
     );
@@ -196,9 +208,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     autofocus: true,
+                    onChanged: (_) => setState(() {
+                      // El aviso desaparece en cuanto el campo deja de estar mal.
+                      if (_avisoGeneral != null &&
+                          (_formKey.currentState?.validate() ?? false)) {
+                        _avisoGeneral = null;
+                      }
+                    }),
                     style: const TextStyle(fontSize: 16, color: Colors.black87),
-                    decoration: InputDecoration(
-                      labelText: 'Ingresa tu correo electrónico',
+                    decoration: Validacion.decorar(
+                      InputDecoration(
+                      labelText: context.tr('enter_email'),
                       labelStyle:
                           TextStyle(color: Colors.black.withOpacity(0.7)),
                       filled: true,
@@ -218,9 +238,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderSide: const BorderSide(color: Colors.black, width: 2),
                       ),
                       errorStyle: const TextStyle(
-                        color: Colors.red,
+                        color: Validacion.colorError,
                         fontSize: 14,
                       ),
+                      ),
+                      // Verde solo cuando el correo ya es válido; el rojo del
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
@@ -229,7 +251,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       // Validación básica de email
                       if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                        return 'Ingresa un correo electrónico válido';
+                        return context.tr('invalid_email');
                       }
                       return null;
                     },
@@ -239,6 +261,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
+
+                  Validacion.aviso(_avisoGeneral),
 
                   // Submit Button
                   ElevatedButton(
@@ -262,8 +286,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Text(
-                            'Continuar',
+                        : Text(context.tr('continue_button'),
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -310,7 +333,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 24,
                       width: 24,
                     ),
-                    label: const Text('Continuar con Google'),
+                    label: Text(context.tr('continue_google')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF595959),
                       foregroundColor: Colors.white,
@@ -330,7 +353,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 24,
                       width: 24,
                     ),
-                    label: const Text('Continuar con Facebook'),
+                    label: Text(context.tr('continue_facebook')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF595959),
                       foregroundColor: Colors.white,

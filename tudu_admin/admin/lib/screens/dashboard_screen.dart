@@ -16,6 +16,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
   int _pendingRequestsCount = 0; // solicitudes pendientes totales (leídas o no)
   int _unreadRequestsCount = 0;   // solicitudes pendientes NO leídas
+  int _pendingKycCount = 0;       // verificaciones de identidad sin revisar
   bool _isLoading = true;
   late IO.Socket _socket;
 
@@ -23,6 +24,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _loadPendingRequestsCount();
+    _loadPendingKycCount();
     _connectSocket();
   }
 
@@ -68,8 +70,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Cargar el contador de pendientes cada vez que la pantalla se activa
+    // Cargar los contadores de pendientes cada vez que la pantalla se activa
     _loadPendingRequestsCount();
+    _loadPendingKycCount();
+  }
+
+  /// Aliados con documentos subidos y todavía sin decisión.
+  Future<void> _loadPendingKycCount() async {
+    try {
+      final pendientes = await KycAdminApi.listar(estado: 'submitted');
+      if (!mounted) return;
+      setState(() => _pendingKycCount = pendientes.length);
+    } catch (e) {
+      print('Error loading pending KYC count: $e');
+    }
   }
 
   Future<void> _loadPendingRequestsCount() async {
@@ -216,29 +230,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const PhotoChangeRequestsScreen(),
                         _pendingRequestsCount,
                       ),
-                      // Otra solicitud
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        // Aliados: mismo patrón de tarjetas que Usuarios, para no tener dos
+        // formas distintas de entrar a lo mismo.
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: ListView(
+            children: [
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Aliados',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (_pendingKycCount > 0) _contadorPendientes(_pendingKycCount),
+                ],
+              ),
+              const SizedBox(height: 8),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                  final childAspectRatio =
+                      constraints.maxWidth > 600 ? 0.9 : 0.85;
+
+                  return GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: crossAxisCount,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: childAspectRatio,
+                    children: [
                       _buildDashboardCard(
-                        'Solicitud 2',
+                        'Verificación de Identidad',
                         '',
-                        Icons.request_page,
+                        Icons.badge,
                         Colors.green,
-                        const PhotoChangeRequestsScreen(),
-                      ),
-                      // Otra solicitud
-                      _buildDashboardCard(
-                        'Solicitud 3',
-                        '',
-                        Icons.request_page,
-                        Colors.orange,
-                        const PhotoChangeRequestsScreen(),
-                      ),
-                      // Otra solicitud
-                      _buildDashboardCard(
-                        'Solicitud 4',
-                        '',
-                        Icons.request_page,
-                        Colors.purple,
-                        const PhotoChangeRequestsScreen(),
+                        const _KycReviewPage(),
+                        _pendingKycCount,
                       ),
                     ],
                   );
@@ -247,9 +289,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
-        // Aliados: revisión de la verificación de identidad
-        const KycReviewScreen(),
       ];
+
+  /// Píldora con el número de pendientes, en rojo si hay sin revisar.
+  Widget _contadorPendientes(int cantidad) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.notifications_active, size: 20, color: Colors.red),
+          const SizedBox(width: 4),
+          Text(
+            '$cantidad',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.red,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -290,8 +356,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             label: 'Usuarios',
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.business),
+          BottomNavigationBarItem(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.business),
+                if (_pendingKycCount > 0)
+                  Positioned(
+                    top: -4,
+                    right: -6,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             label: 'Aliados',
           ),
         ],
@@ -319,7 +404,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => screen),
-        ).then((_) => _loadPendingRequestsCount());
+        ).then((_) {
+          _loadPendingRequestsCount();
+          _loadPendingKycCount();
+        });
       },
       child: Card(
         elevation: 4,
@@ -408,6 +496,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// La revisión de identidad ahora se abre como pantalla propia desde la
+/// tarjeta, igual que las solicitudes de cambio de foto.
+class _KycReviewPage extends StatelessWidget {
+  const _KycReviewPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Config.backgroundColor,
+      appBar: AppBar(
+        title: const Text('Verificación de Identidad'),
+        backgroundColor: Config.primaryColor,
+        foregroundColor: Colors.white,
+      ),
+      body: const KycReviewScreen(),
     );
   }
 }

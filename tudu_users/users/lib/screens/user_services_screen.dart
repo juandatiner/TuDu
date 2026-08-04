@@ -809,9 +809,7 @@ class _UserServicesScreenState extends State<UserServicesScreen>
                                       runSpacing: 8,
                                       children: [
                                         _buildAnimatedChip(
-                                          label: AppLocalizations.of(context)
-                                                  ?.translate('all') ??
-                                              'tudus',
+                                          label: context.tr('all'),
                                           icon: Icons.select_all,
                                           isSelected:
                                               _selectedStatusFilter == null,

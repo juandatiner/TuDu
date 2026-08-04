@@ -15,6 +15,7 @@ import '../services/user_api.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_avatar_provider.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/validacion_formulario.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class MyDataScreen extends StatefulWidget {
@@ -44,8 +45,10 @@ class _MyDataScreenState extends State<MyDataScreen> {
   bool _isSaving = false;
   bool get _hasPendingPhotoRequest {
     if (!mounted) return false;
-    return Provider.of<UserAvatarProvider>(context, listen: false).hasPendingPhotoRequest;
+    return Provider.of<UserAvatarProvider>(context, listen: false)
+        .hasPendingPhotoRequest;
   }
+
   String _avatarColor = '#78BF32';
   XFile? _selectedImage;
   String _selectedIcon = 'person'; // Icono por defecto
@@ -69,6 +72,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
   DateTime? _birthDate;
   DateTime? _originalBirthDate;
   String? _birthDateError;
+  // Aviso general del formulario: no nombra campos, cada campo se marca solo.
+  String? _avisoGeneral;
 
   // Datos originales del usuario para comparar cambios
   String? _originalName;
@@ -155,92 +160,92 @@ class _MyDataScreenState extends State<MyDataScreen> {
             .setPendingPhotoRequest(solicitudPendiente != null);
       }
 
+      setState(() {
+        _nameController.text = data['nombre'] ?? '';
+        _lastNameController.text = data['apellido'] ?? '';
+        _avatarColor = data['avatar_color'] ?? '#78BF32';
+        _selectedIcon = data['avatar_icon'] ?? 'person';
+        if (data.containsKey('avatar_image')) {
+          _avatarImage = data['avatar_image'];
+        }
+        _completePhone = data['phone'] ?? '';
+
+        // Cargar datos separados si están disponibles
+        final countryCodeFromDb = data['country_code'];
+        final countryNameFromDb = data['country_name'];
+        final phoneNumberFromDb = data['phone_number'];
+
+        if (countryCodeFromDb != null &&
+            countryCodeFromDb.isNotEmpty &&
+            phoneNumberFromDb != null &&
+            phoneNumberFromDb.isNotEmpty) {
+          // Usar los datos separados de la BD
+          _countryCode = countryCodeFromDb;
+          _countryName = countryNameFromDb ?? '';
+          _phoneNumber = phoneNumberFromDb;
+          _phoneController.text = _phoneNumber;
+          // Obtener el código ISO del país desde el código de marcación
+          _initialCountryCode = 'CO'; // Temporal, se actualizará después
+          _phoneFieldKey = UniqueKey();
+        } else if (_completePhone.isNotEmpty) {
+          // Fallback: el widget IntlPhoneField manejará el parseo
+          _phoneController.text = '';
+          _initialCountryCode = 'CO';
+        } else {
+          _phoneController.text = '';
+          _initialCountryCode = 'CO'; // Colombia por defecto
+        }
+
+        // Si hay una imagen de perfil, marcar que se usa foto
+        _usePhoto = _avatarImage != null;
+
+        // Guardar datos originales
+        _originalName = data['nombre'] ?? '';
+        _originalLastName = data['apellido'] ?? '';
+        _originalAvatarColor = data['avatar_color'] ?? '#78BF32';
+        _originalAvatarIcon = data['avatar_icon'] ?? 'person';
+        if (data.containsKey('avatar_image')) {
+          _originalAvatarImage = data['avatar_image'];
+          _originalUsePhoto = data['avatar_image'] != null;
+        } else {
+          _originalAvatarImage = _avatarImage;
+          _originalUsePhoto = _avatarImage != null;
+        }
+        _originalPhone = data['phone'] ?? '';
+        _selectedGender = data['genero'];
+        _originalGender = data['genero'];
+
+        // Cargar fecha de nacimiento
+        if (data['fecha_nacimiento'] != null &&
+            data['fecha_nacimiento'].toString().isNotEmpty) {
+          try {
+            _birthDate = DateTime.parse(data['fecha_nacimiento']);
+            _originalBirthDate = _birthDate;
+          } catch (e) {
+            print('Error parsing birth date: $e');
+          }
+        }
+
+        _isLoading = false;
+      });
+
+      // Sync the shared avatar provider so live socket updates work
+      if (mounted) {
+        Provider.of<UserAvatarProvider>(context, listen: false).syncFromNetwork(
+          avatarImage: _avatarImage,
+          avatarColor: data['avatar_color'] ?? '#78BF32',
+          avatarIcon: data['avatar_icon'] ?? 'person',
+        );
+      }
+
+      // Si hay código de país, obtener el código ISO desde la API
+      if (_countryCode.isNotEmpty) {
+        final isoCode = await _getCountryCodeFromDialCode(_countryCode);
         setState(() {
-          _nameController.text = data['nombre'] ?? '';
-          _lastNameController.text = data['apellido'] ?? '';
-          _avatarColor = data['avatar_color'] ?? '#78BF32';
-          _selectedIcon = data['avatar_icon'] ?? 'person';
-          if (data.containsKey('avatar_image')) {
-            _avatarImage = data['avatar_image'];
-          }
-          _completePhone = data['phone'] ?? '';
-
-          // Cargar datos separados si están disponibles
-          final countryCodeFromDb = data['country_code'];
-          final countryNameFromDb = data['country_name'];
-          final phoneNumberFromDb = data['phone_number'];
-
-          if (countryCodeFromDb != null &&
-              countryCodeFromDb.isNotEmpty &&
-              phoneNumberFromDb != null &&
-              phoneNumberFromDb.isNotEmpty) {
-            // Usar los datos separados de la BD
-            _countryCode = countryCodeFromDb;
-            _countryName = countryNameFromDb ?? '';
-            _phoneNumber = phoneNumberFromDb;
-            _phoneController.text = _phoneNumber;
-            // Obtener el código ISO del país desde el código de marcación
-            _initialCountryCode = 'CO'; // Temporal, se actualizará después
-            _phoneFieldKey = UniqueKey();
-          } else if (_completePhone.isNotEmpty) {
-            // Fallback: el widget IntlPhoneField manejará el parseo
-            _phoneController.text = '';
-            _initialCountryCode = 'CO';
-          } else {
-            _phoneController.text = '';
-            _initialCountryCode = 'CO'; // Colombia por defecto
-          }
-
-          // Si hay una imagen de perfil, marcar que se usa foto
-          _usePhoto = _avatarImage != null;
-
-          // Guardar datos originales
-          _originalName = data['nombre'] ?? '';
-          _originalLastName = data['apellido'] ?? '';
-          _originalAvatarColor = data['avatar_color'] ?? '#78BF32';
-          _originalAvatarIcon = data['avatar_icon'] ?? 'person';
-          if (data.containsKey('avatar_image')) {
-            _originalAvatarImage = data['avatar_image'];
-            _originalUsePhoto = data['avatar_image'] != null;
-          } else {
-            _originalAvatarImage = _avatarImage;
-            _originalUsePhoto = _avatarImage != null;
-          }
-          _originalPhone = data['phone'] ?? '';
-          _selectedGender = data['genero'];
-          _originalGender = data['genero'];
-
-          // Cargar fecha de nacimiento
-          if (data['fecha_nacimiento'] != null &&
-              data['fecha_nacimiento'].toString().isNotEmpty) {
-            try {
-              _birthDate = DateTime.parse(data['fecha_nacimiento']);
-              _originalBirthDate = _birthDate;
-            } catch (e) {
-              print('Error parsing birth date: $e');
-            }
-          }
-
-          _isLoading = false;
+          _initialCountryCode = isoCode;
+          _phoneFieldKey = UniqueKey();
         });
-
-        // Sync the shared avatar provider so live socket updates work
-        if (mounted) {
-          Provider.of<UserAvatarProvider>(context, listen: false).syncFromNetwork(
-            avatarImage: _avatarImage,
-            avatarColor: data['avatar_color'] ?? '#78BF32',
-            avatarIcon: data['avatar_icon'] ?? 'person',
-          );
-        }
-
-        // Si hay código de país, obtener el código ISO desde la API
-        if (_countryCode.isNotEmpty) {
-          final isoCode = await _getCountryCodeFromDialCode(_countryCode);
-          setState(() {
-            _initialCountryCode = isoCode;
-            _phoneFieldKey = UniqueKey();
-          });
-        }
+      }
     } catch (e) {
       print('Error loading user data: $e');
       setState(() {
@@ -249,9 +254,21 @@ class _MyDataScreenState extends State<MyDataScreen> {
     }
   }
 
+  /// El aviso general se va en cuanto el formulario deja de tener campos mal.
+  void _revisarAviso() {
+    if (_avisoGeneral != null && (_formKey.currentState?.validate() ?? false)) {
+      setState(() => _avisoGeneral = null);
+    }
+  }
 
   Future<void> _saveUserData() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Se valida todo de una: los campos con problema quedan marcados en rojo y
+    // abajo aparece un solo aviso.
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _avisoGeneral = Validacion.textoCamposFaltantes(context));
+      return;
+    }
+    setState(() => _avisoGeneral = null);
 
     final loc = AppLocalizations.of(context)!;
 
@@ -435,7 +452,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
                             'work',
                             'school'
                           ][DateTime.now().millisecondsSinceEpoch % 10];
-                          final avatarProvider = Provider.of<UserAvatarProvider>(context, listen: false);
+                          final avatarProvider =
+                              Provider.of<UserAvatarProvider>(context,
+                                  listen: false);
                           avatarProvider.syncFromNetwork(
                             avatarImage: null,
                             avatarColor: _avatarColor,
@@ -498,7 +517,9 @@ class _MyDataScreenState extends State<MyDataScreen> {
                             'work',
                             'school'
                           ][DateTime.now().millisecondsSinceEpoch % 10];
-                          final avatarProvider = Provider.of<UserAvatarProvider>(context, listen: false);
+                          final avatarProvider =
+                              Provider.of<UserAvatarProvider>(context,
+                                  listen: false);
                           avatarProvider.syncFromNetwork(
                             avatarImage: null,
                             avatarColor: _avatarColor,
@@ -826,13 +847,15 @@ class _MyDataScreenState extends State<MyDataScreen> {
       final base64Image = base64Encode(bytes);
 
       // Verificar si la foto es la misma que la actual (leyendo del Provider en vivo)
-      final liveAvatarImage = Provider.of<UserAvatarProvider>(context, listen: false).avatarImage ?? _avatarImage;
+      final liveAvatarImage =
+          Provider.of<UserAvatarProvider>(context, listen: false).avatarImage ??
+              _avatarImage;
       if (liveAvatarImage != null && liveAvatarImage.startsWith('data:image')) {
         final currentBase64 = liveAvatarImage.split(',')[1];
         if (base64Image == currentBase64) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('La foto seleccionada es la misma que la actual'),
+            SnackBar(
+              content: Text(loc.t('same_photo_selected')),
               backgroundColor: Colors.orange,
             ),
           );
@@ -869,8 +892,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
         );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error de conexión'),
+          SnackBar(
+            content: Text(loc.t('error_connection')),
             backgroundColor: Colors.red,
           ),
         );
@@ -1281,25 +1304,23 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                             child: liveAvatarImage
                                                     .startsWith('data:image')
                                                 ? Image.memory(
-                                                    base64Decode(
-                                                        liveAvatarImage
-                                                            .split(',')[1]),
+                                                    base64Decode(liveAvatarImage
+                                                        .split(',')[1]),
                                                     fit: BoxFit.cover,
                                                     gaplessPlayback: true,
                                                     frameBuilder: (context,
+                                                            child,
+                                                            frame,
+                                                            wasSynchronouslyLoaded) =>
                                                         child,
-                                                        frame,
-                                                        wasSynchronouslyLoaded)
-                                                        => child,
                                                     errorBuilder: (context,
-                                                        error,
-                                                        stackTrace) =>
+                                                            error,
+                                                            stackTrace) =>
                                                         Container(
-                                                          color: _parseColor(
-                                                              _avatarColor),
-                                                          child:
-                                                              _getIconWidget(),
-                                                        ),
+                                                      color: _parseColor(
+                                                          _avatarColor),
+                                                      child: _getIconWidget(),
+                                                    ),
                                                   )
                                                 : CachedNetworkImage(
                                                     imageUrl: liveAvatarImage,
@@ -1307,15 +1328,13 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                                     fadeInDuration:
                                                         const Duration(
                                                             milliseconds: 200),
-                                                    errorWidget: (context,
-                                                        url,
-                                                        error) =>
-                                                        Container(
-                                                          color: _parseColor(
-                                                              _avatarColor),
-                                                          child:
-                                                              _getIconWidget(),
-                                                        ),
+                                                    errorWidget:
+                                                        (context, url, error) =>
+                                                            Container(
+                                                      color: _parseColor(
+                                                          _avatarColor),
+                                                      child: _getIconWidget(),
+                                                    ),
                                                   ),
                                           )
                                         : _getIconWidget())
@@ -1371,6 +1390,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         child: TextFormField(
                           controller: _nameController,
                           maxLength: 20,
+                          onChanged: (_) => _revisarAviso(),
                           style: TextStyle(color: themeProvider.textColor),
                           decoration: InputDecoration(
                             labelText: loc.t('name'),
@@ -1412,6 +1432,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                         child: TextFormField(
                           controller: _lastNameController,
                           maxLength: 20,
+                          onChanged: (_) => _revisarAviso(),
                           style: TextStyle(color: themeProvider.textColor),
                           decoration: InputDecoration(
                             labelText: loc.t('last_name'),
@@ -1568,7 +1589,19 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                   color: themeProvider.secondaryTextColor),
                               prefixIcon: const Icon(Icons.wc_outlined,
                                   color: Color(0xFF78BF32)),
-                              border: InputBorder.none,
+                              // Rojo cuando falta el dato: es un selector, no
+                              // un campo de texto, así que el borde va acá.
+                              border: _selectedGender == null
+                                  ? const OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                          color: Validacion.colorError,
+                                          width: 2),
+                                    )
+                                  : InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 16),
                               errorText: _selectedGender == null
@@ -1624,7 +1657,19 @@ class _MyDataScreenState extends State<MyDataScreen> {
                                   color: themeProvider.secondaryTextColor),
                               prefixIcon: const Icon(Icons.cake_outlined,
                                   color: Color(0xFF78BF32)),
-                              border: InputBorder.none,
+                              // Rojo cuando falta el dato: es un selector, no
+                              // un campo de texto, así que el borde va acá.
+                              border: _birthDateError != null
+                                  ? const OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                          color: Validacion.colorError,
+                                          width: 2),
+                                    )
+                                  : InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 16),
                               errorText: _birthDateError,
@@ -1650,7 +1695,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 32),
+                      Validacion.aviso(context, _avisoGeneral),
                       // Botón Guardar
                       SizedBox(
                         width: double.infinity,

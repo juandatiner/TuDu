@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'dart:async';
 import 'login_screen.dart';
 
@@ -132,7 +134,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Aliados',
+                          context.tr('allies'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontFamily: 'TitanOne',
@@ -187,8 +189,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 // ── Tagline ──────────────────────────────────────────────
                 Opacity(
                   opacity: _taglineFadeAnimation.value,
-                  child: const Text(
-                    'Tu negocio, nuestra plataforma.',
+                  child: Text(context.tr('onboarding_tagline'),
                     style: TextStyle(
                       fontFamily: 'TitanOne',
                       fontSize: 14,

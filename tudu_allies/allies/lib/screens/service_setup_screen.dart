@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import '../services/api.dart';
+import '../widgets/validacion_formulario.dart';
 import '../services/ally_api.dart';
 import 'package:provider/provider.dart';
 import '../services/session_service.dart';
@@ -20,10 +23,13 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
 
   // Controladores de texto
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _nombreComercialController = TextEditingController();
-  final TextEditingController _frasePresentacionController = TextEditingController();
+  final TextEditingController _nombreComercialController =
+      TextEditingController();
+  final TextEditingController _frasePresentacionController =
+      TextEditingController();
   final TextEditingController _resumenController = TextEditingController();
-  final TextEditingController _nuevoServicioController = TextEditingController();
+  final TextEditingController _nuevoServicioController =
+      TextEditingController();
 
   // Estado
   List<Map<String, dynamic>> _serviciosDisponibles = [];
@@ -32,6 +38,13 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
   bool _isLoading = false;
   bool _isSaving = false;
   bool _mostrandoNuevo = false;
+
+  // Un motivo por campo + el aviso general del formulario.
+  String? _errorServicio;
+  String? _errorNombreComercial;
+  String? _errorFrase;
+  String? _errorResumen;
+  String? _avisoGeneral;
 
   @override
   void initState() {
@@ -98,6 +111,7 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
         setState(() {
           _serviciosDisponibles.add(nuevoServicio);
           _servicioSeleccionado = nuevoServicio;
+          _errorServicio = null;
           _searchController.text = nombre;
           _serviciosFiltrados = [];
           _nuevoServicioController.clear();
@@ -107,27 +121,48 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
     } on ApiException catch (e) {
       _showSnack(e.message, isError: true);
     } catch (e) {
-      _showSnack('Error de conexión', isError: true);
+      _showSnack(context.tr('connection_error'), isError: true);
+    }
+  }
+
+  /// El aviso general solo tiene sentido mientras quede algún campo en rojo.
+  void _revisarAviso() {
+    if (_errorServicio == null &&
+        _errorNombreComercial == null &&
+        _errorFrase == null &&
+        _errorResumen == null) {
+      _avisoGeneral = null;
     }
   }
 
   Future<void> _guardarYContinuar() async {
-    if (_servicioSeleccionado == null) {
-      _showSnack('Por favor selecciona o crea un servicio');
-      return;
-    }
-    if (_nombreComercialController.text.trim().isEmpty) {
-      _showSnack('Ingresa tu nombre comercial');
-      return;
-    }
-    if (_frasePresentacionController.text.trim().isEmpty) {
-      _showSnack('Escribe una frase corta de presentación');
-      return;
-    }
-    if (_resumenController.text.trim().isEmpty) {
-      _showSnack('Escribe un resumen de lo que ofreces');
-      return;
-    }
+    // Todo se revisa de una sola pasada: lo que falte queda marcado en rojo.
+    final errorServicio = _servicioSeleccionado == null
+        ? context.tr('select_or_create_service')
+        : null;
+    final errorNombre = _nombreComercialController.text.trim().isEmpty
+        ? Validacion.requerido
+        : null;
+    final errorFrase = _frasePresentacionController.text.trim().isEmpty
+        ? Validacion.requerido
+        : null;
+    final errorResumen =
+        _resumenController.text.trim().isEmpty ? Validacion.requerido : null;
+
+    final hayErrores = errorServicio != null ||
+        errorNombre != null ||
+        errorFrase != null ||
+        errorResumen != null;
+
+    setState(() {
+      _errorServicio = errorServicio;
+      _errorNombreComercial = errorNombre;
+      _errorFrase = errorFrase;
+      _errorResumen = errorResumen;
+      _avisoGeneral = hayErrores ? Validacion.textoCamposFaltantes : null;
+    });
+
+    if (hayErrores) return;
 
     setState(() => _isSaving = true);
 
@@ -143,7 +178,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
       if (!mounted) return;
 
       // Registrar sesión del aliado (nuevo dispositivo o recién registrado)
-      final sessionService = Provider.of<SessionService>(context, listen: false);
+      final sessionService =
+          Provider.of<SessionService>(context, listen: false);
       await sessionService.registerSession(widget.email);
 
       // Sea exitoso o no, navegar al home
@@ -254,8 +290,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
               const SizedBox(height: 28),
 
               // Título
-              const Text(
-                'Tu servicio estrella',
+              Text(
+                context.tr('your_star_service'),
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -265,7 +301,7 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Define el primer servicio con el que aparecerás en la plataforma.',
+                context.tr('service_setup_intro'),
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.black.withOpacity(0.55),
@@ -276,8 +312,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
               const SizedBox(height: 28),
 
               // ─── Selección de categoría de servicio ──────────────────────────
-              const Text(
-                'Categoría del servicio',
+              Text(
+                context.tr('service_category'),
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -290,7 +326,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
               if (_servicioSeleccionado != null)
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: _brandColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(30),
@@ -326,34 +363,45 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
               // Barra de búsqueda
               TextField(
                 controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Busca tu tipo de servicio...',
-                  hintStyle: TextStyle(color: Colors.black.withOpacity(0.4)),
-                  prefixIcon: Icon(Icons.search, color: Colors.black.withOpacity(0.4)),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(Icons.clear, color: Colors.black.withOpacity(0.4)),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _servicioSeleccionado = null);
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.black.withOpacity(0.25)),
+                decoration: Validacion.decorar(
+                  InputDecoration(
+                    hintText: context.tr('search_service_hint'),
+                    hintStyle: TextStyle(color: Colors.black.withOpacity(0.4)),
+                    prefixIcon: Icon(Icons.search,
+                        color: Colors.black.withOpacity(0.4)),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear,
+                                color: Colors.black.withOpacity(0.4)),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _servicioSeleccionado = null;
+                                _errorServicio = null;
+                              });
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          BorderSide(color: Colors.black.withOpacity(0.25)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          BorderSide(color: Colors.black.withOpacity(0.25)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: _brandColor, width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.black.withOpacity(0.25)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: _brandColor, width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  error: _errorServicio,
                 ),
               ),
               const SizedBox(height: 8),
@@ -366,7 +414,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                     child: CircularProgressIndicator(color: _brandColor),
                   ),
                 )
-              else if (_serviciosFiltrados.isNotEmpty && _servicioSeleccionado == null)
+              else if (_serviciosFiltrados.isNotEmpty &&
+                  _servicioSeleccionado == null)
                 Container(
                   constraints: const BoxConstraints(maxHeight: 220),
                   decoration: BoxDecoration(
@@ -393,13 +442,17 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                       final s = _serviciosFiltrados[i];
                       return ListTile(
                         dense: true,
-                        leading: Icon(Icons.work_outline, color: _brandColor, size: 20),
+                        leading: Icon(Icons.work_outline,
+                            color: _brandColor, size: 20),
                         title: Text(
                           s['name'],
-                          style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.black87),
                         ),
                         onTap: () => setState(() {
                           _servicioSeleccionado = s;
+                          _errorServicio = null;
+                          _revisarAviso();
                           _searchController.text = s['name'];
                           _serviciosFiltrados = [];
                         }),
@@ -409,14 +462,17 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                 ),
 
               // Opción de crear nuevo servicio
-              if (_mostrandoNuevo || _serviciosFiltrados.isEmpty && _searchController.text.isNotEmpty && _servicioSeleccionado == null)
+              if (_mostrandoNuevo ||
+                  _serviciosFiltrados.isEmpty &&
+                      _searchController.text.isNotEmpty &&
+                      _servicioSeleccionado == null)
                 _buildCrearNuevoServicio(),
 
               const SizedBox(height: 24),
 
               // ─── Nombre comercial ─────────────────────────────────────
-              const Text(
-                'Tu nombre o nombre de negocio',
+              Text(
+                context.tr('your_business_name'),
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -428,16 +484,23 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                 controller: _nombreComercialController,
                 maxLength: 50,
                 textCapitalization: TextCapitalization.words,
-                decoration: _inputDeco(
-                  'Nombre comercial',
-                  hint: 'Ej: Juan López / Electricidad López',
+                onChanged: (_) => setState(() {
+                  _errorNombreComercial = null;
+                  _revisarAviso();
+                }),
+                decoration: Validacion.decorar(
+                  _inputDeco(
+                    context.tr('commercial_name'),
+                    hint: context.tr('commercial_name_hint'),
+                  ),
+                  error: _errorNombreComercial,
                 ),
               ),
               const SizedBox(height: 20),
 
               // ─── Frase de presentación ────────────────────────────────
-              const Text(
-                'Frase de presentación',
+              Text(
+                context.tr('pitch_title'),
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -446,23 +509,31 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Muy corta: di en una línea qué haces.',
-                style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.45)),
+                context.tr('pitch_help'),
+                style: TextStyle(
+                    fontSize: 12, color: Colors.black.withOpacity(0.45)),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _frasePresentacionController,
                 maxLength: 80,
-                decoration: _inputDeco(
-                  'Frase corta',
-                  hint: 'Ej: Especialista en instalaciones eléctricas residenciales',
+                onChanged: (_) => setState(() {
+                  _errorFrase = null;
+                  _revisarAviso();
+                }),
+                decoration: Validacion.decorar(
+                  _inputDeco(
+                    context.tr('pitch_label'),
+                    hint: context.tr('pitch_hint'),
+                  ),
+                  error: _errorFrase,
                 ),
               ),
               const SizedBox(height: 20),
 
               // ─── Resumen del perfil ───────────────────────────────────
-              const Text(
-                'Resumen de tu experiencia',
+              Text(
+                context.tr('summary_title'),
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -471,8 +542,11 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Describe brevemente tus habilidades en este servicio. Este texto aparecerá en tu perfil.',
-                style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.45), height: 1.4),
+                context.tr('summary_help'),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.black.withOpacity(0.45),
+                    height: 1.4),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -480,9 +554,16 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                 maxLength: 400,
                 maxLines: 5,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: _inputDeco(
-                  'Resumen profesional',
-                  hint: 'Cuéntanos qué sabes hacer, tu experiencia, y por qué los clientes deben elegirte...',
+                onChanged: (_) => setState(() {
+                  _errorResumen = null;
+                  _revisarAviso();
+                }),
+                decoration: Validacion.decorar(
+                  _inputDeco(
+                    context.tr('summary_label'),
+                    hint: context.tr('summary_hint'),
+                  ),
+                  error: _errorResumen,
                 ),
               ),
 
@@ -497,11 +578,12 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.lightbulb_outline, color: Color(0xFFF57F17), size: 20),
+                    const Icon(Icons.lightbulb_outline,
+                        color: Color(0xFFF57F17), size: 20),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        '💡 Recuerda: más adelante podrás crear más servicios. Enfócate en este servicio únicamente.',
+                        context.tr('service_setup_tip'),
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.brown.shade700,
@@ -513,7 +595,9 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                 ),
               ),
 
-              const SizedBox(height: 36),
+              const SizedBox(height: 24),
+
+              Validacion.aviso(_avisoGeneral),
 
               // Botón final
               SizedBox(
@@ -535,12 +619,14 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text(
-                          '¡Comenzar como Aliado!',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      : Text(
+                          context.tr('start_as_ally'),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                 ),
               ),
@@ -571,8 +657,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                 children: [
                   Icon(Icons.add_circle_outline, color: _brandColor),
                   const SizedBox(width: 8),
-                  const Text(
-                    'No encontré mi servicio',
+                  Text(
+                    context.tr('service_not_found'),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -586,8 +672,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                 controller: _nuevoServicioController,
                 textCapitalization: TextCapitalization.words,
                 decoration: _inputDeco(
-                  'Nombre del nuevo servicio',
-                  hint: 'Ej: Carpintería a domicilio',
+                  context.tr('new_service_name'),
+                  hint: context.tr('new_service_hint'),
                 ),
               ),
               const SizedBox(height: 10),
@@ -602,8 +688,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: const Text(
-                    'Crear este servicio',
+                  child: Text(
+                    context.tr('create_this_service'),
                     style: TextStyle(
                       color: _brandColor,
                       fontWeight: FontWeight.w600,
@@ -649,9 +735,9 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _stepLabel('Datos', step >= 1),
-            _stepLabel('Verificación', step >= 2),
-            _stepLabel('Servicio', step >= 3),
+            _stepLabel(context.tr('step_data'), step >= 1),
+            _stepLabel(context.tr('step_verification'), step >= 2),
+            _stepLabel(context.tr('step_service'), step >= 3),
           ],
         ),
       ],
