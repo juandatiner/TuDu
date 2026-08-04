@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const compression = require('compression'); // Acelera cargas de Base64 reduciendo 80%
 const { corsOptions, corsSocket, avisarConfiguracion } = require('./cors_config');
+const { subirImagen } = require('./storage');
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
@@ -377,10 +378,19 @@ app.post('/ally-kyc', async (req, res) => {
   const { email, cedula_frente, cedula_reverso, selfie } = req.body;
   if (!email) return res.status(400).json({ error: 'Email requerido' });
 
-  const { error } = await supabase.from('allies').update({ 
-    kyc_cedula_frente: cedula_frente || null,
-    kyc_cedula_reverso: cedula_reverso || null,
-    kyc_selfie: selfie || null,
+  // Los documentos de identidad van al bucket PRIVADO `kyc`: en la fila queda
+  // solo la ruta, y para verlos hay que pedir una URL firmada al backend.
+  // Guardarlos en base64 dentro de la tabla los exponía en cualquier `select *`.
+  const [frente, reverso, foto] = await Promise.all([
+    subirImagen(supabase, { bucket: 'kyc', dueno: email, etiqueta: 'cedula-frente', valor: cedula_frente }),
+    subirImagen(supabase, { bucket: 'kyc', dueno: email, etiqueta: 'cedula-reverso', valor: cedula_reverso }),
+    subirImagen(supabase, { bucket: 'kyc', dueno: email, etiqueta: 'selfie', valor: selfie })
+  ]);
+
+  const { error } = await supabase.from('allies').update({
+    kyc_cedula_frente: frente || null,
+    kyc_cedula_reverso: reverso || null,
+    kyc_selfie: foto || null,
     kyc_status: 'submitted',
     kyc_submitted_at: new Date().toISOString()
   }).eq('email', email);

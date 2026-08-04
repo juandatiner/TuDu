@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 const { createClient } = require('@supabase/supabase-js');
 const compression = require('compression'); // Compresión Zlib para B64
 const { corsOptions, corsSocket, avisarConfiguracion } = require('./cors_config');
+const { subirImagen } = require('./storage');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -315,7 +316,14 @@ app.put('/users/profile/avatar', async (req, res) => {
     if (avatar_icon) updateData.avatar_icon = avatar_icon;
     updateData.avatar_image = null;
   } else if (avatar_image !== undefined) {
-    updateData.avatar_image = avatar_image;
+    // La foto va a Storage; en la fila queda solo la URL. Si el bucket aún no
+    // existe, `subirImagen` devuelve el base64 y todo sigue igual que antes.
+    updateData.avatar_image = await subirImagen(supabase, {
+      bucket: 'avatars',
+      dueno: email,
+      etiqueta: 'perfil',
+      valor: avatar_image
+    });
     updateData.avatar_color = '#78BF32';
     updateData.avatar_icon = 'person';
   }
@@ -447,9 +455,16 @@ app.post('/api/user/photo-change-request', async (req, res) => {
 
   // Borrar previas pendientes
   await supabase.from('photo_change_requests').delete().eq('user_email', user_email).eq('status', 'pending');
-  
+
+  const imagen = await subirImagen(supabase, {
+    bucket: 'avatars',
+    dueno: user_email,
+    etiqueta: 'solicitud',
+    valor: new_avatar_image
+  });
+
   const { data, error } = await supabase.from('photo_change_requests')
-    .insert([{ user_email, new_avatar_image, status: 'pending' }]).select().single();
+    .insert([{ user_email, new_avatar_image: imagen, status: 'pending' }]).select().single();
     
   if (error) return res.status(500).json({ error: 'Error creando solicitud' });
 
