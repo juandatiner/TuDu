@@ -1,8 +1,10 @@
 # CLAUDE.md — tudu Ecosystem
 
-> Última revisión: 2026-07-28 — generado leyendo el código fuente real (`index.js`, `server.js`, `config.dart`, `package.json`), no el blueprint.
+> Última revisión: 2026-08-05 — generado leyendo el código fuente real (`index.js`, `server.js`, `config.dart`, `package.json`), no el blueprint.
 >
-> **Cambio mayor respecto a la revisión anterior (2026-03-17):** el backend migró de **SQLite local a Supabase (Postgres)**. Toda la sección de DBs fue reescrita. Ver §3.
+> **Cambio mayor respecto a la revisión anterior (2026-07-28):** el schema de Supabase quedó versionado con el Supabase CLI (`supabase/migrations/` + `supabase/seed.sql`, proyecto linkeado). Ver §3.1.
+>
+> Revisión anterior (2026-03-17): el backend migró de **SQLite local a Supabase (Postgres)**. Toda la sección de DBs fue reescrita. Ver §3.
 
 ---
 
@@ -72,7 +74,33 @@ static String get baseUrl {
 
 ## 3. DATA MODEL (Supabase / Postgres)
 
-> El schema vive en Supabase, no en el repo. No hay migraciones versionadas ni archivos SQL acá. Las columnas listadas abajo están **inferidas del uso en el código** — no de un `CREATE TABLE`. Para el schema autoritativo, mirar el dashboard de Supabase.
+> **Actualizado 2026-08-05:** el schema ahora está versionado con el Supabase CLI (`supabase/migrations/`, proyecto linkeado a `msrxypywserfumscvnel`). El schema autoritativo es `supabase/migrations/20260805171636_remote_schema.sql` (baseline generado con `supabase db pull`), no el dashboard. Las columnas listadas abajo siguen siendo una referencia de lectura rápida — para el detalle exacto, mirar las migrations. Ver §3.1.
+
+### 3.1 Migrations (Supabase CLI)
+
+```
+supabase/
+├── config.toml              # config del CLI, sin secretos (todo env(...))
+├── migrations/               # versionadas, orden cronológico por filename
+│   ├── 20260805171636_remote_schema.sql   # baseline completo (tablas, funciones, grants, RLS)
+│   ├── 20260805172127_storage_policies.sql # policies de storage.objects
+│   ├── 20260805172144_storage_buckets.sql  # buckets avatars/kyc/portfolio
+│   └── 20260805172201_cron_jobs.sql        # 3 jobs de pg_cron
+├── seed.sql                  # catálogo: departments, cities, countries, services, categories
+│                              # (NO admins — tiene password en texto plano; NO datos de usuarios)
+└── archive/                   # scripts .sql corridos a mano antes de tener CLI — ya aplicados,
+                                # se guardan solo por el comentario "por qué" de cada uno
+```
+
+Comandos:
+- `supabase db push` — aplica migrations pendientes al remoto (requiere `SUPABASE_ACCESS_TOKEN` y `--password` de la DB, o `supabase login`)
+- `supabase migration new <nombre>` — nueva migration vacía con timestamp
+- `supabase db pull` — trae cambios hechos a mano en el dashboard (requiere Docker/Colima corriendo, usa un shadow DB)
+- `supabase migration list` — compara historial local vs remoto
+
+> **Limitación conocida del CLI:** `db pull` no capturó las policies de `storage.objects` (bug del engine `pg-delta` con ese schema) ni los buckets/cron jobs (son datos, no schema) — hubo que escribirlos a mano comparando contra `pg_policies` / `storage.buckets` / `cron.job` en vivo. Si se agregan buckets o cron jobs nuevos por el dashboard, van a necesitar el mismo tratamiento manual, no un `db pull` limpio.
+
+> Requiere Docker corriendo para `db pull` / `db reset` local (usa un shadow Postgres). En esta máquina se instaló Colima (`brew install colima docker`, `colima start`) en vez de Docker Desktop.
 
 ### `users`
 Campos usados: `id`, `email` (único), `nombre`, `apellido`, `avatar_color` (default `#78BF32`), `avatar_icon` (default `person`), `avatar_image` (base64, puede ser varios MB), `phone`, `genero`, `fecha_nacimiento`, `dark_mode` (int 0/1), `language`, `created_at`.
@@ -402,7 +430,7 @@ El script detecta la IP con `ipconfig getifaddr en0` y la pasa como `--dart-defi
 
 ### Deuda de arquitectura
 - **Imágenes base64 en columnas de Postgres** — `avatar_image`, `new_avatar_image`, y los 3 campos KYC pueden pesar varios MB por fila. Deberían ir a Supabase Storage.
-- **Sin migraciones versionadas** — el schema solo existe en el dashboard de Supabase; no hay SQL en el repo ni forma de recrear el entorno desde cero.
+- ~~Sin migraciones versionadas~~ **Resuelto 2026-08-05** — ver §3.1. `supabase/migrations/` + `supabase/seed.sql` versionados, proyecto linkeado con Supabase CLI.
 - **Código SQLite muerto sin borrar** — `index.js.old`, `index.sqlite.js`, `server.sqlite.js`, `init-db.js` y el script `npm run init-db` (que ni siquiera tiene ya la dependencia `sqlite3`).
 - **Mailgun muerto en allies** — se inicializa `mg` y nunca se usa; `mailgun-js` sigue en `package.json`.
 - **`users` backend duplica endpoints de allies** (`/check-ally`, `/register-ally`) con lógica más simple que la del allies backend.

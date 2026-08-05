@@ -102,6 +102,22 @@ select table_name, column_name, data_type, is_nullable, column_default
 `created_at`
 
 - Se relaciona por `ally_email`, **no** por `ally_id`.
+- `service_id` puede apuntar a una fila de `services` en `review_status = 'pending'`
+  (el aliado propuso un servicio nuevo, todavía sin aprobar).
+
+### `ally_portfolio_items`
+`id`, `service_id`, `ally_email`, `image_path`, `caption`, `created_at`
+
+- Pruebas (fotos) de un servicio propuesto. `image_path` es la URL pública en
+  el bucket `portfolio`. `service_id` → `services.id`.
+
+### `categories`
+`id`, `name`, `review_status`, `created_by_ally_email`, `admin_note`,
+`created_at`, `reviewed_at`
+
+- `review_status`: `pending` → `approved` / `rejected`. Nivel arriba de `services`.
+- Si la crea un aliado (`POST /categories`) entra `pending`; si la crea el admin
+  (`POST /api/admin/categories`) entra `approved` directo.
 
 ### `ally_device_sessions`
 `id`, `ally_email`, `device_id`, `device_info`, `is_active`, `last_activity`,
@@ -115,7 +131,15 @@ select table_name, column_name, data_type, is_nullable, column_default
 ## Operación
 
 ### `services`
-`id`, `name`, `description`, `icon`, `created_at`
+`id`, `name`, `description`, `icon`, `created_at`, `category_id`, `review_status`,
+`created_by_ally_email`, `admin_note`, `reviewed_at`
+
+- `review_status`: `pending` → `approved` / `rejected`. Las filas semilla
+  quedaron `approved` por default al agregar la columna (nunca pasaron por
+  revisión, pero ya estaban en uso). Los inserts nuevos desde el backend
+  siempre mandan `pending` explícito.
+- `category_id` → `categories.id`, nullable (las filas semilla no tienen).
+- `icon` existe pero ningún código lo usa hoy.
 
 ### `services_in_search`
 `id`, `user_email`, `title`, `description`, `time_quantity`, `time_unit`,
@@ -143,14 +167,25 @@ select table_name, column_name, data_type, is_nullable, column_default
 
 ## Scripts SQL de este directorio
 
-| Archivo | Qué hace | ¿Ya ejecutado? |
-|---|---|---|
-| `cron.sql` | Programa el mantenimiento horario con pg_cron | Sí |
-| `fix_kyc_view.sql` | Corrige la vista expuesta con SECURITY DEFINER | Sí (la vista se borró) |
-| `rls.sql` | Activa Row Level Security en todas las tablas | Sí |
-| `rls_politicas.sql` | Borra las políticas que abrían las tablas al rol público | Sí |
-| `borrar_cuenta.sql` | Borrado de cuenta en una sola transacción | Sí |
-| `storage.sql` | Buckets `avatars` (público) y `kyc` (privado) | Sí |
+### Ya ejecutados
+
+| Archivo | Qué hace |
+|---|---|
+| `cron.sql` | Programa el mantenimiento horario con pg_cron |
+| `fix_kyc_view.sql` | Corrige la vista expuesta con SECURITY DEFINER (la vista se borró) |
+| `rls.sql` | Activa Row Level Security en todas las tablas |
+| `rls_politicas.sql` | Borra las políticas que abrían las tablas al rol público |
+| `borrar_cuenta.sql` | Borrado de cuenta en una sola transacción |
+| `storage.sql` | Buckets `avatars` (público) y `kyc` (privado) |
+| `categorias_servicios.sql` | Tabla `categories`, columnas de revisión en `services`, tabla `ally_portfolio_items` |
+| `storage_portfolio.sql` | Bucket `portfolio` (público) |
+| `fix_services_sequence.sql` | Resincroniza `services_id_seq` (las 10 filas semilla se insertaron con `id` explícito) |
+| `fix_lint_warnings.sql` | Corrige los warnings del linter de Supabase: `search_path` fijo en 4 funciones, borra las políticas de lectura pública que permitían listar los buckets `avatars`/`portfolio`, revoca SELECT de `anon`/`authenticated` en todas las tablas de `public` (quedaban visibles en el esquema GraphQL). "Leaked Password Protection" queda pendiente aparte: es un toggle de Authentication → Policies solo disponible en plan Pro de Supabase, no aplica en el plan actual. |
+
+### Pendientes de correr
+
+Ninguno por ahora — cuando se agregue un script nuevo va acá hasta que se
+corra en el dashboard, y ahí pasa a la tabla de arriba.
 
 > ⚠ **La clave del `.env` debe ser la secreta (`sb_secret_…`), no la publicable
 > (`sb_publishable_…`).** Con la publicable, los backends pierden privilegios:
