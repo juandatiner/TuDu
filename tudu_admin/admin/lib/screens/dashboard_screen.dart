@@ -16,6 +16,9 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  // 0 = contenido normal de la pestaña, 1 = Soporte. Vive fuera de las
+  // pestañas de Usuarios/Aliados nada más — Servicios no tiene este switch.
+  int _seccionActiva = 0;
   int _pendingRequestsCount = 0; // solicitudes pendientes totales (leídas o no)
   int _unreadRequestsCount = 0;   // solicitudes pendientes NO leídas
   int _pendingKycCount = 0;       // verificaciones de identidad sin revisar
@@ -131,65 +134,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: ListView(
             children: [
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Solicitudes',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (_pendingRequestsCount > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: (_unreadRequestsCount > 0
-                                ? Colors.red
-                                : Colors.orange)
-                            .withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: (_unreadRequestsCount > 0
-                                  ? Colors.red
-                                  : Colors.orange)
-                              .withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _unreadRequestsCount > 0
-                                ? Icons.notifications_active
-                                : Icons.pending_actions,
-                            size: 20,
-                            color: _unreadRequestsCount > 0
-                                ? Colors.red
-                                : Colors.orange,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$_pendingRequestsCount',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: _unreadRequestsCount > 0
-                                  ? Colors.red
-                                  : Colors.orange,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
               // Grid de solicitudes 2x2 responsive
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -227,22 +171,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.all(16),
           child: ListView(
             children: [
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Aliados',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (_pendingKycCount > 0) _contadorPendientes(_pendingKycCount),
-                ],
-              ),
               const SizedBox(height: 8),
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -285,28 +213,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const ServiciosCatalogoScreen(),
       ];
 
-  /// Píldora con el número de pendientes, en rojo si hay sin revisar.
-  Widget _contadorPendientes(int cantidad) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.red.withOpacity(0.3)),
-      ),
+  /// Usuarios y Aliados dividen el título en dos mitades clicables — Panel
+  /// de Administración / Soporte — mismo tamaño que el título fijo (22,
+  /// bold), separadas por una línea vertical. Servicios trae su propio
+  /// AppBar (con su propio título dividido) — acá no se dibuja nada para
+  /// esa pestaña, así no queda duplicado.
+  Widget _tituloAppBar() {
+    const estiloTitulo = TextStyle(fontSize: 22, fontWeight: FontWeight.bold);
+    const opciones = ['Panel de Administración', 'Soporte'];
+    return FittedBox(
+      fit: BoxFit.scaleDown,
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.notifications_active, size: 20, color: Colors.red),
-          const SizedBox(width: 4),
-          Text(
-            '$cantidad',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.red,
+          for (int i = 0; i < opciones.length; i++) ...[
+            if (i > 0)
+              Container(
+                width: 1,
+                height: 20,
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                color: Colors.black26,
+              ),
+            GestureDetector(
+              onTap: () => setState(() => _seccionActiva = i),
+              child: Text(
+                opciones[i],
+                style: estiloTitulo.copyWith(
+                  color: _seccionActiva == i ? Colors.black : Colors.black38,
+                ),
+              ),
             ),
-          ),
+          ],
         ],
+      ),
+    );
+  }
+
+  /// Placeholder de Soporte — todavía no hay backend/flujo para esto.
+  Widget _paginaSoporte() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.support_agent, size: 72, color: Colors.black26),
+            const SizedBox(height: 14),
+            Text(
+              'Muy pronto vas a poder gestionar soporte desde acá.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -314,11 +273,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Panel de Administración'),
-        backgroundColor: Config.primaryColor,
-      ),
-      body: _pages[_selectedIndex],
+      appBar: _selectedIndex == 2
+          ? null
+          : AppBar(
+              centerTitle: true,
+              title: _tituloAppBar(),
+            ),
+      body: (_selectedIndex != 2 && _seccionActiva == 1)
+          ? _paginaSoporte()
+          : _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         items: [
@@ -380,6 +343,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
+            _seccionActiva = 0;
           });
         },
       ),
@@ -507,8 +471,6 @@ class _KycReviewPage extends StatelessWidget {
       backgroundColor: Config.backgroundColor,
       appBar: AppBar(
         title: const Text('Verificación de Identidad'),
-        backgroundColor: Config.primaryColor,
-        foregroundColor: Colors.white,
       ),
       body: const KycReviewScreen(),
     );
@@ -525,8 +487,6 @@ class _ServiciosReviewPage extends StatelessWidget {
       backgroundColor: Config.backgroundColor,
       appBar: AppBar(
         title: const Text('Servicios propuestos'),
-        backgroundColor: Config.primaryColor,
-        foregroundColor: Colors.white,
       ),
       body: const ServiciosReviewScreen(),
     );

@@ -40,8 +40,6 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
   // Controladores de texto
   final TextEditingController _categoriaSearchController =
       TextEditingController();
-  final TextEditingController _servicioSearchController =
-      TextEditingController();
   final TextEditingController _nuevaCategoriaController =
       TextEditingController();
   final TextEditingController _nuevoServicioNombreController =
@@ -62,12 +60,9 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
   bool _mostrandoNuevaCategoria = false;
   bool _enviandoCategoria = false;
 
-  // Servicio dentro de la categoría
-  List<Map<String, dynamic>> _servicios = [];
-  List<Map<String, dynamic>> _serviciosFiltrados = [];
+  // Servicio dentro de la categoría — cada aliado lo nombra a su manera,
+  // no hay catálogo para buscar/elegir: se crea directo.
   Map<String, dynamic>? _servicioSeleccionado;
-  bool _cargandoServicios = false;
-  bool _mostrandoNuevoServicio = false;
   bool _enviandoServicio = false;
   final List<File> _fotosPortafolio = [];
 
@@ -100,13 +95,11 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     detectarDispositivo();
     _fetchCategorias();
     _categoriaSearchController.addListener(_filterCategorias);
-    _servicioSearchController.addListener(_filterServicios);
   }
 
   @override
   void dispose() {
     _categoriaSearchController.dispose();
-    _servicioSearchController.dispose();
     _nuevaCategoriaController.dispose();
     _nuevoServicioNombreController.dispose();
     _nuevoServicioDescripcionController.dispose();
@@ -147,7 +140,7 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     });
   }
 
-  Future<void> _elegirCategoria(Map<String, dynamic> categoria) async {
+  void _elegirCategoria(Map<String, dynamic> categoria) {
     setState(() {
       _categoriaSeleccionada = categoria;
       _errorCategoria = null;
@@ -156,12 +149,7 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
       _categoriasFiltradas = [];
       // Cambiar de categoría descarta el servicio elegido de la anterior.
       _servicioSeleccionado = null;
-      _servicios = [];
-      _servicioSearchController.clear();
     });
-    if (categoria['review_status'] == 'approved') {
-      await _fetchServicios(categoria['id']);
-    }
   }
 
   Future<void> _sugerirCategoria() async {
@@ -191,37 +179,6 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     } finally {
       if (mounted) setState(() => _enviandoCategoria = false);
     }
-  }
-
-  Future<void> _fetchServicios(int categoryId) async {
-    setState(() => _cargandoServicios = true);
-    try {
-      final servicios = await ServicioApi.porCategoria(categoryId);
-      setState(() {
-        _servicios = servicios;
-        _serviciosFiltrados = List.from(_servicios);
-      });
-    } catch (e) {
-      debugPrint('Error cargando servicios: $e');
-    } finally {
-      if (mounted) setState(() => _cargandoServicios = false);
-    }
-  }
-
-  void _filterServicios() {
-    final query = _servicioSearchController.text.toLowerCase().trim();
-    setState(() {
-      if (query.isEmpty) {
-        _serviciosFiltrados = List.from(_servicios);
-        _mostrandoNuevoServicio = false;
-      } else {
-        _serviciosFiltrados = _servicios
-            .where((s) => (s['name'] as String).toLowerCase().contains(query))
-            .toList();
-        _mostrandoNuevoServicio =
-            _serviciosFiltrados.isEmpty && query.isNotEmpty;
-      }
-    });
   }
 
   Future<void> _agregarFotoPortafolio(ImageSource source) async {
@@ -310,9 +267,6 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
         _servicioSeleccionado = data;
         _fotosYaSubidasParaServicioId = data['id'] as int?;
         _errorServicio = null;
-        _servicioSearchController.text = data['name'];
-        _serviciosFiltrados = [];
-        _mostrandoNuevoServicio = false;
         _nuevoServicioNombreController.clear();
         _nuevoServicioDescripcionController.clear();
         _fotosPortafolio.clear();
@@ -349,9 +303,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     final errorCategoria = _categoriaSeleccionada == null
         ? context.tr('select_or_create_service')
         : null;
-    final errorServicio = _servicioSeleccionado == null
-        ? context.tr('select_or_create_service')
-        : null;
+    final errorServicio =
+        _servicioSeleccionado == null ? Validacion.requerido : null;
 
     final nombreTexto = _nombreComercialController.text.trim();
     final errorNombre = nombreTexto.isEmpty
@@ -621,8 +574,6 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
                         _categoriaSeleccionada = null;
                         _categoriaSearchController.clear();
                         _servicioSeleccionado = null;
-                        _servicios = [];
-                        _servicioSearchController.clear();
                         _fotosPortafolio.clear();
                         _fotosYaSubidasParaServicioId = null;
                         _errorPortafolio = null;
@@ -670,45 +621,15 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
                                 'approved',
                         onQuitar: () => setState(() {
                           _servicioSeleccionado = null;
-                          _servicioSearchController.clear();
                           _fotosPortafolio.clear();
                           _fotosYaSubidasParaServicioId = null;
                           _errorPortafolio = null;
                         }),
                       ),
-                      if (_servicioSeleccionado == null) ...[
-                        if (_categoriaEsAprobada) ...[
-                          _buildBuscador(
-                            controller: _servicioSearchController,
-                            hint: context.tr('search_service_hint'),
-                            error: _errorServicio,
-                            onClear: () => setState(() {
-                              _errorServicio = null;
-                            }),
-                          ),
-                          const SizedBox(height: 8),
-                          if (_cargandoServicios)
-                            _buildCargando()
-                          else if (_serviciosFiltrados.isNotEmpty)
-                            _buildLista(
-                              items: _serviciosFiltrados,
-                              onTap: (s) => setState(() {
-                                _servicioSeleccionado = s;
-                                _errorServicio = null;
-                                _revisarAviso();
-                                _servicioSearchController.text = s['name'];
-                                _serviciosFiltrados = [];
-                              }),
-                            ),
-                          if (_mostrandoNuevoServicio ||
-                              (_serviciosFiltrados.isEmpty &&
-                                  _servicioSearchController.text.isNotEmpty))
-                            _buildCrearServicio(),
-                        ] else
-                          // La categoría recién se sugirió: no hay nada que
-                          // listar todavía, se pasa directo a crear el servicio.
-                          _buildCrearServicio(),
-                      ],
+                      // Cada aliado nombra su servicio a su manera — no hay
+                      // catálogo para buscar ni elegir uno existente, se crea
+                      // directo dentro de la categoría.
+                      if (_servicioSeleccionado == null) _buildCrearServicio(),
                       const SizedBox(height: 24),
                     ],
 
