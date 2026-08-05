@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 
 import '../widgets/validacion_formulario.dart';
+import '../widgets/camera_capture_mixin.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../services/ally_api.dart';
+import 'registration_screen.dart';
 import 'service_setup_screen.dart';
 
 class KycVerificationScreen extends StatefulWidget {
@@ -19,7 +21,7 @@ class KycVerificationScreen extends StatefulWidget {
 }
 
 class _KycVerificationScreenState extends State<KycVerificationScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, CameraCaptureMixin {
   static const Color _brandColor = Color(0xFF78BF32);
   static const Color _bgColor = Color(0xFFF4F2F2);
 
@@ -41,6 +43,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
   @override
   void initState() {
     super.initState();
+    detectarDispositivo();
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -56,67 +59,31 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
     super.dispose();
   }
 
-  Future<void> _pickImage({
-    required bool fromCamera,
-    required Function(File) onPicked,
-  }) async {
-    final picker = ImagePicker();
-    final source = fromCamera ? ImageSource.camera : ImageSource.gallery;
-
-    final XFile? picked = await picker.pickImage(
-      source: source,
-      imageQuality: 70,
-      maxWidth: 1200,
+  void _volver() {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => RegistrationScreen(email: widget.email),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
     );
-
-    if (picked != null) {
-      setState(() => onPicked(File(picked.path)));
-    }
   }
 
-  Future<void> _takeSelfie() async {
-    final picker = ImagePicker();
-    final XFile? picked = await picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front,
-      imageQuality: 70,
-      maxWidth: 800,
-    );
-    if (picked != null) {
-      setState(() {
-        _selfie = File(picked.path);
-        _faltaSelfie = false;
-        _revisarAviso();
-      });
-    }
-  }
-
-  // Método eliminado - se usa directamente showModalBottomSheet en el build
-
-  Widget _actionTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: const Color(0xFFF4F2F2),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          child: Row(
-            children: [
-              Icon(icon, color: _brandColor),
-              const SizedBox(width: 16),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 15, color: Colors.black87),
-              ),
-            ],
+  void _mostrarSoporte() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(context.tr('support_soon_title')),
+        content: Text(context.tr('support_soon_body')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(context.tr('accept')),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -192,44 +159,69 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgColor,
+      appBar: AppBar(
+        backgroundColor: _bgColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 40,
+        centerTitle: true,
+        title: SizedBox(
+          height: 26,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Tu',
+                  style: const TextStyle(
+                    fontFamily: 'TitanOne',
+                    fontSize: 30,
+                    color: _brandColor,
+                    height: 0.85,
+                  ),
+                ),
+                Text(
+                  'Du',
+                  style: const TextStyle(
+                    fontFamily: 'TitanOne',
+                    fontSize: 30,
+                    color: _brandColor,
+                    height: 0.85,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: _isUploading ? null : _volver,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.support_agent, color: Colors.black87),
+            onPressed: _mostrarSoporte,
+          ),
+        ],
+      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 12),
+        child: Column(
+          children: [
+            // Solo el progreso queda fijo bajo la AppBar. Todo lo demás —
+            // título, aviso de datos reales y tarjetas — scrollea.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+              child: _buildProgressIndicator(step: 2),
+            ),
 
-              // Logo pequeño
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Tu',
-                    style: const TextStyle(
-                      fontFamily: 'TitanOne',
-                      fontSize: 36,
-                      color: _brandColor,
-                      height: 0.85,
-                    ),
-                  ),
-                  Text(
-                    'Du',
-                    style: const TextStyle(
-                      fontFamily: 'TitanOne',
-                      fontSize: 36,
-                      color: _brandColor,
-                      height: 0.85,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Progreso
-              _buildProgressIndicator(step: 2),
-              const SizedBox(height: 28),
-
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
               // Título
               Text(context.tr('identity_verification'),
                 style: TextStyle(
@@ -249,7 +241,34 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        color: Colors.orange.shade900, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        context.tr('kyc_disclaimer'),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.orange.shade900,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
 
               // Tarjeta cédula frente
               _buildDocumentCard(
@@ -258,35 +277,13 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                 icon: Icons.credit_card,
                 file: _cedulaFrente,
                 falta: _faltaFrente,
-                onTap: () => showModalBottomSheet(
-                  context: context,
-                  backgroundColor: Colors.white,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                  ),
-                  builder: (_) => _sourceSelector(
-                    onCamera: () {
-                      Navigator.pop(context);
-                      _pickImage(
-                        fromCamera: true,
-                        onPicked: (f) => setState(() {
-                          _cedulaFrente = f;
-                          _faltaFrente = false;
-                          _revisarAviso();
-                        }),
-                      );
-                    },
-                    onGallery: () {
-                      Navigator.pop(context);
-                      _pickImage(
-                        fromCamera: false,
-                        onPicked: (f) => setState(() {
-                          _cedulaFrente = f;
-                          _faltaFrente = false;
-                        }),
-                      );
-                    },
-                  ),
+                onTap: () => tomarFoto(
+                  etiqueta: 'CEDULA FRENTE',
+                  onListo: (f) {
+                    _cedulaFrente = f;
+                    _faltaFrente = false;
+                    _revisarAviso();
+                  },
                 ),
               ),
               const SizedBox(height: 16),
@@ -298,35 +295,13 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                 icon: Icons.credit_card_outlined,
                 file: _cedulaReverso,
                 falta: _faltaReverso,
-                onTap: () => showModalBottomSheet(
-                  context: context,
-                  backgroundColor: Colors.white,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                  ),
-                  builder: (_) => _sourceSelector(
-                    onCamera: () {
-                      Navigator.pop(context);
-                      _pickImage(
-                        fromCamera: true,
-                        onPicked: (f) => setState(() {
-                          _cedulaReverso = f;
-                          _faltaReverso = false;
-                          _revisarAviso();
-                        }),
-                      );
-                    },
-                    onGallery: () {
-                      Navigator.pop(context);
-                      _pickImage(
-                        fromCamera: false,
-                        onPicked: (f) => setState(() {
-                          _cedulaReverso = f;
-                          _faltaReverso = false;
-                        }),
-                      );
-                    },
-                  ),
+                onTap: () => tomarFoto(
+                  etiqueta: 'CEDULA REVERSO',
+                  onListo: (f) {
+                    _cedulaReverso = f;
+                    _faltaReverso = false;
+                    _revisarAviso();
+                  },
                 ),
               ),
               const SizedBox(height: 16),
@@ -394,8 +369,11 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                 ),
               ),
               const SizedBox(height: 24),
-            ],
-          ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -528,7 +506,16 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
     final hasFile = _selfie != null;
 
     return GestureDetector(
-      onTap: _takeSelfie,
+      onTap: () => tomarFoto(
+        etiqueta: 'SELFIE',
+        camaraPreferida: CameraDevice.front,
+        maxWidth: 800,
+        onListo: (f) {
+          _selfie = f;
+          _faltaSelfie = false;
+          _revisarAviso();
+        },
+      ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         decoration: BoxDecoration(
@@ -603,9 +590,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      hasFile
-                          ? context.tr('selfie_taken')
-                          : context.tr('selfie_hint'),
+                      hasFile ? context.tr('selfie_taken') : context.tr('selfie_hint'),
                       style: TextStyle(
                         fontSize: 12,
                         color: hasFile
@@ -649,37 +634,6 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _sourceSelector({
-    required VoidCallback onCamera,
-    required VoidCallback onGallery,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(context.tr('add_photo'),
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          _actionTile(icon: Icons.camera_alt_outlined, label: context.tr('use_camera'), onTap: onCamera),
-          const SizedBox(height: 8),
-          _actionTile(icon: Icons.photo_library_outlined, label: context.tr('choose_gallery'), onTap: onGallery),
-          const SizedBox(height: 8),
-        ],
       ),
     );
   }

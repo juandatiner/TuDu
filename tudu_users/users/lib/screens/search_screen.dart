@@ -8,6 +8,8 @@ import '../l10n/app_localizations.dart';
 import 'allies_by_service_screen.dart';
 import 'all_services_screen.dart';
 import 'publish_service_screen.dart';
+import 'categories_screen.dart';
+import 'category_offers_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   final String userEmail;
@@ -23,14 +25,17 @@ class _SearchScreenState extends State<SearchScreen> {
   final FocusNode _focusNode = FocusNode();
   List<Service> _filteredServices = [];
   List<dynamic> _searchHistory = [];
-  List<Service> _randomServices = [];
   List<Service> _allServices = [];
+
+  // Sugerencias: categorías al azar que sí tienen servicios adentro.
+  List<Map<String, dynamic>> _categoriasSugeridas = [];
 
   @override
   void initState() {
     super.initState();
     print('SearchScreen initialized with userEmail: ${widget.userEmail}');
     _fetchAllServices();
+    _fetchCategoriasSugeridas();
     _fetchSearchHistory();
     _searchController.addListener(_onSearchChanged);
   }
@@ -66,24 +71,29 @@ class _SearchScreenState extends State<SearchScreen> {
     });
   }
 
+  /// El backend ya devuelve `services` ordenados por `created_at desc`, así
+  /// que `_allServices` sirve directo como "últimos servicios creados".
   Future<void> _fetchAllServices() async {
     try {
       final servicesJson = await ServicioService.catalogo();
-        setState(() {
-          _allServices =
-              servicesJson.map((json) => Service.fromJson(json)).toList();
-          print('Total de servicios obtenidos: ${_allServices.length}');
-
-          final shuffledServices = List.from(_allServices)..shuffle();
-          _randomServices = shuffledServices.take(5).cast<Service>().toList();
-
-          print('Servicios aleatorios a mostrar: ${_randomServices.length}');
-          print(
-            'Nombres de servicios aleatorios: ${_randomServices.map((s) => s.name).toList()}',
-          );
-        });
+      setState(() {
+        _allServices =
+            servicesJson.map((json) => Service.fromJson(json)).toList();
+      });
     } catch (e) {
       print('Error: $e');
+    }
+  }
+
+  Future<void> _fetchCategoriasSugeridas() async {
+    try {
+      final categorias = await CategoriaService.listar();
+      final barajadas = List<Map<String, dynamic>>.from(categorias)..shuffle();
+      setState(() {
+        _categoriasSugeridas = barajadas.take(6).toList();
+      });
+    } catch (e) {
+      print('Error cargando categorías sugeridas: $e');
     }
   }
 
@@ -135,6 +145,18 @@ class _SearchScreenState extends State<SearchScreen> {
       'Ñ': 'n',
     };
     return text.split('').map((char) => accentMap[char] ?? char).join('');
+  }
+
+  void _navigateToCategory(Map<String, dynamic> categoria) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CategoryOffersScreen(
+          categoryId: categoria['id'],
+          categoryName: categoria['name'],
+        ),
+      ),
+    );
   }
 
   void _navigateToService(Service service) async {
@@ -227,6 +249,18 @@ class _SearchScreenState extends State<SearchScreen> {
             style: TextStyle(color: themeProvider.textColor),
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.category_outlined, color: Color(0xFF78BF32)),
+            tooltip: 'Categorías',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CategoriesScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: _buildBody(themeProvider, loc),
       floatingActionButton: _searchController.text.isNotEmpty
@@ -435,47 +469,58 @@ class _SearchScreenState extends State<SearchScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Servicios aleatorios
+              // Sugerencias: categorías al azar que sí tienen servicios
+              Text('Sugerencias',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: themeProvider.secondaryTextColor,
+                ),
+              ),
+              const SizedBox(height: 6),
               SizedBox(
                 height: 40,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _randomServices.length,
-                  itemBuilder: (context, index) {
-                    final service = _randomServices[index];
-                    return GestureDetector(
-                      onTap: () {
-                        _navigateToService(service);
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 10),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 15,
-                          vertical: 8,
+                child: _categoriasSugeridas.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Todavía no hay categorías con servicios',
+                          style: TextStyle(
+                              fontSize: 12, color: themeProvider.secondaryTextColor),
                         ),
-                        decoration: BoxDecoration(
-                          color: themeProvider.cardBgColor,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: themeProvider.isDarkMode
-                                ? Colors.grey[600]!
-                                : Colors.grey,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            service.name,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: themeProvider.textColor,
+                      )
+                    : ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _categoriasSugeridas.length,
+                        itemBuilder: (context, index) {
+                          final categoria = _categoriasSugeridas[index];
+                          return GestureDetector(
+                            onTap: () => _navigateToCategory(categoria),
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 15,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF78BF32).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: const Color(0xFF78BF32)),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  categoria['name'] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF78BF32),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
               ),
               const SizedBox(height: 12),
               // Línea separadora
@@ -516,54 +561,60 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  // Tamaño máximo y mínimo de cada círculo
-                  const double maxCircleSize = 66.0;
-                  const double minCircleSize = 50.0;
-                  const double marginBetween = 10.0;
-
-                  // Calcular cuántos círculos caben con el tamaño máximo
-                  int maxCirclesThatFit =
-                      ((constraints.maxWidth + marginBetween) /
-                              (maxCircleSize + marginBetween))
-                          .floor();
-                  // Mínimo 4 círculos, máximo 10
-                  int circleCount = max(4, min(maxCirclesThatFit, 10));
-
-                  // Calcular el tamaño real de cada círculo para que quepan tudus centrados
-                  double totalMarginSpace = (circleCount - 1) * marginBetween;
-                  double availableWidthForCircles =
-                      constraints.maxWidth - totalMarginSpace;
-                  double calculatedSize =
-                      availableWidthForCircles / circleCount;
-                  // Limitar entre minCircleSize y maxCircleSize
-                  double circleSize =
-                      calculatedSize.clamp(minCircleSize, maxCircleSize);
-
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(circleCount, (index) {
-                      return Container(
-                        margin: EdgeInsets.only(
-                            right: index < circleCount - 1 ? marginBetween : 0),
-                        width: circleSize,
-                        height: circleSize,
-                        decoration: BoxDecoration(
-                          color: themeProvider.cardBgColor,
-                          borderRadius: BorderRadius.circular(circleSize / 2),
-                          border: Border.all(
-                            color: themeProvider.isDarkMode
-                                ? Colors.grey[600]!
-                                : Colors.grey,
-                          ),
-                        ),
-                        child: const Center(),
-                      );
-                    }),
-                  );
-                },
-              ),
+              _allServices.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        'Todavía no hay servicios creados',
+                        style: TextStyle(
+                            fontSize: 12, color: themeProvider.secondaryTextColor),
+                      ),
+                    )
+                  : SizedBox(
+                      height: 78,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: min(_allServices.length, 10),
+                        itemBuilder: (context, index) {
+                          final service = _allServices[index];
+                          return GestureDetector(
+                            onTap: () => _navigateToService(service),
+                            child: Container(
+                              width: 84,
+                              margin: const EdgeInsets.only(right: 10),
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: themeProvider.cardBgColor,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: themeProvider.isDarkMode
+                                      ? Colors.grey[600]!
+                                      : Colors.grey[300]!,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.build_outlined,
+                                      color: Color(0xFF78BF32), size: 22),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    service.name,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: themeProvider.textColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
               const SizedBox(height: 12),
               // Línea separadora antes del historial
               Container(

@@ -62,9 +62,9 @@ async function subirImagen(supabase, { bucket, dueno, etiqueta, valor }) {
       return valor;
     }
 
-    // El bucket de avatares es público: se guarda la URL directa.
+    // Avatares y portafolio son públicos: se guarda la URL directa.
     // El de KYC es privado: se guarda la ruta y se firma al leerla.
-    if (bucket === 'avatars') {
+    if (bucket === 'avatars' || bucket === 'portfolio') {
       const { data } = supabase.storage.from(bucket).getPublicUrl(ruta);
       return data.publicUrl;
     }

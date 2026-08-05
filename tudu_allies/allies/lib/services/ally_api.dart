@@ -64,6 +64,24 @@ class AliadoApi {
       Api.post('/ally-service-profile', perfil);
 }
 
+/// Categorías: nivel arriba de los servicios.
+class CategoriaApi {
+  static Future<List<Map<String, dynamic>>> listar({String estado = 'approved'}) async {
+    final data = await Api.get('/categories', query: {'estado': estado});
+    final filas = (data is Map) ? data['categories'] : data;
+    return List<Map<String, dynamic>>.from(filas ?? []);
+  }
+
+  /// El aliado propone una categoría que no encontró — queda pendiente de revisión.
+  static Future<Map<String, dynamic>> sugerir({
+    required String nombre,
+    required String allyEmail,
+  }) async {
+    final data = await Api.post('/categories', {'name': nombre, 'ally_email': allyEmail});
+    return Map<String, dynamic>.from(data as Map);
+  }
+}
+
 /// Catálogo de servicios y trabajos disponibles.
 class ServicioApi {
   static Future<List<Map<String, dynamic>>> catalogo() async {
@@ -72,8 +90,38 @@ class ServicioApi {
     return List<Map<String, dynamic>>.from(filas ?? []);
   }
 
-  /// Crea un servicio nuevo en el catálogo compartido (mínimo 2 caracteres).
-  static Future<void> crear(String nombre) => Api.post('/services', {'name': nombre});
+  /// Servicios aprobados dentro de una categoría.
+  static Future<List<Map<String, dynamic>>> porCategoria(int categoryId) async {
+    final data = await Api.get('/services', query: {'category_id': '$categoryId'});
+    final filas = (data is Map) ? data['services'] : data;
+    return List<Map<String, dynamic>>.from(filas ?? []);
+  }
+
+  /// El aliado propone un servicio nuevo dentro de una categoría, con pruebas
+  /// (fotos de trabajos hechos, base64). Queda pendiente de revisión.
+  static Future<Map<String, dynamic>> crear({
+    required String nombre,
+    String? descripcion,
+    required int categoryId,
+    required String allyEmail,
+    List<String> imagenes = const [],
+  }) async {
+    final data = await Api.post('/services', {
+      'name': nombre,
+      'description': descripcion,
+      'category_id': categoryId,
+      'ally_email': allyEmail,
+      'images': imagenes,
+    });
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  /// Los servicios propios del aliado (categoría, nombre, estado de revisión).
+  static Future<List<Map<String, dynamic>>> misPerfiles(String allyEmail) async {
+    final data = await Api.get('/ally-service-profiles', query: {'ally_email': allyEmail});
+    final filas = (data is Map) ? data['profiles'] : data;
+    return List<Map<String, dynamic>>.from(filas ?? []);
+  }
 
   /// Servicios publicados por usuarios y aún sin asignar.
   static Future<List<Map<String, dynamic>>> disponibles() async {

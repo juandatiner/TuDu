@@ -4,13 +4,26 @@ import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../services/session_service.dart';
+import '../services/ally_api.dart';
+import '../services/api.dart';
 import '../config.dart';
 import 'login_screen.dart';
+import 'service_setup_screen.dart';
 
 class AllyHomeScreen extends StatefulWidget {
   final String allyEmail;
 
-  const AllyHomeScreen({super.key, required this.allyEmail});
+  /// Estado de KYC del aliado ('approved' salvo que venga de un onboarding
+  /// recién terminado o de un refresco con KYC aún pendiente). Mientras no
+  /// sea 'approved' puede navegar y ver todo, pero no tomar solicitudes ni
+  /// aparecer visible para los usuarios (eso ya lo filtra el backend).
+  final String kycStatus;
+
+  const AllyHomeScreen({
+    super.key,
+    required this.allyEmail,
+    this.kycStatus = 'approved',
+  });
 
   @override
   State<AllyHomeScreen> createState() => _AllyHomeScreenState();
@@ -67,7 +80,7 @@ class _AllyHomeScreenState extends State<AllyHomeScreen> {
         child: IndexedStack(
           index: _selectedIndex,
           children: [
-            _InicioTab(allyEmail: widget.allyEmail),
+            _InicioTab(allyEmail: widget.allyEmail, kycStatus: widget.kycStatus),
             _MensajesTab(),
             _MisServiciosTab(allyEmail: widget.allyEmail),
             _PerfilTab(allyEmail: widget.allyEmail),
@@ -152,15 +165,68 @@ class _AllyHomeScreenState extends State<AllyHomeScreen> {
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab: Inicio
 // ─────────────────────────────────────────────────────────────────────────────
-class _InicioTab extends StatelessWidget {
+class _InicioTab extends StatefulWidget {
   final String allyEmail;
+  final String kycStatus;
 
-  const _InicioTab({required this.allyEmail});
+  const _InicioTab({required this.allyEmail, required this.kycStatus});
 
+  @override
+  State<_InicioTab> createState() => _InicioTabState();
+}
+
+class _InicioTabState extends State<_InicioTab> {
   static const Color _brandColor = Color(0xFF78BF32);
+
+  List<Map<String, dynamic>> _solicitudes = [];
+  bool _cargando = true;
+  int? _aceptando;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    setState(() => _cargando = true);
+    try {
+      final solicitudes = await ServicioApi.disponibles();
+      if (!mounted) return;
+      setState(() {
+        _solicitudes = solicitudes;
+        _cargando = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cargando = false);
+    }
+  }
+
+  bool get _aprobado => widget.kycStatus == 'approved';
+
+  Future<void> _aceptar(Map<String, dynamic> solicitud) async {
+    setState(() => _aceptando = solicitud['id']);
+    try {
+      await ServicioApi.asignar(solicitud['id'], widget.allyEmail);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Solicitud aceptada'), backgroundColor: _brandColor),
+      );
+      _cargar();
+    } catch (e) {
+      if (!mounted) return;
+      final mensaje = e is ApiException ? e.message : 'No se pudo aceptar la solicitud';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensaje), backgroundColor: Colors.red),
+      );
+      setState(() => _aceptando = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final allyEmail = widget.allyEmail;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       child: Column(
@@ -217,9 +283,10 @@ class _InicioTab extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // Estado de verificación
-          _StatusCard(),
-          const SizedBox(height: 20),
+          if (!_aprobado) ...[
+            _AvisoRevision(),
+            const SizedBox(height: 20),
+          ],
 
           // Resumen métricas
           Row(
@@ -240,62 +307,25 @@ class _InicioTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _EmptyStateCard(
-            icon: Icons.assignment_outlined,
-            message: context.tr('no_requests'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusCard extends StatelessWidget {
-  static const Color _brandColor = Color(0xFF78BF32);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFFCC02), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFCC02).withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.pending_outlined, color: Color(0xFF815B00), size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(context.tr('verification_in_review'),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF5D4200),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Nuestro equipo revisará tus documentos pronto. Mientras tanto, ya puedes explorar la plataforma.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.brown.shade600,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          if (_cargando)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(color: _brandColor),
+              ),
+            )
+          else if (_solicitudes.isEmpty)
+            _EmptyStateCard(
+              icon: Icons.assignment_outlined,
+              message: context.tr('no_requests'),
+            )
+          else
+            ..._solicitudes.map((s) => _SolicitudCard(
+                  solicitud: s,
+                  cargando: _aceptando == s['id'],
+                  bloqueado: !_aprobado,
+                  onAceptar: () => _aceptar(s),
+                )),
         ],
       ),
     );
@@ -399,6 +429,135 @@ class _EmptyStateCard extends StatelessWidget {
   }
 }
 
+/// Una solicitud de un usuario, sin asignar todavía, con botón para tomarla.
+class _AvisoRevision extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4E5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF5A623).withOpacity(0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: Color(0xFFF5A623), size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Cuenta en revisión: tus servicios no serán visibles y no puedes tomar solicitudes todavía.',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87, height: 1.35),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Nuestro equipo revisará tu cuenta lo más rápido posible.',
+                  style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.6), height: 1.35),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SolicitudCard extends StatelessWidget {
+  final Map<String, dynamic> solicitud;
+  final bool cargando;
+  final bool bloqueado;
+  final VoidCallback onAceptar;
+
+  static const Color _brandColor = Color(0xFF78BF32);
+
+  const _SolicitudCard({
+    required this.solicitud,
+    required this.cargando,
+    this.bloqueado = false,
+    required this.onAceptar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            solicitud['title'] ?? '',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+          ),
+          if ((solicitud['description'] as String?)?.isNotEmpty == true) ...[
+            const SizedBox(height: 4),
+            Text(
+              solicitud['description'],
+              style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.55), height: 1.4),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (solicitud['budget'] != null) ...[
+                Icon(Icons.attach_money, size: 16, color: _brandColor),
+                Text('${solicitud['budget']}',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _brandColor)),
+                const SizedBox(width: 14),
+              ],
+              if (solicitud['time_quantity'] != null) ...[
+                Icon(Icons.schedule, size: 16, color: Colors.black.withOpacity(0.4)),
+                const SizedBox(width: 4),
+                Text('${solicitud['time_quantity']} ${solicitud['time_unit'] ?? ''}',
+                    style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.55))),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: (cargando || bloqueado) ? null : onAceptar,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: bloqueado ? Colors.grey.shade300 : _brandColor,
+                foregroundColor: bloqueado ? Colors.black45 : Colors.white,
+                disabledBackgroundColor: Colors.grey.shade300,
+                disabledForegroundColor: Colors.black45,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: cargando
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(bloqueado ? 'Cuenta en revisión' : 'Aceptar solicitud',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab: Mensajes
 // ─────────────────────────────────────────────────────────────────────────────
@@ -431,10 +590,51 @@ class _MensajesTab extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab: Mis Servicios
 // ─────────────────────────────────────────────────────────────────────────────
-class _MisServiciosTab extends StatelessWidget {
+class _MisServiciosTab extends StatefulWidget {
   final String allyEmail;
 
   const _MisServiciosTab({required this.allyEmail});
+
+  @override
+  State<_MisServiciosTab> createState() => _MisServiciosTabState();
+}
+
+class _MisServiciosTabState extends State<_MisServiciosTab> {
+  static const Color _brandColor = Color(0xFF78BF32);
+
+  List<Map<String, dynamic>> _perfiles = [];
+  bool _cargando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    setState(() => _cargando = true);
+    try {
+      final perfiles = await ServicioApi.misPerfiles(widget.allyEmail);
+      if (!mounted) return;
+      setState(() {
+        _perfiles = perfiles;
+        _cargando = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cargando = false);
+    }
+  }
+
+  Future<void> _agregar() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ServiceSetupScreen(email: widget.allyEmail, esOpcional: true),
+      ),
+    );
+    _cargar();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -454,11 +654,11 @@ class _MisServiciosTab extends StatelessWidget {
                 ),
               ),
               ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: _agregar,
                 icon: const Icon(Icons.add, size: 18),
                 label: Text(context.tr('add')),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF78BF32),
+                  backgroundColor: _brandColor,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -470,9 +670,92 @@ class _MisServiciosTab extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          _EmptyStateCard(
-            icon: Icons.work_outline,
-            message: context.tr('no_active_services'),
+          if (_cargando)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(color: _brandColor),
+              ),
+            )
+          else if (_perfiles.isEmpty)
+            _EmptyStateCard(
+              icon: Icons.work_outline,
+              message: context.tr('no_active_services'),
+            )
+          else
+            ..._perfiles.map((p) => _MiServicioCard(perfil: p)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Uno de los servicios propios del aliado, con su estado de revisión.
+class _MiServicioCard extends StatelessWidget {
+  final Map<String, dynamic> perfil;
+
+  static const Color _brandColor = Color(0xFF78BF32);
+
+  const _MiServicioCard({required this.perfil});
+
+  @override
+  Widget build(BuildContext context) {
+    final servicio = perfil['service'] as Map<String, dynamic>?;
+    final estado = servicio?['review_status'] ?? 'pending';
+
+    late final Color color;
+    late final String texto;
+    switch (estado) {
+      case 'approved':
+        color = _brandColor;
+        texto = 'Aprobado';
+        break;
+      case 'rejected':
+        color = Colors.red;
+        texto = 'Rechazado';
+        break;
+      default:
+        color = Colors.orange;
+        texto = 'En revisión';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  servicio?['name'] ?? '',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+                if ((perfil['nombre_comercial'] as String?)?.isNotEmpty == true) ...[
+                  const SizedBox(height: 2),
+                  Text(perfil['nombre_comercial'],
+                      style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.55))),
+                ],
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(16)),
+            child: Text(texto,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
           ),
         ],
       ),
@@ -523,22 +806,6 @@ class _PerfilTab extends StatelessWidget {
                     color: Colors.black54,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF8E1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFFFCC02)),
-                  ),
-                  child: Text(context.tr('pending_verification'),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF5D4200),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -561,7 +828,7 @@ class _PerfilTab extends StatelessWidget {
             onTap: () {},
           ),
           _profileOption(
-            icon: Icons.help_outline,
+            icon: Icons.support_agent,
             label: context.tr('support'),
             onTap: () {},
           ),

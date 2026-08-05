@@ -80,6 +80,7 @@ const RUTAS_PUBLICAS = [
   '/verify-otp',
   '/check-ally',
   '/services',
+  '/categories',
   '/ally-device-session/check',
   '/auth/refresh'
 ];
@@ -408,9 +409,27 @@ app.post('/ally-kyc', async (req, res) => {
 });
 
 // Guardar perfil del primer servicio del aliado
+// El portafolio es por (aliado, servicio): aunque el servicio del catálogo ya
+// exista (lo haya propuesto otro aliado), cada aliado prueba con sus propias
+// fotos que él hace ese trabajo. Sin esto, un aliado podía ofrecer un servicio
+// ajeno sin mostrar nunca evidencia propia.
 app.post('/ally-service-profile', async (req, res) => {
-  const { email, service_id, nombre_comercial, frase_presentacion, resumen } = req.body;
+  const { email, service_id, nombre_comercial, frase_presentacion, resumen, images } = req.body;
   if (!email || !service_id) return res.status(400).json({ error: 'Faltan campos' });
+
+  const lista = Array.isArray(images) ? images : [];
+  if (lista.length > 5) return res.status(400).json({ error: 'Máximo 5 fotos' });
+
+  if (lista.length === 0) {
+    // Puede que ya tenga fotos de cuando propuso este mismo servicio nuevo
+    // (POST /services, mismo ally_email + service_id) — no se le vuelve a pedir.
+    const { count } = await supabase
+      .from('ally_portfolio_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('service_id', service_id)
+      .eq('ally_email', email);
+    if (!count) return res.status(400).json({ error: 'Sube al menos una foto de un trabajo real que hayas hecho' });
+  }
 
   const { error } = await supabase.from('ally_service_profiles').insert([{
     ally_email: email,
@@ -422,7 +441,52 @@ app.post('/ally-service-profile', async (req, res) => {
   }]);
 
   if (error) return res.status(500).json({ error: 'Error guardando perfil de servicio' });
+
+  const subidas = await Promise.all(
+    lista.map((img, i) => subirImagen(supabase, {
+      bucket: 'portfolio',
+      dueno: email,
+      etiqueta: `trabajo-${i}`,
+      valor: img
+    }))
+  );
+
+  const filas = subidas
+    .filter(url => url)
+    .map(url => ({ service_id, ally_email: email, image_path: url }));
+
+  if (filas.length > 0) {
+    const { error: errorFotos } = await supabase.from('ally_portfolio_items').insert(filas);
+    if (errorFotos) console.error('Error guardando pruebas del perfil:', errorFotos.message);
+  }
+
   res.json({ message: 'Perfil de servicio creado exitosamente' });
+});
+
+// Los servicios propios del aliado — para la pestaña "Mis servicios".
+app.get('/ally-service-profiles', async (req, res) => {
+  const { ally_email } = req.query;
+  if (!ally_email) return res.status(400).json({ error: 'Email requerido' });
+
+  const { data: perfiles, error } = await supabase
+    .from('ally_service_profiles')
+    .select('*')
+    .eq('ally_email', ally_email)
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(500).json({ error: 'Error obteniendo servicios' });
+  if (!perfiles || perfiles.length === 0) return res.json({ profiles: [] });
+
+  const serviceIds = [...new Set(perfiles.map(p => p.service_id))];
+  const { data: servicios } = await supabase
+    .from('services')
+    .select('id, name, description, review_status, category_id')
+    .in('id', serviceIds);
+
+  const servicioPorId = Object.fromEntries((servicios || []).map(s => [s.id, s]));
+  const resultado = perfiles.map(p => ({ ...p, service: servicioPorId[p.service_id] || null }));
+
+  res.json({ profiles: resultado });
 });
 
 
@@ -562,23 +626,241 @@ app.put('/api/admin/kyc/:email', async (req, res) => {
 });
 
 // ==========================================
+//  REVISIÓN DE CATEGORÍAS Y SERVICIOS (PANEL DE ADMINISTRACIÓN)
+// ==========================================
+//
+// Mismo patrón que la revisión de KYC de arriba: la fila real vive en
+// `services`/`categories` con `review_status`, no en una tabla de sugerencias
+// aparte. Cada servicio que un aliado propone —el primero obligatorio del
+// onboarding y cualquiera después— pasa por acá antes de ser visible.
+
+const ESTADOS_REVISION = ['approved', 'rejected'];
+
+/// Lista de servicios para revisar, con la categoría y el aliado que lo propuso.
+/// `?estado=pending` (por defecto) trae los pendientes; `?estado=todos`, todos.
+app.get('/api/admin/services', async (req, res) => {
+  const estado = req.query.estado || 'pending';
+
+  let consulta = supabase
+    .from('services')
+    .select(`
+      id, name, description, review_status, admin_note, created_at, reviewed_at,
+      created_by_ally_email,
+      category:categories ( id, name, review_status ),
+      allies ( nombre, apellido, email )
+    `)
+    .order('created_at', { ascending: true });
+
+  if (estado !== 'todos') consulta = consulta.eq('review_status', estado);
+
+  const { data, error } = await consulta;
+  if (error) {
+    console.error('Error listando servicios para revisión:', error.message);
+    return res.status(500).json({ error: 'Error obteniendo servicios propuestos' });
+  }
+
+  // Pruebas de cada servicio, en una sola consulta aparte (más simple que anidar
+  // el join con `services` arriba).
+  const ids = (data || []).map(s => s.id);
+  let fotosPorServicio = {};
+  if (ids.length > 0) {
+    const { data: fotos } = await supabase
+      .from('ally_portfolio_items')
+      .select('id, service_id, image_path, caption')
+      .in('service_id', ids);
+
+    fotosPorServicio = (fotos || []).reduce((acc, f) => {
+      (acc[f.service_id] ||= []).push({ id: f.id, image_path: f.image_path, caption: f.caption });
+      return acc;
+    }, {});
+  }
+
+  const resultado = (data || []).map(s => ({ ...s, portfolio: fotosPorServicio[s.id] || [] }));
+  res.json({ success: true, data: resultado });
+});
+
+/// Aprueba, rechaza o corrige un servicio propuesto. `name`/`description`/
+/// `category_id` sobreescriben lo que puso el aliado (arreglar ortografía o
+/// redirigir a una categoría existente que el aliado no encontró).
+app.put('/api/admin/services/:id', async (req, res) => {
+  const { id } = req.params;
+  const { status, name, description, category_id, admin_note } = req.body;
+
+  if (!ESTADOS_REVISION.includes(status)) {
+    return res.status(400).json({ error: "El estado debe ser 'approved' o 'rejected'" });
+  }
+  if (status === 'rejected' && (!admin_note || !admin_note.trim())) {
+    return res.status(400).json({ error: 'Al rechazar hay que indicar el motivo' });
+  }
+
+  const cambios = {
+    review_status: status,
+    reviewed_at: new Date().toISOString(),
+    admin_note: admin_note ? admin_note.trim() : null
+  };
+  if (name && name.trim()) cambios.name = name.trim();
+  if (description !== undefined) cambios.description = description ? description.trim() : null;
+  if (category_id) cambios.category_id = category_id;
+
+  const { data, error } = await supabase
+    .from('services')
+    .update(cambios)
+    .eq('id', id)
+    .select('id, name, review_status')
+    .single();
+
+  if (error || !data) return res.status(500).json({ error: 'Error guardando la revisión' });
+
+  console.log(`🛠️ Servicio ${id} (${data.name}): ${status}`);
+  res.json({ success: true, data });
+});
+
+/// Aprueba o rechaza una categoría propuesta por un aliado. Decisión
+/// independiente de la del servicio: se puede aprobar la categoría y aun así
+/// rechazar el servicio (o al revés).
+app.put('/api/admin/categories/:id', async (req, res) => {
+  const { id } = req.params;
+  const { status, name, admin_note } = req.body;
+
+  if (!ESTADOS_REVISION.includes(status)) {
+    return res.status(400).json({ error: "El estado debe ser 'approved' o 'rejected'" });
+  }
+  if (status === 'rejected' && (!admin_note || !admin_note.trim())) {
+    return res.status(400).json({ error: 'Al rechazar hay que indicar el motivo' });
+  }
+
+  const cambios = {
+    review_status: status,
+    reviewed_at: new Date().toISOString(),
+    admin_note: admin_note ? admin_note.trim() : null
+  };
+  if (name && name.trim()) cambios.name = name.trim();
+
+  const { data, error } = await supabase
+    .from('categories')
+    .update(cambios)
+    .eq('id', id)
+    .select('id, name, review_status')
+    .single();
+
+  if (error || !data) return res.status(500).json({ error: 'Error guardando la revisión' });
+  res.json({ success: true, data });
+});
+
+/// El admin crea una categoría directo (para precargar el catálogo antes de
+/// que ningún aliado la proponga) — entra aprobada de una, sin revisión.
+app.post('/api/admin/categories', async (req, res) => {
+  const { name } = req.body;
+  if (!name || name.trim().length < 2) return res.status(400).json({ error: 'Nombre de categoría requerido' });
+
+  const { data, error } = await supabase.from('categories').insert([{
+    name: name.trim(),
+    review_status: 'approved',
+    reviewed_at: new Date().toISOString()
+  }]).select('id, name, review_status').single();
+
+  if (error) return res.status(500).json({ error: 'Error creando categoría' });
+  res.status(201).json({ message: 'Categoría creada', data });
+});
+
+// ==========================================
 // 3. SERVICIOS Y ASIGNACIONES
 // ==========================================
 
+// Categorías: nivel arriba de `services`. Igual que un servicio, una categoría
+// que propone un aliado queda `pending` hasta que el admin la revisa — salvo
+// que la cree el propio admin (POST /api/admin/categories), que entra
+// aprobada de una.
+app.get('/categories', async (req, res) => {
+  const estado = req.query.estado || 'approved';
+
+  let consulta = supabase.from('categories').select('id, name, review_status').order('name');
+  if (estado !== 'todos') consulta = consulta.eq('review_status', estado);
+
+  const { data, error } = await consulta;
+  if (error) return res.status(500).json({ error: 'Error obteniendo categorías' });
+  res.json({ categories: data || [] });
+});
+
+// El aliado propone una categoría nueva porque no encontró la suya.
+app.post('/categories', async (req, res) => {
+  const { name, ally_email } = req.body;
+  if (!name || name.trim().length < 2) return res.status(400).json({ error: 'Nombre de categoría requerido' });
+  if (!ally_email) return res.status(400).json({ error: 'Email del aliado requerido' });
+
+  const { data, error } = await supabase.from('categories').insert([{
+    name: name.trim(),
+    review_status: 'pending',
+    created_by_ally_email: ally_email
+  }]).select('id, name, review_status').single();
+
+  if (error) return res.status(500).json({ error: 'Error creando categoría' });
+  res.status(201).json({ message: 'Categoría enviada a revisión', id: data.id, name: data.name, review_status: data.review_status });
+});
+
 app.get('/services', async (req, res) => {
-  const { data, error } = await supabase.from('services').select('id, name').order('created_at', { ascending: false });
+  const { category_id, estado } = req.query;
+
+  let consulta = supabase
+    .from('services')
+    .select('id, name, description, category_id, review_status')
+    .order('name');
+
+  const filtroEstado = estado || 'approved';
+  if (filtroEstado !== 'todos') consulta = consulta.eq('review_status', filtroEstado);
+  if (category_id) consulta = consulta.eq('category_id', category_id);
+
+  const { data, error } = await consulta;
   if (error) return res.status(500).json({ error: 'Error obteniendo servicios' });
   res.json({ services: data || [] });
 });
 
-// Crear nuevo servicio (cuando el aliado no encuentra el suyo)
+// El aliado propone un servicio nuevo (cuando no lo encuentra en su categoría),
+// con pruebas: fotos de trabajos hechos. Queda `pending` — nunca se muestra a
+// usuarios ni a otros aliados hasta que el admin lo aprueba.
 app.post('/services', async (req, res) => {
-  const { name } = req.body;
-  if (!name || name.trim().length < 2) return res.status(400).json({ error: 'Nombre del servicio requerido' });
+  const { name, description, category_id, ally_email, images } = req.body;
 
-  const { data, error } = await supabase.from('services').insert([{ name: name.trim() }]).select('id, name').single();
-  if (error) return res.status(500).json({ error: 'Error creando servicio' });
-  res.status(201).json({ message: 'Servicio creado', id: data.id, name: data.name });
+  if (!name || name.trim().length < 2) return res.status(400).json({ error: 'Nombre del servicio requerido' });
+  if (!category_id) return res.status(400).json({ error: 'Categoría requerida' });
+  if (!ally_email) return res.status(400).json({ error: 'Email del aliado requerido' });
+
+  const { data: servicio, error } = await supabase.from('services').insert([{
+    name: name.trim(),
+    description: description ? description.trim() : null,
+    category_id,
+    review_status: 'pending',
+    created_by_ally_email: ally_email
+  }]).select('id, name, description, category_id, review_status').single();
+
+  if (error) {
+    console.error('Error creando servicio:', error.message);
+    return res.status(500).json({ error: 'Error creando servicio' });
+  }
+
+  // Pruebas: 0 a N fotos, bucket público (se ven en la app una vez aprobado).
+  const lista = Array.isArray(images) ? images : [];
+  if (lista.length > 0) {
+    const subidas = await Promise.all(
+      lista.map((img, i) => subirImagen(supabase, {
+        bucket: 'portfolio',
+        dueno: ally_email,
+        etiqueta: `trabajo-${i}`,
+        valor: img
+      }))
+    );
+
+    const filas = subidas
+      .filter(url => url)
+      .map(url => ({ service_id: servicio.id, ally_email, image_path: url }));
+
+    if (filas.length > 0) {
+      const { error: errorFotos } = await supabase.from('ally_portfolio_items').insert(filas);
+      if (errorFotos) console.error('Error guardando pruebas del servicio:', errorFotos.message);
+    }
+  }
+
+  res.status(201).json({ message: 'Servicio enviado a revisión', id: servicio.id, name: servicio.name, review_status: servicio.review_status });
 });
 
 
@@ -593,9 +875,12 @@ app.put('/services-in-search/:id/assign', async (req, res) => {
   const { ally_email } = req.body;
   if (!ally_email) return res.status(400).json({ error: 'Email del aliado es requerido' });
 
-  // Validar si el aliado existe
-  const { data: ally } = await supabase.from('allies').select('email').eq('email', ally_email).single();
+  // Validar si el aliado existe y ya pasó la revisión de KYC
+  const { data: ally } = await supabase.from('allies').select('email, kyc_status').eq('email', ally_email).single();
   if (!ally) return res.status(404).json({ error: 'Aliado no encontrado' });
+  if (ally.kyc_status !== 'approved') {
+    return res.status(403).json({ error: 'Cuenta en revisión: no puedes tomar solicitudes todavía', code: 'KYC_PENDING' });
+  }
 
   // Actualizar en services_in_search (asignando el email del aliado en vez de su ID)
   const { error } = await supabase.from('services_in_search').update({ 

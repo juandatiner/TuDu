@@ -634,13 +634,15 @@ class _DetalleKycScreenState extends State<_DetalleKycScreen> {
         child: Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
+              child: ElevatedButton.icon(
                 onPressed: _enviando ? null : () => _revisar('rejected'),
-                icon: const Icon(Icons.close, color: Colors.red),
-                label: const Text('Rechazar', style: TextStyle(color: Colors.red)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: Colors.red),
+                icon: const Icon(Icons.close, color: Colors.white),
+                label: const Text('Rechazar',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(150, 50),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
@@ -658,10 +660,12 @@ class _DetalleKycScreenState extends State<_DetalleKycScreen> {
                             strokeWidth: 2, color: Colors.white),
                       )
                     : const Icon(Icons.check, color: Colors.white),
-                label: const Text('Aprobar', style: TextStyle(color: Colors.white)),
+                label: const Text('Aprobar',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Config.primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(150, 50),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),

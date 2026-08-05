@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'ally_api.dart';
 import '../screens/home_screen.dart';
-import '../screens/kyc_pending_screen.dart';
 import '../screens/kyc_verification_screen.dart';
 import '../screens/registration_screen.dart';
 import '../screens/service_setup_screen.dart';
@@ -32,7 +31,7 @@ class AllyRouting {
         return AllyHomeScreen(allyEmail: email);
       }
 
-      return screenForPartial(data['partial'], email);
+      return screenForPartial(data['partial'], email, kycStatus: data['kyc_status']);
     } catch (e) {
       debugPrint('Error resolviendo destino del aliado: $e');
       return RegistrationScreen(email: email);
@@ -40,11 +39,12 @@ class AllyRouting {
   }
 
   /// Traduce el `partial` que devuelve el backend a una pantalla.
-  static Widget screenForPartial(String? partial, String email) {
+  static Widget screenForPartial(String? partial, String email, {String? kycStatus}) {
     switch (partial) {
       case 'kyc_pending':
-        // Documentos enviados y en revisión: solo esperar, jamás repetir datos.
-        return KycPendingScreen(email: email);
+        // Documentos enviados y en revisión: puede navegar y ver todo, pero
+        // el Home se lo recuerda con un aviso y le bloquea tomar solicitudes.
+        return AllyHomeScreen(allyEmail: email, kycStatus: kycStatus ?? 'submitted');
       case 'kyc':
         return KycVerificationScreen(email: email);
       case 'service':

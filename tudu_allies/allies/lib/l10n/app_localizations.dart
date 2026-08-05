@@ -74,21 +74,27 @@ class AppLocalizations {
       'identity_verification': 'Verificación de identidad',
       'kyc_intro':
           'Necesitamos confirmar que eres tú.\nTus documentos son revisados por nuestro equipo.',
+      'kyc_disclaimer':
+          'Los datos deben ser reales y coincidir con tu identidad. Toma la foto directo a tu cédula física — no sirven capturas de pantalla, fotos de otra foto ni copias. Documentos falsos, alterados o ilegibles serán rechazados.',
       'id_front': 'Cédula – Parte frontal',
-      'id_front_hint': 'Asegúrate de que sea legible',
+      'id_front_hint': 'Foto de tu cédula física, legible y sin reflejos',
       'id_back': 'Cédula – Parte trasera',
-      'id_back_hint': 'Con todos los datos visibles',
+      'id_back_hint': 'Foto de tu cédula física, con todos los datos visibles',
       'selfie': 'Selfie de verificación',
       'selfie_hint': 'Se tomará con tu cámara frontal.\nNo se puede adjuntar de galería.',
       'camera_only': 'Solo cámara',
+      'camera': 'Cámara',
+      'gallery': 'Galería',
       'tap_to_add': 'Toca para agregar',
-      'add_photo': 'Agregar foto',
-      'use_camera': 'Usar cámara',
-      'choose_gallery': 'Elegir de galería',
       'photo_added': '¡Foto agregada! Toca para cambiarla',
       'selfie_taken': '¡Selfie tomada! Toca para repetirla',
       'documents_safe':
           'Tus documentos están cifrados y seguros. Solo nuestro equipo de verificación los revisa.',
+      'camera_error':
+          'No se pudo acceder a la cámara. Revisa los permisos de la app o intenta de nuevo.',
+      'support_soon_title': '¿Tienes un problema?',
+      'support_soon_body':
+          'Muy pronto podrás escribirle directo a nuestro equipo de soporte desde aquí.',
 
       // KYC pendiente
       'account_under_review': 'Tu cuenta está siendo verificada',
@@ -103,13 +109,34 @@ class AppLocalizations {
       'service_setup_intro':
           'Define el primer servicio con el que aparecerás en la plataforma.',
       'service_category': 'Categoría del servicio',
-      'search_service_hint': 'Busca tu tipo de servicio...',
+      'search_category_hint': 'Busca tu categoría (ej: Carpintería)...',
+      'category_not_found': 'No encontré mi categoría',
+      'new_category_name': 'Nombre de la nueva categoría',
+      'new_category_hint': 'Ej: Carpintería',
+      'suggest_category': 'Proponer esta categoría',
+      'category_suggested': 'Categoría enviada a revisión',
+      'pending_review_badge': 'Pendiente de revisión',
+      'service_name_label': 'Servicio dentro de esta categoría',
+      'search_service_hint': 'Busca tu servicio...',
       'service_not_found': 'No encontré mi servicio',
       'new_service_name': 'Nombre del nuevo servicio',
-      'new_service_hint': 'Ej: Carpintería a domicilio',
-      'create_this_service': 'Crear este servicio',
-      'select_or_create_service': 'Selecciona o crea un servicio',
+      'new_service_hint': 'Ej: Instalación de puertas de madera',
+      'new_service_description': 'Descripción corta',
+      'new_service_description_hint': 'Ej: Instalación y ajuste de puertas de madera a medida',
+      'portfolio_title': 'Pruebas de tu trabajo',
+      'portfolio_disclaimer':
+          'Sube al menos una foto de un trabajo que hayas hecho antes, para que la gente vea la calidad de tu servicio. Debe ser tuya, real y corresponder a este servicio — nuestro equipo revisa cada solicitud a mano. No se aceptan fotos que no correspondan, imágenes generadas con IA ni contenido inapropiado: si detectamos eso, tu servicio no será aprobado.',
+      'service_name_too_short': 'El nombre debe tener al menos 3 caracteres',
+      'service_description_required': 'Describe brevemente el servicio (mínimo 10 caracteres)',
+      'commercial_name_too_short': 'Debe tener al menos 3 caracteres',
+      'pitch_too_short': 'Escribe al menos 3 palabras',
+      'summary_too_short': 'Escribe al menos 15 palabras contando tu experiencia',
+      'portfolio_required': 'Sube al menos una foto de un trabajo real que hayas hecho',
+      'portfolio_already_sent': 'Ya enviaste tus fotos de prueba para este servicio',
+      'create_this_service': 'Proponer este servicio',
+      'select_or_create_service': 'Selecciona o propone una categoría y un servicio',
       'service_created': 'creado exitosamente',
+      'service_suggested': 'Servicio enviado a revisión',
       'your_business_name': 'Tu nombre o nombre de negocio',
       'commercial_name': 'Nombre comercial',
       'commercial_name_hint': 'Ej: Juan López / Electricidad López',
@@ -124,7 +151,7 @@ class AppLocalizations {
       'summary_hint':
           'Cuéntanos qué sabes hacer, tu experiencia, y por qué los clientes deben elegirte...',
       'service_setup_tip':
-          '💡 Recuerda: más adelante podrás crear más servicios. Enfócate en este servicio únicamente.',
+          'Este es tu primer servicio. Más adelante vas a poder agregar otros desde tu perfil.',
       'start_as_ally': '¡Comenzar como Aliado!',
 
       // Home
@@ -145,8 +172,6 @@ class AppLocalizations {
       'add': 'Agregar',
       'no_active_services':
           'Aún no tienes servicios activos.\nTu servicio inicial está siendo revisado.',
-      'pending_verification': 'Verificación Pendiente',
-      'verification_in_review': 'Verificación en revisión',
 
       // Dashboard
       'available_services': 'Servicios disponibles:',
@@ -206,21 +231,27 @@ class AppLocalizations {
       'identity_verification': 'Identity verification',
       'kyc_intro':
           'We need to confirm it is really you.\nYour documents are reviewed by our team.',
+      'kyc_disclaimer':
+          'Your data must be real and match your identity. Photograph your physical ID card directly — screenshots, photos of another photo, or copies are not accepted. Fake, altered, or unreadable documents will be rejected.',
       'id_front': 'ID card – Front',
-      'id_front_hint': 'Make sure it is readable',
+      'id_front_hint': 'Photo of your physical ID card, readable and glare-free',
       'id_back': 'ID card – Back',
-      'id_back_hint': 'With all the details visible',
+      'id_back_hint': 'Photo of your physical ID card, with all details visible',
       'selfie': 'Verification selfie',
       'selfie_hint': 'It will be taken with your front camera.\nGallery uploads are not allowed.',
       'camera_only': 'Camera only',
+      'camera': 'Camera',
+      'gallery': 'Gallery',
       'tap_to_add': 'Tap to add',
-      'add_photo': 'Add photo',
-      'use_camera': 'Use camera',
-      'choose_gallery': 'Choose from gallery',
       'photo_added': 'Photo added! Tap to change it',
       'selfie_taken': 'Selfie taken! Tap to retake it',
       'documents_safe':
           'Your documents are encrypted and safe. Only our verification team reviews them.',
+      'camera_error':
+          'Could not access the camera. Check the app permissions or try again.',
+      'support_soon_title': 'Having a problem?',
+      'support_soon_body':
+          'Soon you will be able to message our support team directly from here.',
 
       // KYC pending
       'account_under_review': 'Your account is being verified',
@@ -235,13 +266,34 @@ class AppLocalizations {
       'service_setup_intro':
           'Choose the first service you will appear with on the platform.',
       'service_category': 'Service category',
-      'search_service_hint': 'Search for your type of service...',
+      'search_category_hint': 'Search your category (e.g. Carpentry)...',
+      'category_not_found': 'I could not find my category',
+      'new_category_name': 'New category name',
+      'new_category_hint': 'E.g.: Carpentry',
+      'suggest_category': 'Suggest this category',
+      'category_suggested': 'Category sent for review',
+      'pending_review_badge': 'Pending review',
+      'service_name_label': 'Service within this category',
+      'search_service_hint': 'Search your service...',
       'service_not_found': 'I could not find my service',
       'new_service_name': 'Name of the new service',
-      'new_service_hint': 'E.g.: Home carpentry',
-      'create_this_service': 'Create this service',
-      'select_or_create_service': 'Select or create a service',
+      'new_service_hint': 'E.g.: Wooden door installation',
+      'new_service_description': 'Short description',
+      'new_service_description_hint': 'E.g.: Installation and fitting of custom wooden doors',
+      'portfolio_title': 'Proof of your work',
+      'portfolio_disclaimer':
+          'Upload at least one photo of work you have done before, so people can see the quality of your service. It must be your own, real, and match this service — our team reviews every submission by hand. Photos that do not match, AI-generated images, and inappropriate content are not accepted: if we detect that, your service will not be approved.',
+      'service_name_too_short': 'The name must be at least 3 characters',
+      'service_description_required': 'Briefly describe the service (minimum 10 characters)',
+      'commercial_name_too_short': 'Must be at least 3 characters',
+      'pitch_too_short': 'Write at least 3 words',
+      'summary_too_short': 'Write at least 15 words about your experience',
+      'portfolio_required': 'Upload at least one photo of real work you have done',
+      'portfolio_already_sent': 'You already sent your proof photos for this service',
+      'create_this_service': 'Suggest this service',
+      'select_or_create_service': 'Select or suggest a category and a service',
       'service_created': 'created successfully',
+      'service_suggested': 'Service sent for review',
       'your_business_name': 'Your name or business name',
       'commercial_name': 'Business name',
       'commercial_name_hint': 'E.g.: John Smith / Smith Electrical',
@@ -256,7 +308,7 @@ class AppLocalizations {
       'summary_hint':
           'Tell us what you can do, your experience, and why clients should choose you...',
       'service_setup_tip':
-          '💡 Remember: you can create more services later. Focus on this one for now.',
+          'This is your first service. You will be able to add more later from your profile.',
       'start_as_ally': 'Start as an Ally!',
 
       // Home
@@ -277,8 +329,6 @@ class AppLocalizations {
       'add': 'Add',
       'no_active_services':
           'You have no active services yet.\nYour first service is under review.',
-      'pending_verification': 'Pending Verification',
-      'verification_in_review': 'Verification under review',
 
       // Dashboard
       'available_services': 'Available services:',

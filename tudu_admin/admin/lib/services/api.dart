@@ -49,13 +49,18 @@ class Api {
 
   /// El panel habla con tres backends y cada ruta sabe a cuál va:
   ///  - administración (3003): login y CRUD de administradores
-  ///  - aliados (3002): revisión de KYC
+  ///  - aliados (3002): revisión de KYC, categorías y servicios propuestos
   ///  - users (3000): todo lo demás, incluidas las solicitudes de foto
   static String _baseDe(String ruta) {
     const rutasDelPanel = ['/api/admin/login', '/api/admins', '/auth/refresh'];
     if (rutasDelPanel.any((r) => ruta.startsWith(r))) return Config.adminBaseUrl;
 
-    if (ruta.startsWith('/api/admin/kyc')) return Config.alliesBaseUrl;
+    if (ruta.startsWith('/api/admin/kyc') ||
+        ruta.startsWith('/api/admin/services') ||
+        ruta.startsWith('/api/admin/categories') ||
+        ruta.startsWith('/categories')) {
+      return Config.alliesBaseUrl;
+    }
 
     return Config.baseUrl;
   }

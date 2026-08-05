@@ -129,6 +129,23 @@ class ServicioService {
   }
 }
 
+/// Categorías — solo las que tienen al menos un servicio aprobado (una
+/// categoría vacía no tiene nada que un usuario pueda contratar).
+class CategoriaService {
+  static Future<List<Map<String, dynamic>>> listar() async {
+    final data = await Api.get('/categories');
+    final filas = (data is Map) ? data['categories'] : data;
+    return List<Map<String, dynamic>>.from(filas ?? []);
+  }
+
+  /// Ofertas de aliados dentro de una categoría: un item por (aliado, servicio).
+  static Future<List<Map<String, dynamic>>> ofertas(int categoryId) async {
+    final data = await Api.get('/category-offers', query: {'category_id': '$categoryId'});
+    final filas = (data is Map) ? data['offers'] : data;
+    return List<Map<String, dynamic>>.from(filas ?? []);
+  }
+}
+
 /// Historial de búsquedas (las últimas 10).
 class HistorialService {
   /// El backend expone la columna `query` bajo el nombre `search_query`.

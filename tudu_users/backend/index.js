@@ -37,6 +37,8 @@ const RUTAS_PUBLICAS = [
   '/countries',
   '/services',
   '/search-services',
+  '/categories',
+  '/category-offers',
   '/device-session/check',
   '/auth/refresh'
 ];
@@ -735,9 +737,107 @@ app.put('/users/cards/:id/default', requireOwnRow('user_cards'), async (req, res
 // 7. SERVICIOS Y BÚSQUEDAS (PUBLICACIÓN)
 // ==========================================
 
+// Solo servicios ya aprobados por el admin — un servicio `pending`/`rejected`
+// no es algo que un usuario pueda contratar todavía.
 app.get('/services', async (req, res) => {
-  const { data, error } = await supabase.from('services').select('id, name').order('created_at', { ascending: false });
+  const { data, error } = await supabase
+    .from('services')
+    .select('id, name, description, category_id')
+    .eq('review_status', 'approved')
+    .order('created_at', { ascending: false });
   res.json({ services: data || [] });
+});
+
+// Categorías con al menos un servicio aprobado: una categoría vacía no tiene
+// nada que contratar, así que no debe aparecer en la búsqueda del usuario
+// aunque sí sea visible para los aliados al elegir dónde publicar un servicio.
+app.get('/categories', async (req, res) => {
+  const { data: servicios, error: errorServicios } = await supabase
+    .from('services')
+    .select('category_id')
+    .eq('review_status', 'approved')
+    .not('category_id', 'is', null);
+
+  if (errorServicios) return res.status(500).json({ error: 'Error obteniendo categorías' });
+
+  const idsConServicio = [...new Set((servicios || []).map(s => s.category_id))];
+  if (idsConServicio.length === 0) return res.json({ categories: [] });
+
+  const { data, error } = await supabase
+    .from('categories')
+    .select('id, name')
+    .eq('review_status', 'approved')
+    .in('id', idsConServicio)
+    .order('name');
+
+  if (error) return res.status(500).json({ error: 'Error obteniendo categorías' });
+  res.json({ categories: data || [] });
+});
+
+// Ofertas de aliados dentro de una categoría: un item por (aliado, servicio)
+// — "dentro de Aseo de hogar: lavar baños de Juan, limpiar cocina de Pablo".
+app.get('/category-offers', async (req, res) => {
+  const { category_id } = req.query;
+  if (!category_id) return res.status(400).json({ error: 'category_id requerido' });
+
+  const { data: servicios, error: errorServicios } = await supabase
+    .from('services')
+    .select('id, name, description')
+    .eq('category_id', category_id)
+    .eq('review_status', 'approved');
+
+  if (errorServicios) return res.status(500).json({ error: 'Error obteniendo servicios' });
+
+  const serviceIds = (servicios || []).map(s => s.id);
+  if (serviceIds.length === 0) return res.json({ offers: [] });
+
+  const [{ data: perfiles, error: errorPerfiles }, { data: fotos }] = await Promise.all([
+    supabase.from('ally_service_profiles').select('*').in('service_id', serviceIds),
+    supabase.from('ally_portfolio_items').select('service_id, ally_email, image_path').in('service_id', serviceIds)
+  ]);
+
+  if (errorPerfiles) return res.status(500).json({ error: 'Error obteniendo aliados' });
+  if (!perfiles || perfiles.length === 0) return res.json({ offers: [] });
+
+  const emails = [...new Set(perfiles.map(p => p.ally_email))];
+  const { data: aliados, error: errorAliados } = await supabase
+    .from('allies')
+    .select('email, nombre, apellido')
+    .eq('kyc_status', 'approved')
+    .in('email', emails);
+
+  if (errorAliados) return res.status(500).json({ error: 'Error obteniendo aliados' });
+
+  const servicioPorId = Object.fromEntries((servicios || []).map(s => [s.id, s]));
+  const aliadoPorEmail = Object.fromEntries((aliados || []).map(a => [a.email, a]));
+  // Clave compuesta: el mismo servicio del catálogo puede tener varios aliados
+  // ofreciéndolo, cada uno con sus propias fotos — agrupar solo por service_id
+  // mezclaba las pruebas de un aliado con las de otro.
+  const fotosPorServicioYAliado = (fotos || []).reduce((acc, f) => {
+    const clave = `${f.service_id}::${f.ally_email}`;
+    (acc[clave] ||= []).push(f.image_path);
+    return acc;
+  }, {});
+
+  const offers = perfiles.filter(p => aliadoPorEmail[p.ally_email]).map(p => {
+    const servicio = servicioPorId[p.service_id];
+    const aliado = aliadoPorEmail[p.ally_email];
+    return {
+      profile_id: p.id,
+      service_id: p.service_id,
+      service_name: servicio?.name || null,
+      service_description: servicio?.description || null,
+      ally_email: p.ally_email,
+      ally_nombre: aliado?.nombre || null,
+      ally_apellido: aliado?.apellido || null,
+      nombre_comercial: p.nombre_comercial,
+      frase_presentacion: p.frase_presentacion,
+      resumen: p.resumen,
+      photos: fotosPorServicioYAliado[`${p.service_id}::${p.ally_email}`] || []
+    };
+  }).filter(o => o.service_name); // por si algún servicio quedó en otro estado luego de la propuesta
+
+  res.json({ offers });
 });
 
 app.post('/publish-service', async (req, res) => {
@@ -827,8 +927,12 @@ app.get('/search-services', async (req, res) => {
   const { query } = req.query;
   if (!query) return res.status(400).json({ error: 'Consulta requerida' });
 
-  // Insensible case search
-  const { data, error } = await supabase.from('services').select('id, name').ilike('name', `%${query}%`);
+  // Insensible case search — solo aprobados, mismo motivo que GET /services.
+  const { data, error } = await supabase
+    .from('services')
+    .select('id, name')
+    .eq('review_status', 'approved')
+    .ilike('name', `%${query}%`);
   res.json({ services: data || [] });
 });
 

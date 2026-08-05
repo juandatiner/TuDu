@@ -88,3 +88,57 @@ class KycAdminApi {
   static Future<void> revisar(String email, String estado, {String? motivo}) =>
       Api.put('/api/admin/kyc/$email', {'status': estado, 'note': motivo});
 }
+
+/// Revisión de servicios propuestos por aliados (categoría + nombre +
+/// descripción + pruebas). Vive en el backend de aliados (3002), mismo dueño
+/// que la revisión de KYC.
+class ServiciosAdminApi {
+  /// [estado] `pending` para los pendientes (por defecto), `todos` para el historial.
+  static Future<List<Map<String, dynamic>>> listar({String estado = 'pending'}) async {
+    final data = await Api.get('/api/admin/services', query: {'estado': estado});
+    final filas = (data is Map) ? data['data'] : data;
+    return List<Map<String, dynamic>>.from(filas ?? []);
+  }
+
+  /// Aprobar, rechazar o corregir (nombre/descripción/categoría) un servicio
+  /// propuesto. Al rechazar, el motivo es obligatorio.
+  static Future<void> revisar(
+    int id,
+    String estado, {
+    String? nombre,
+    String? descripcion,
+    int? categoryId,
+    String? motivo,
+  }) =>
+      Api.put('/api/admin/services/$id', {
+        'status': estado,
+        'name': nombre,
+        'description': descripcion,
+        'category_id': categoryId,
+        'admin_note': motivo,
+      });
+}
+
+/// Revisión de categorías propuestas por aliados. Decisión independiente de
+/// la del servicio.
+class CategoriasAdminApi {
+  /// Categorías aprobadas — para el buscador de "redirigir a categoría existente".
+  static Future<List<Map<String, dynamic>>> listar() async {
+    final data = await Api.get('/categories', query: {'estado': 'approved'});
+    final filas = (data is Map) ? data['categories'] : data;
+    return List<Map<String, dynamic>>.from(filas ?? []);
+  }
+
+  static Future<void> revisar(int id, String estado, {String? nombre, String? motivo}) =>
+      Api.put('/api/admin/categories/$id', {
+        'status': estado,
+        'name': nombre,
+        'admin_note': motivo,
+      });
+
+  /// El admin crea una categoría directo — entra aprobada, sin revisión.
+  static Future<Map<String, dynamic>> crear(String nombre) async {
+    final data = await Api.post('/api/admin/categories', {'name': nombre});
+    return Map<String, dynamic>.from((data as Map)['data'] ?? {});
+  }
+}

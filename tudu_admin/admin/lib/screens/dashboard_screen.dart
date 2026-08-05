@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../config.dart';
 import 'kyc_review_screen.dart';
+import 'services_review_screen.dart';
+import 'services_catalog_screen.dart';
 import '../services/admin_api.dart';
 import 'photo_change_requests_screen.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -17,6 +19,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _pendingRequestsCount = 0; // solicitudes pendientes totales (leídas o no)
   int _unreadRequestsCount = 0;   // solicitudes pendientes NO leídas
   int _pendingKycCount = 0;       // verificaciones de identidad sin revisar
+  int _pendingServiciosCount = 0; // categorías/servicios propuestos sin revisar
   bool _isLoading = true;
   late IO.Socket _socket;
 
@@ -25,6 +28,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _loadPendingRequestsCount();
     _loadPendingKycCount();
+    _loadPendingServiciosCount();
     _connectSocket();
   }
 
@@ -73,6 +77,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Cargar los contadores de pendientes cada vez que la pantalla se activa
     _loadPendingRequestsCount();
     _loadPendingKycCount();
+    _loadPendingServiciosCount();
   }
 
   /// Aliados con documentos subidos y todavía sin decisión.
@@ -83,6 +88,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() => _pendingKycCount = pendientes.length);
     } catch (e) {
       print('Error loading pending KYC count: $e');
+    }
+  }
+
+  /// Categorías o servicios propuestos por un aliado, todavía sin decisión.
+  Future<void> _loadPendingServiciosCount() async {
+    try {
+      final pendientes = await ServiciosAdminApi.listar(estado: 'pending');
+      if (!mounted) return;
+      setState(() => _pendingServiciosCount = pendientes.length);
+    } catch (e) {
+      print('Error loading pending services count: $e');
     }
   }
 
@@ -109,38 +125,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   List<Widget> get _pages => [
-        // Inicio
-        Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
-              const Text(
-                'Panel de Administración',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(height: 32),
-              const Icon(
-                Icons.dashboard,
-                size: 100,
-                color: Colors.black38,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Bienvenido al panel de administración',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
         // Usuarios
         Container(
           padding: const EdgeInsets.all(16),
@@ -282,6 +266,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const _KycReviewPage(),
                         _pendingKycCount,
                       ),
+                      _buildDashboardCard(
+                        'Servicios propuestos',
+                        '',
+                        Icons.miscellaneous_services,
+                        Colors.purple,
+                        const _ServiciosReviewPage(),
+                        _pendingServiciosCount,
+                      ),
                     ],
                   );
                 },
@@ -289,6 +281,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
+        // Servicios: catálogo aprobado, solo visualización.
+        const ServiciosCatalogoScreen(),
       ];
 
   /// Píldora con el número de pendientes, en rojo si hay sin revisar.
@@ -326,11 +320,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Inicio',
-          ),
           BottomNavigationBarItem(
             icon: Stack(
               clipBehavior: Clip.none,
@@ -361,7 +352,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               clipBehavior: Clip.none,
               children: [
                 const Icon(Icons.business),
-                if (_pendingKycCount > 0)
+                if (_pendingKycCount > 0 || _pendingServiciosCount > 0)
                   Positioned(
                     top: -4,
                     right: -6,
@@ -378,6 +369,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             label: 'Aliados',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.category_outlined),
+            label: 'Servicios',
           ),
         ],
         currentIndex: _selectedIndex,
@@ -407,6 +402,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ).then((_) {
           _loadPendingRequestsCount();
           _loadPendingKycCount();
+          _loadPendingServiciosCount();
         });
       },
       child: Card(
@@ -515,6 +511,24 @@ class _KycReviewPage extends StatelessWidget {
         foregroundColor: Colors.white,
       ),
       body: const KycReviewScreen(),
+    );
+  }
+}
+
+/// Revisión de categorías/servicios propuestos, misma envoltura que KYC.
+class _ServiciosReviewPage extends StatelessWidget {
+  const _ServiciosReviewPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Config.backgroundColor,
+      appBar: AppBar(
+        title: const Text('Servicios propuestos'),
+        backgroundColor: Config.primaryColor,
+        foregroundColor: Colors.white,
+      ),
+      body: const ServiciosReviewScreen(),
     );
   }
 }

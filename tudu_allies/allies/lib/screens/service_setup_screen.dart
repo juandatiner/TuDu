@@ -1,133 +1,339 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../l10n/app_localizations.dart';
-import '../services/api.dart';
 import '../widgets/validacion_formulario.dart';
+import '../widgets/camera_capture_mixin.dart';
+import '../services/api.dart';
 import '../services/ally_api.dart';
 import 'package:provider/provider.dart';
 import '../services/session_service.dart';
-import 'home_screen.dart';
+import '../services/ally_routing.dart';
 
 class ServiceSetupScreen extends StatefulWidget {
   final String email;
 
-  const ServiceSetupScreen({super.key, required this.email});
+  /// true solo cuando el aliado entra por "Agregar" desde Mis Servicios
+  /// (ya tiene cuenta activa). En el onboarding (primer servicio, paso
+  /// obligatorio tras el KYC) esto es false: no hay a dónde volver ni
+  /// soporte que ofrecer todavía, así que no se muestran esos controles.
+  final bool esOpcional;
+
+  const ServiceSetupScreen({
+    super.key,
+    required this.email,
+    this.esOpcional = false,
+  });
 
   @override
   State<ServiceSetupScreen> createState() => _ServiceSetupScreenState();
 }
 
-class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
+class _ServiceSetupScreenState extends State<ServiceSetupScreen>
+    with CameraCaptureMixin {
   static const Color _brandColor = Color(0xFF78BF32);
   static const Color _bgColor = Color(0xFFF4F2F2);
 
   // Controladores de texto
-  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _categoriaSearchController =
+      TextEditingController();
+  final TextEditingController _servicioSearchController =
+      TextEditingController();
+  final TextEditingController _nuevaCategoriaController =
+      TextEditingController();
+  final TextEditingController _nuevoServicioNombreController =
+      TextEditingController();
+  final TextEditingController _nuevoServicioDescripcionController =
+      TextEditingController();
   final TextEditingController _nombreComercialController =
       TextEditingController();
   final TextEditingController _frasePresentacionController =
       TextEditingController();
   final TextEditingController _resumenController = TextEditingController();
-  final TextEditingController _nuevoServicioController =
-      TextEditingController();
 
-  // Estado
-  List<Map<String, dynamic>> _serviciosDisponibles = [];
+  // Categoría
+  List<Map<String, dynamic>> _categorias = [];
+  List<Map<String, dynamic>> _categoriasFiltradas = [];
+  Map<String, dynamic>? _categoriaSeleccionada;
+  bool _cargandoCategorias = false;
+  bool _mostrandoNuevaCategoria = false;
+  bool _enviandoCategoria = false;
+
+  // Servicio dentro de la categoría
+  List<Map<String, dynamic>> _servicios = [];
   List<Map<String, dynamic>> _serviciosFiltrados = [];
   Map<String, dynamic>? _servicioSeleccionado;
-  bool _isLoading = false;
+  bool _cargandoServicios = false;
+  bool _mostrandoNuevoServicio = false;
+  bool _enviandoServicio = false;
+  final List<File> _fotosPortafolio = [];
+
+  // Servicio para el que `POST /services` ya subió estas fotos (aliado
+  // proponiendo un servicio nuevo). Si el aliado sigue con ese mismo
+  // servicio, no le volvemos a pedir fotos en "Guardar y continuar" —
+  // ya quedaron asociadas a (servicio, aliado) en ese paso.
+  int? _fotosYaSubidasParaServicioId;
+
   bool _isSaving = false;
-  bool _mostrandoNuevo = false;
 
   // Un motivo por campo + el aviso general del formulario.
+  String? _errorCategoria;
   String? _errorServicio;
+  String? _errorNuevoServicioNombre;
+  String? _errorNuevoServicioDescripcion;
+  String? _errorPortafolio;
   String? _errorNombreComercial;
   String? _errorFrase;
   String? _errorResumen;
   String? _avisoGeneral;
 
+  bool get _categoriaEsAprobada =>
+      _categoriaSeleccionada != null &&
+      _categoriaSeleccionada!['review_status'] == 'approved';
+
   @override
   void initState() {
     super.initState();
-    _fetchServices();
-    _searchController.addListener(_filterServices);
+    detectarDispositivo();
+    _fetchCategorias();
+    _categoriaSearchController.addListener(_filterCategorias);
+    _servicioSearchController.addListener(_filterServicios);
   }
 
   @override
   void dispose() {
-    _searchController.removeListener(_filterServices);
-    _searchController.dispose();
+    _categoriaSearchController.dispose();
+    _servicioSearchController.dispose();
+    _nuevaCategoriaController.dispose();
+    _nuevoServicioNombreController.dispose();
+    _nuevoServicioDescripcionController.dispose();
     _nombreComercialController.dispose();
     _frasePresentacionController.dispose();
     _resumenController.dispose();
-    _nuevoServicioController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchServices() async {
-    setState(() => _isLoading = true);
+  Future<void> _fetchCategorias() async {
+    setState(() => _cargandoCategorias = true);
     try {
-      final servicios = await ServicioApi.catalogo();
+      final categorias = await CategoriaApi.listar();
       setState(() {
-        _serviciosDisponibles = servicios;
-        _serviciosFiltrados = List.from(_serviciosDisponibles);
+        _categorias = categorias;
+        _categoriasFiltradas = List.from(_categorias);
       });
     } catch (e) {
-      debugPrint('Error cargando servicios: $e');
+      debugPrint('Error cargando categorías: $e');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _cargandoCategorias = false);
     }
   }
 
-  void _filterServices() {
-    final query = _searchController.text.toLowerCase().trim();
+  void _filterCategorias() {
+    final query = _categoriaSearchController.text.toLowerCase().trim();
     setState(() {
       if (query.isEmpty) {
-        _serviciosFiltrados = List.from(_serviciosDisponibles);
-        _mostrandoNuevo = false;
+        _categoriasFiltradas = List.from(_categorias);
+        _mostrandoNuevaCategoria = false;
       } else {
-        _serviciosFiltrados = _serviciosDisponibles
-            .where((s) => (s['name'] as String).toLowerCase().contains(query))
+        _categoriasFiltradas = _categorias
+            .where((c) => (c['name'] as String).toLowerCase().contains(query))
             .toList();
-        _mostrandoNuevo = _serviciosFiltrados.isEmpty && query.isNotEmpty;
+        _mostrandoNuevaCategoria =
+            _categoriasFiltradas.isEmpty && query.isNotEmpty;
       }
     });
   }
 
-  Future<void> _crearNuevoServicio() async {
-    final nombre = _nuevoServicioController.text.trim();
+  Future<void> _elegirCategoria(Map<String, dynamic> categoria) async {
+    setState(() {
+      _categoriaSeleccionada = categoria;
+      _errorCategoria = null;
+      _revisarAviso();
+      _categoriaSearchController.text = categoria['name'];
+      _categoriasFiltradas = [];
+      // Cambiar de categoría descarta el servicio elegido de la anterior.
+      _servicioSeleccionado = null;
+      _servicios = [];
+      _servicioSearchController.clear();
+    });
+    if (categoria['review_status'] == 'approved') {
+      await _fetchServicios(categoria['id']);
+    }
+  }
+
+  Future<void> _sugerirCategoria() async {
+    final nombre = _nuevaCategoriaController.text.trim();
     if (nombre.isEmpty) return;
 
+    setState(() => _enviandoCategoria = true);
     try {
-      final data = await Api.post('/services', {'name': nombre});
-
+      final data = await CategoriaApi.sugerir(
+        nombre: nombre,
+        allyEmail: widget.email,
+      );
       if (!mounted) return;
-
-      {
-        final nuevoServicio = <String, dynamic>{
-          'id': (data as Map)['id'],
-          'name': nombre,
-        };
-        setState(() {
-          _serviciosDisponibles.add(nuevoServicio);
-          _servicioSeleccionado = nuevoServicio;
-          _errorServicio = null;
-          _searchController.text = nombre;
-          _serviciosFiltrados = [];
-          _nuevoServicioController.clear();
-        });
-        _showSnack('Servicio "$nombre" creado exitosamente');
-      }
+      setState(() {
+        _categoriaSeleccionada = data;
+        _errorCategoria = null;
+        _categoriaSearchController.text = data['name'];
+        _categoriasFiltradas = [];
+        _mostrandoNuevaCategoria = false;
+        _nuevaCategoriaController.clear();
+      });
+      _showSnack(context.tr('category_suggested'));
     } on ApiException catch (e) {
       _showSnack(e.message, isError: true);
     } catch (e) {
       _showSnack(context.tr('connection_error'), isError: true);
+    } finally {
+      if (mounted) setState(() => _enviandoCategoria = false);
+    }
+  }
+
+  Future<void> _fetchServicios(int categoryId) async {
+    setState(() => _cargandoServicios = true);
+    try {
+      final servicios = await ServicioApi.porCategoria(categoryId);
+      setState(() {
+        _servicios = servicios;
+        _serviciosFiltrados = List.from(_servicios);
+      });
+    } catch (e) {
+      debugPrint('Error cargando servicios: $e');
+    } finally {
+      if (mounted) setState(() => _cargandoServicios = false);
+    }
+  }
+
+  void _filterServicios() {
+    final query = _servicioSearchController.text.toLowerCase().trim();
+    setState(() {
+      if (query.isEmpty) {
+        _serviciosFiltrados = List.from(_servicios);
+        _mostrandoNuevoServicio = false;
+      } else {
+        _serviciosFiltrados = _servicios
+            .where((s) => (s['name'] as String).toLowerCase().contains(query))
+            .toList();
+        _mostrandoNuevoServicio =
+            _serviciosFiltrados.isEmpty && query.isNotEmpty;
+      }
+    });
+  }
+
+  Future<void> _agregarFotoPortafolio(ImageSource source) async {
+    if (_fotosPortafolio.length >= 5) return;
+    await tomarFoto(
+      etiqueta: 'SERVICIO',
+      source: source,
+      onListo: (f) {
+        _fotosPortafolio.add(f);
+        _errorPortafolio = null;
+      },
+    );
+  }
+
+  void _previsualizarFoto(File foto) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: InteractiveViewer(
+                child: Image.file(foto, fit: BoxFit.contain),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _crearServicio() async {
+    if (_categoriaSeleccionada == null) return;
+
+    final nombre = _nuevoServicioNombreController.text.trim();
+    final descripcion = _nuevoServicioDescripcionController.text.trim();
+
+    final errorNombre = nombre.length < 3 ? context.tr('service_name_too_short') : null;
+    final errorDescripcion =
+        descripcion.length < 10 ? context.tr('service_description_required') : null;
+    final errorFotos = _fotosPortafolio.isEmpty ? context.tr('portfolio_required') : null;
+
+    setState(() {
+      _errorNuevoServicioNombre = errorNombre;
+      _errorNuevoServicioDescripcion = errorDescripcion;
+      _errorPortafolio = errorFotos;
+    });
+
+    if (errorNombre != null || errorDescripcion != null || errorFotos != null) return;
+
+    setState(() => _enviandoServicio = true);
+    try {
+      final imagenes = await Future.wait(
+        _fotosPortafolio.map((f) async => base64Encode(await f.readAsBytes())),
+      );
+
+      final data = await ServicioApi.crear(
+        nombre: nombre,
+        descripcion: descripcion,
+        categoryId: _categoriaSeleccionada!['id'],
+        allyEmail: widget.email,
+        imagenes: imagenes,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _servicioSeleccionado = data;
+        _fotosYaSubidasParaServicioId = data['id'] as int?;
+        _errorServicio = null;
+        _servicioSearchController.text = data['name'];
+        _serviciosFiltrados = [];
+        _mostrandoNuevoServicio = false;
+        _nuevoServicioNombreController.clear();
+        _nuevoServicioDescripcionController.clear();
+        _fotosPortafolio.clear();
+        _errorNuevoServicioNombre = null;
+        _errorNuevoServicioDescripcion = null;
+        _errorPortafolio = null;
+      });
+      _showSnack(context.tr('service_suggested'));
+    } on ApiException catch (e) {
+      _showSnack(e.message, isError: true);
+    } catch (e) {
+      _showSnack(context.tr('connection_error'), isError: true);
+    } finally {
+      if (mounted) setState(() => _enviandoServicio = false);
     }
   }
 
   /// El aviso general solo tiene sentido mientras quede algún campo en rojo.
   void _revisarAviso() {
-    if (_errorServicio == null &&
+    if (_errorCategoria == null &&
+        _errorServicio == null &&
         _errorNombreComercial == null &&
         _errorFrase == null &&
         _errorResumen == null) {
@@ -135,30 +341,58 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
     }
   }
 
+  int _contarPalabras(String texto) =>
+      texto.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+
   Future<void> _guardarYContinuar() async {
     // Todo se revisa de una sola pasada: lo que falte queda marcado en rojo.
+    final errorCategoria = _categoriaSeleccionada == null
+        ? context.tr('select_or_create_service')
+        : null;
     final errorServicio = _servicioSeleccionado == null
         ? context.tr('select_or_create_service')
         : null;
-    final errorNombre = _nombreComercialController.text.trim().isEmpty
-        ? Validacion.requerido
-        : null;
-    final errorFrase = _frasePresentacionController.text.trim().isEmpty
-        ? Validacion.requerido
-        : null;
-    final errorResumen =
-        _resumenController.text.trim().isEmpty ? Validacion.requerido : null;
 
-    final hayErrores = errorServicio != null ||
+    final nombreTexto = _nombreComercialController.text.trim();
+    final errorNombre = nombreTexto.isEmpty
+        ? Validacion.requerido
+        : (nombreTexto.length < 3
+            ? context.tr('commercial_name_too_short')
+            : null);
+
+    final fraseTexto = _frasePresentacionController.text.trim();
+    final errorFrase = fraseTexto.isEmpty
+        ? Validacion.requerido
+        : (_contarPalabras(fraseTexto) < 3
+            ? context.tr('pitch_too_short')
+            : null);
+
+    final resumenTexto = _resumenController.text.trim();
+    final errorResumen = resumenTexto.isEmpty
+        ? Validacion.requerido
+        : (_contarPalabras(resumenTexto) < 15
+            ? context.tr('summary_too_short')
+            : null);
+
+    final faltanFotos = _servicioSeleccionado != null &&
+        _fotosYaSubidasParaServicioId != _servicioSeleccionado!['id'] &&
+        _fotosPortafolio.isEmpty;
+    final errorFotos = faltanFotos ? context.tr('portfolio_required') : null;
+
+    final hayErrores = errorCategoria != null ||
+        errorServicio != null ||
         errorNombre != null ||
         errorFrase != null ||
-        errorResumen != null;
+        errorResumen != null ||
+        errorFotos != null;
 
     setState(() {
+      _errorCategoria = errorCategoria;
       _errorServicio = errorServicio;
       _errorNombreComercial = errorNombre;
       _errorFrase = errorFrase;
       _errorResumen = errorResumen;
+      _errorPortafolio = errorFotos;
       _avisoGeneral = hayErrores ? Validacion.textoCamposFaltantes : null;
     });
 
@@ -167,12 +401,17 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
     setState(() => _isSaving = true);
 
     try {
+      final imagenes = await Future.wait(
+        _fotosPortafolio.map((f) async => base64Encode(await f.readAsBytes())),
+      );
+
       await AliadoApi.crearPerfilServicio({
         'email': widget.email,
         'service_id': _servicioSeleccionado!['id'],
         'nombre_comercial': _nombreComercialController.text.trim(),
         'frase_presentacion': _frasePresentacionController.text.trim(),
         'resumen': _resumenController.text.trim(),
+        'images': imagenes,
       });
 
       if (!mounted) return;
@@ -182,11 +421,13 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
           Provider.of<SessionService>(context, listen: false);
       await sessionService.registerSession(widget.email);
 
-      // Sea exitoso o no, navegar al home
+      if (!mounted) return;
+      final destino = await AllyRouting.resolveDestination(widget.email);
+      if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => AllyHomeScreen(allyEmail: widget.email),
+          pageBuilder: (_, __, ___) => destino,
           transitionsBuilder: (_, animation, __, child) =>
               FadeTransition(opacity: animation, child: child),
           transitionDuration: const Duration(milliseconds: 400),
@@ -194,12 +435,15 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
         (route) => false,
       );
     } catch (e) {
-      // Navegar al home de todas formas
+      // Sea cual sea el error creando el perfil, dejamos que la rutina de
+      // ruteo decida el destino real en vez de asumir que quedó aprobado.
+      if (!mounted) return;
+      final destino = await AllyRouting.resolveDestination(widget.email);
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => AllyHomeScreen(allyEmail: widget.email),
+          pageBuilder: (_, __, ___) => destino,
           transitionsBuilder: (_, animation, __, child) =>
               FadeTransition(opacity: animation, child: child),
           transitionDuration: const Duration(milliseconds: 400),
@@ -218,6 +462,23 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
         backgroundColor: isError ? Colors.red : _brandColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  void _mostrarSoporte() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(context.tr('support_soon_title')),
+        content: Text(context.tr('support_soon_body')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(context.tr('accept')),
+          ),
+        ],
       ),
     );
   }
@@ -253,392 +514,549 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgColor,
+      appBar: AppBar(
+        backgroundColor: _bgColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 40,
+        automaticallyImplyLeading: false,
+        centerTitle: true,
+        title: SizedBox(
+          height: 26,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Tu',
+                  style: const TextStyle(
+                    fontFamily: 'TitanOne',
+                    fontSize: 30,
+                    color: _brandColor,
+                    height: 0.85,
+                  ),
+                ),
+                Text(
+                  'Du',
+                  style: const TextStyle(
+                    fontFamily: 'TitanOne',
+                    fontSize: 30,
+                    color: _brandColor,
+                    height: 0.85,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        leading: widget.esOpcional
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                onPressed: _isSaving ? null : () => Navigator.pop(context),
+              )
+            : null,
+        actions: widget.esOpcional
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.support_agent, color: Colors.black87),
+                  onPressed: _mostrarSoporte,
+                ),
+              ]
+            : null,
+      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 12),
+        child: Column(
+          children: [
+            // Solo el progreso queda fijo bajo la AppBar. Título, subtítulo
+            // y el resto del formulario scrollean.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+              child: _buildProgressIndicator(step: 3),
+            ),
 
-              // Logo + progreso
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Tu',
-                    style: const TextStyle(
-                      fontFamily: 'TitanOne',
-                      fontSize: 36,
-                      color: _brandColor,
-                      height: 0.85,
-                    ),
-                  ),
-                  Text(
-                    'Du',
-                    style: const TextStyle(
-                      fontFamily: 'TitanOne',
-                      fontSize: 36,
-                      color: _brandColor,
-                      height: 0.85,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              _buildProgressIndicator(step: 3),
-              const SizedBox(height: 28),
-
-              // Título
-              Text(
-                context.tr('your_star_service'),
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                context.tr('service_setup_intro'),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.black.withOpacity(0.55),
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 28),
-
-              // ─── Selección de categoría de servicio ──────────────────────────
-              Text(
-                context.tr('service_category'),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              // Chip de seleccionado
-              if (_servicioSeleccionado != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _brandColor.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: _brandColor, width: 1.5),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.check_circle, color: _brandColor, size: 18),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          _servicioSeleccionado!['name'],
-                          style: TextStyle(
-                            color: _brandColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () => setState(() {
-                          _servicioSeleccionado = null;
-                          _searchController.clear();
-                        }),
-                        child: Icon(Icons.close, color: _brandColor, size: 18),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // Barra de búsqueda
-              TextField(
-                controller: _searchController,
-                decoration: Validacion.decorar(
-                  InputDecoration(
-                    hintText: context.tr('search_service_hint'),
-                    hintStyle: TextStyle(color: Colors.black.withOpacity(0.4)),
-                    prefixIcon: Icon(Icons.search,
-                        color: Colors.black.withOpacity(0.4)),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(Icons.clear,
-                                color: Colors.black.withOpacity(0.4)),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _servicioSeleccionado = null;
-                                _errorServicio = null;
-                              });
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide:
-                          BorderSide(color: Colors.black.withOpacity(0.25)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide:
-                          BorderSide(color: Colors.black.withOpacity(0.25)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide:
-                          const BorderSide(color: _brandColor, width: 2),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  error: _errorServicio,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Lista de servicios filtrados
-              if (_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: CircularProgressIndicator(color: _brandColor),
-                  ),
-                )
-              else if (_serviciosFiltrados.isNotEmpty &&
-                  _servicioSeleccionado == null)
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 220),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.black.withOpacity(0.15)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    itemCount: _serviciosFiltrados.length,
-                    separatorBuilder: (_, __) => Divider(
-                      height: 1,
-                      color: Colors.black.withOpacity(0.07),
-                    ),
-                    itemBuilder: (_, i) {
-                      final s = _serviciosFiltrados[i];
-                      return ListTile(
-                        dense: true,
-                        leading: Icon(Icons.work_outline,
-                            color: _brandColor, size: 20),
-                        title: Text(
-                          s['name'],
-                          style: const TextStyle(
-                              fontSize: 14, color: Colors.black87),
-                        ),
-                        onTap: () => setState(() {
-                          _servicioSeleccionado = s;
-                          _errorServicio = null;
-                          _revisarAviso();
-                          _searchController.text = s['name'];
-                          _serviciosFiltrados = [];
-                        }),
-                      );
-                    },
-                  ),
-                ),
-
-              // Opción de crear nuevo servicio
-              if (_mostrandoNuevo ||
-                  _serviciosFiltrados.isEmpty &&
-                      _searchController.text.isNotEmpty &&
-                      _servicioSeleccionado == null)
-                _buildCrearNuevoServicio(),
-
-              const SizedBox(height: 24),
-
-              // ─── Nombre comercial ─────────────────────────────────────
-              Text(
-                context.tr('your_business_name'),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _nombreComercialController,
-                maxLength: 50,
-                textCapitalization: TextCapitalization.words,
-                onChanged: (_) => setState(() {
-                  _errorNombreComercial = null;
-                  _revisarAviso();
-                }),
-                decoration: Validacion.decorar(
-                  _inputDeco(
-                    context.tr('commercial_name'),
-                    hint: context.tr('commercial_name_hint'),
-                  ),
-                  error: _errorNombreComercial,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ─── Frase de presentación ────────────────────────────────
-              Text(
-                context.tr('pitch_title'),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                context.tr('pitch_help'),
-                style: TextStyle(
-                    fontSize: 12, color: Colors.black.withOpacity(0.45)),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _frasePresentacionController,
-                maxLength: 80,
-                onChanged: (_) => setState(() {
-                  _errorFrase = null;
-                  _revisarAviso();
-                }),
-                decoration: Validacion.decorar(
-                  _inputDeco(
-                    context.tr('pitch_label'),
-                    hint: context.tr('pitch_hint'),
-                  ),
-                  error: _errorFrase,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ─── Resumen del perfil ───────────────────────────────────
-              Text(
-                context.tr('summary_title'),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                context.tr('summary_help'),
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.black.withOpacity(0.45),
-                    height: 1.4),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _resumenController,
-                maxLength: 400,
-                maxLines: 5,
-                textCapitalization: TextCapitalization.sentences,
-                onChanged: (_) => setState(() {
-                  _errorResumen = null;
-                  _revisarAviso();
-                }),
-                decoration: Validacion.decorar(
-                  _inputDeco(
-                    context.tr('summary_label'),
-                    hint: context.tr('summary_hint'),
-                  ),
-                  error: _errorResumen,
-                ),
-              ),
-
-              // Aviso informativo
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF8E1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFFD54F)),
-                ),
-                child: Row(
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.lightbulb_outline,
-                        color: Color(0xFFF57F17), size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
+                    Text(
+                      context.tr('your_star_service'),
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      context.tr('service_setup_intro'),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black.withOpacity(0.55),
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ─── Categoría ──────────────────────────────────────────
+                    Text(
+                      context.tr('service_category'),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildSeleccionado(
+                      seleccionado: _categoriaSeleccionada,
+                      pendiente: _categoriaSeleccionada != null &&
+                          !_categoriaEsAprobada,
+                      onQuitar: () => setState(() {
+                        _categoriaSeleccionada = null;
+                        _categoriaSearchController.clear();
+                        _servicioSeleccionado = null;
+                        _servicios = [];
+                        _servicioSearchController.clear();
+                        _fotosPortafolio.clear();
+                        _fotosYaSubidasParaServicioId = null;
+                        _errorPortafolio = null;
+                      }),
+                    ),
+                    if (_categoriaSeleccionada == null) ...[
+                      _buildBuscador(
+                        controller: _categoriaSearchController,
+                        hint: context.tr('search_category_hint'),
+                        error: _errorCategoria,
+                        onClear: () => setState(() {
+                          _errorCategoria = null;
+                        }),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_cargandoCategorias)
+                        _buildCargando()
+                      else if (_categoriasFiltradas.isNotEmpty)
+                        _buildLista(
+                          items: _categoriasFiltradas,
+                          onTap: _elegirCategoria,
+                        ),
+                      if (_mostrandoNuevaCategoria ||
+                          (_categoriasFiltradas.isEmpty &&
+                              _categoriaSearchController.text.isNotEmpty))
+                        _buildSugerirCategoria(),
+                    ],
+                    const SizedBox(height: 24),
+
+                    // ─── Servicio dentro de la categoría ───────────────────
+                    if (_categoriaSeleccionada != null) ...[
+                      Text(
+                        context.tr('service_name_label'),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildSeleccionado(
+                        seleccionado: _servicioSeleccionado,
+                        pendiente: _servicioSeleccionado != null &&
+                            _servicioSeleccionado!['review_status'] !=
+                                'approved',
+                        onQuitar: () => setState(() {
+                          _servicioSeleccionado = null;
+                          _servicioSearchController.clear();
+                          _fotosPortafolio.clear();
+                          _fotosYaSubidasParaServicioId = null;
+                          _errorPortafolio = null;
+                        }),
+                      ),
+                      if (_servicioSeleccionado == null) ...[
+                        if (_categoriaEsAprobada) ...[
+                          _buildBuscador(
+                            controller: _servicioSearchController,
+                            hint: context.tr('search_service_hint'),
+                            error: _errorServicio,
+                            onClear: () => setState(() {
+                              _errorServicio = null;
+                            }),
+                          ),
+                          const SizedBox(height: 8),
+                          if (_cargandoServicios)
+                            _buildCargando()
+                          else if (_serviciosFiltrados.isNotEmpty)
+                            _buildLista(
+                              items: _serviciosFiltrados,
+                              onTap: (s) => setState(() {
+                                _servicioSeleccionado = s;
+                                _errorServicio = null;
+                                _revisarAviso();
+                                _servicioSearchController.text = s['name'];
+                                _serviciosFiltrados = [];
+                              }),
+                            ),
+                          if (_mostrandoNuevoServicio ||
+                              (_serviciosFiltrados.isEmpty &&
+                                  _servicioSearchController.text.isNotEmpty))
+                            _buildCrearServicio(),
+                        ] else
+                          // La categoría recién se sugirió: no hay nada que
+                          // listar todavía, se pasa directo a crear el servicio.
+                          _buildCrearServicio(),
+                      ],
+                      const SizedBox(height: 24),
+                    ],
+
+                    // ─── Nombre comercial ─────────────────────────────────
+                    Text(
+                      context.tr('your_business_name'),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _nombreComercialController,
+                      maxLength: 50,
+                      textCapitalization: TextCapitalization.words,
+                      onChanged: (_) => setState(() {
+                        _errorNombreComercial = null;
+                        _revisarAviso();
+                      }),
+                      decoration: Validacion.decorar(
+                        _inputDeco(
+                          context.tr('commercial_name'),
+                          hint: context.tr('commercial_name_hint'),
+                        ),
+                        error: _errorNombreComercial,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ─── Frase de presentación ────────────────────────────
+                    Text(
+                      context.tr('pitch_title'),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      context.tr('pitch_help'),
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.black.withOpacity(0.45)),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _frasePresentacionController,
+                      maxLength: 80,
+                      onChanged: (_) => setState(() {
+                        _errorFrase = null;
+                        _revisarAviso();
+                      }),
+                      decoration: Validacion.decorar(
+                        _inputDeco(
+                          context.tr('pitch_label'),
+                          hint: context.tr('pitch_hint'),
+                        ),
+                        error: _errorFrase,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ─── Resumen del perfil ───────────────────────────────
+                    Text(
+                      context.tr('summary_title'),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      context.tr('summary_help'),
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black.withOpacity(0.45),
+                          height: 1.4),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _resumenController,
+                      maxLength: 400,
+                      maxLines: 5,
+                      textCapitalization: TextCapitalization.sentences,
+                      onChanged: (_) => setState(() {
+                        _errorResumen = null;
+                        _revisarAviso();
+                      }),
+                      decoration: Validacion.decorar(
+                        _inputDeco(
+                          context.tr('summary_label'),
+                          hint: context.tr('summary_hint'),
+                        ),
+                        error: _errorResumen,
+                      ),
+                    ),
+
+                    // Aviso informativo
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: _brandColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border:
+                            Border.all(color: _brandColor.withOpacity(0.25)),
+                      ),
                       child: Text(
                         context.tr('service_setup_tip'),
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.brown.shade700,
+                          color: Colors.black.withOpacity(0.6),
                           height: 1.4,
                         ),
                       ),
                     ),
+
+                    const SizedBox(height: 24),
+
+                    // ─── Pruebas de este servicio ─────────────────────────
+                    // Va al final a propósito: es lo último que se pide antes
+                    // de guardar. El servicio del catálogo puede ya existir
+                    // (propuesto por otro aliado) — cada aliado igual prueba
+                    // con sus propias fotos que él hace ese trabajo. Si ya se
+                    // enviaron al proponer un servicio nuevo, no se piden de nuevo.
+                    if (_servicioSeleccionado != null &&
+                        _fotosYaSubidasParaServicioId !=
+                            _servicioSeleccionado!['id']) ...[
+                      _buildPortafolio(),
+                      if (_errorPortafolio != null) ...[
+                        const SizedBox(height: 6),
+                        Text(_errorPortafolio!,
+                            style: TextStyle(
+                                fontSize: 12, color: Validacion.colorError)),
+                      ],
+                      const SizedBox(height: 20),
+                    ],
+                    if (_servicioSeleccionado != null &&
+                        _fotosYaSubidasParaServicioId ==
+                            _servicioSeleccionado!['id']) ...[
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle, size: 16, color: _brandColor),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              context.tr('portfolio_already_sent'),
+                              style: TextStyle(fontSize: 12, color: _brandColor),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    Validacion.aviso(_avisoGeneral),
+
+                    // Botón final
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _guardarYContinuar,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _brandColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 4,
+                        ),
+                        child: _isSaving
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                            : Text(
+                                context.tr('start_as_ally'),
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 24),
-
-              Validacion.aviso(_avisoGeneral),
-
-              // Botón final
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSaving ? null : _guardarYContinuar,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _brandColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 4,
-                  ),
-                  child: _isSaving
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : Text(
-                          context.tr('start_as_ally'),
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildCrearNuevoServicio() {
+  /// Chip del elemento elegido (categoría o servicio), con badge si está
+  /// pendiente de revisión — recién propuesto, todavía no lo aprobó el admin.
+  Widget _buildSeleccionado({
+    required Map<String, dynamic>? seleccionado,
+    required bool pendiente,
+    required VoidCallback onQuitar,
+  }) {
+    if (seleccionado == null) return const SizedBox.shrink();
+
+    final color = pendiente ? Colors.orange.shade800 : _brandColor;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: color, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(pendiente ? Icons.hourglass_top : Icons.check_circle,
+              color: color, size: 18),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  seleccionado['name'],
+                  style: TextStyle(
+                      color: color, fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+                if (pendiente)
+                  Text(
+                    context.tr('pending_review_badge'),
+                    style: TextStyle(color: color, fontSize: 11),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: onQuitar,
+            child: Icon(Icons.close, color: color, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBuscador({
+    required TextEditingController controller,
+    required String hint,
+    required String? error,
+    required VoidCallback onClear,
+  }) {
+    return TextField(
+      controller: controller,
+      decoration: Validacion.decorar(
+        InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: Colors.black.withOpacity(0.4)),
+          prefixIcon: Icon(Icons.search, color: Colors.black.withOpacity(0.4)),
+          suffixIcon: controller.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear, color: Colors.black.withOpacity(0.4)),
+                  onPressed: () {
+                    controller.clear();
+                    onClear();
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.black.withOpacity(0.25)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.black.withOpacity(0.25)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: _brandColor, width: 2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+        error: error,
+      ),
+    );
+  }
+
+  Widget _buildCargando() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(20),
+        child: CircularProgressIndicator(color: _brandColor),
+      ),
+    );
+  }
+
+  Widget _buildLista({
+    required List<Map<String, dynamic>> items,
+    required void Function(Map<String, dynamic>) onTap,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 220),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        itemCount: items.length,
+        separatorBuilder: (_, __) =>
+            Divider(height: 1, color: Colors.black.withOpacity(0.07)),
+        itemBuilder: (_, i) {
+          final item = items[i];
+          return ListTile(
+            dense: true,
+            leading: Icon(Icons.work_outline, color: _brandColor, size: 20),
+            title: Text(
+              item['name'],
+              style: const TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            onTap: () => onTap(item),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSugerirCategoria() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -657,43 +1075,269 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
                 children: [
                   Icon(Icons.add_circle_outline, color: _brandColor),
                   const SizedBox(width: 8),
-                  Text(
-                    context.tr('service_not_found'),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                  Expanded(
+                    child: Text(
+                      context.tr('category_not_found'),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
               TextField(
-                controller: _nuevoServicioController,
+                controller: _nuevaCategoriaController,
                 textCapitalization: TextCapitalization.words,
                 decoration: _inputDeco(
-                  context.tr('new_service_name'),
-                  hint: context.tr('new_service_hint'),
+                  context.tr('new_category_name'),
+                  hint: context.tr('new_category_hint'),
                 ),
               ),
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: _crearNuevoServicio,
+                  onPressed: _enviandoCategoria ? null : _sugerirCategoria,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: _brandColor, width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    shape:
+                        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: Text(
-                    context.tr('create_this_service'),
-                    style: TextStyle(
-                      color: _brandColor,
-                      fontWeight: FontWeight.w600,
+                  child: _enviandoCategoria
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: _brandColor),
+                        )
+                      : Text(
+                          context.tr('suggest_category'),
+                          style: TextStyle(
+                              color: _brandColor, fontWeight: FontWeight.w600),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCrearServicio() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.black.withOpacity(0.15)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.add_circle_outline, color: _brandColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.tr('service_not_found'),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
                     ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _nuevoServicioNombreController,
+                textCapitalization: TextCapitalization.words,
+                maxLength: 60,
+                onChanged: (_) => setState(() => _errorNuevoServicioNombre = null),
+                decoration: Validacion.decorar(
+                  _inputDeco(
+                    context.tr('new_service_name'),
+                    hint: context.tr('new_service_hint'),
+                  ),
+                  error: _errorNuevoServicioNombre,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _nuevoServicioDescripcionController,
+                maxLength: 120,
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() => _errorNuevoServicioDescripcion = null),
+                decoration: Validacion.decorar(
+                  _inputDeco(
+                    context.tr('new_service_description'),
+                    hint: context.tr('new_service_description_hint'),
+                  ),
+                  error: _errorNuevoServicioDescripcion,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _buildPortafolio(),
+              if (_errorPortafolio != null) ...[
+                const SizedBox(height: 6),
+                Text(_errorPortafolio!,
+                    style: TextStyle(fontSize: 12, color: Validacion.colorError)),
+              ],
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _enviandoServicio ? null : _crearServicio,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: _brandColor, width: 1.5),
+                    shape:
+                        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: _enviandoServicio
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: _brandColor),
+                        )
+                      : Text(
+                          context.tr('create_this_service'),
+                          style: TextStyle(
+                              color: _brandColor, fontWeight: FontWeight.w600),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPortafolio() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.photo_camera_back_outlined, color: _brandColor, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                context.tr('portfolio_title'),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            Text(
+              '${_fotosPortafolio.length}/5',
+              style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.4)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Botones fijos: no se mueven ni desaparecen al agregar fotos.
+        Row(
+          children: [
+            Expanded(
+              child: _buildBotonFuente(
+                icon: Icons.camera_alt_rounded,
+                label: context.tr('camera'),
+                onTap: () => _agregarFotoPortafolio(ImageSource.camera),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildBotonFuente(
+                icon: Icons.photo_library_rounded,
+                label: context.tr('gallery'),
+                onTap: () => _agregarFotoPortafolio(ImageSource.gallery),
+              ),
+            ),
+          ],
+        ),
+
+        if (_fotosPortafolio.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (int i = 0; i < _fotosPortafolio.length; i++)
+                GestureDetector(
+                  onTap: () => _previsualizarFoto(_fotosPortafolio[i]),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.file(
+                          _fotosPortafolio[i],
+                          width: 88,
+                          height: 88,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: GestureDetector(
+                          onTap: () =>
+                              setState(() => _fotosPortafolio.removeAt(i)),
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close,
+                                size: 15, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.orange.withOpacity(0.3)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.warning_amber_rounded,
+                  color: Colors.orange.shade900, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  context.tr('portfolio_disclaimer'),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.orange.shade900,
+                    height: 1.4,
                   ),
                 ),
               ),
@@ -701,6 +1345,47 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBotonFuente({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final deshabilitado = _fotosPortafolio.length >= 5;
+    return GestureDetector(
+      onTap: deshabilitado ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: deshabilitado
+              ? Colors.black.withOpacity(0.04)
+              : _brandColor.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: deshabilitado
+                ? Colors.black.withOpacity(0.1)
+                : _brandColor.withOpacity(0.4),
+            width: 1.3,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon,
+                color: deshabilitado ? Colors.black26 : _brandColor, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: deshabilitado ? Colors.black38 : _brandColor,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
