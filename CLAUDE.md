@@ -2,7 +2,7 @@
 
 > Última revisión: 2026-08-05 — generado leyendo el código fuente real (`index.js`, `server.js`, `auth.js`, `rate_limit.js`, `cors_config.js`, `sms_otp.js`, `storage.js`, `config.dart`, `package.json`), no el blueprint.
 >
-> **Cambio mayor de esta revisión:** la pasada anterior (2026-07-28) quedó desactualizada casi de inmediato — el backend recibió una ronda de hardening real (commit "OTP por SMS, validación uniforme...") que la sección 9 todavía describía como pendiente. Se verificó **contra el código, no de memoria**: JWT propio con auth/refresh (§5), rate limiting, bcrypt, CORS por allowlist, imágenes ya migradas a Supabase Storage, y casi todos los "bugs activos" y "backdoors" antes documentados **ya no existen**. Además, el schema de Supabase quedó versionado con el Supabase CLI (`supabase/migrations/` + `supabase/seed.sql`, proyecto linkeado). Ver §3.1 y §9.
+> **Cambio mayor de esta revisión:** la pasada anterior (2026-07-28) quedó desactualizada casi de inmediato — el backend recibió una ronda de hardening real (commit "OTP por SMS, validación uniforme...") que la sección 9 todavía describía como pendiente. Se verificó **contra el código, no de memoria**: JWT propio con auth/refresh (§5), rate limiting, bcrypt, CORS por allowlist, imágenes ya migradas a Supabase Storage, y casi todos los "bugs activos" y "backdoors" antes documentados **ya no existen**. Además, el schema de Supabase quedó versionado con el Supabase CLI (`supabase/migrations/` + `supabase/seed.sql`, proyecto linkeado — detalle en `@supabase/CLAUDE.md`). Ver §9.
 >
 > Revisión anterior (2026-03-17): el backend migró de **SQLite local a Supabase (Postgres)**. Toda la sección de DBs fue reescrita. Ver §3.
 
@@ -88,183 +88,65 @@ static String get baseUrl {
 
 ## 3. DATA MODEL (Supabase / Postgres)
 
-> **Actualizado 2026-08-05:** el schema ahora está versionado con el Supabase CLI (`supabase/migrations/`, proyecto linkeado a `msrxypywserfumscvnel`). El schema autoritativo es `supabase/migrations/20260805171636_remote_schema.sql` (baseline generado con `supabase db pull`), no el dashboard. Las columnas listadas abajo siguen siendo una referencia de lectura rápida — para el detalle exacto, mirar las migrations. Ver §3.1.
-
-### 3.1 Migrations (Supabase CLI)
-
-```
-supabase/
-├── config.toml              # config del CLI, sin secretos (todo env(...))
-├── migrations/               # versionadas, orden cronológico por filename
-│   ├── 20260805171636_remote_schema.sql   # baseline completo (tablas, funciones, grants, RLS)
-│   ├── 20260805172127_storage_policies.sql # policies de storage.objects
-│   ├── 20260805172144_storage_buckets.sql  # buckets avatars/kyc/portfolio
-│   └── 20260805172201_cron_jobs.sql        # 3 jobs de pg_cron
-├── seed.sql                  # catálogo: departments, cities, countries, services, categories
-│                              # (NO admins — tiene password en texto plano; NO datos de usuarios)
-└── archive/                   # scripts .sql corridos a mano antes de tener CLI — ya aplicados,
-                                # se guardan solo por el comentario "por qué" de cada uno
-```
-
-Comandos:
-- `supabase db push` — aplica migrations pendientes al remoto (requiere `SUPABASE_ACCESS_TOKEN` y `--password` de la DB, o `supabase login`)
-- `supabase migration new <nombre>` — nueva migration vacía con timestamp
-- `supabase db pull` — trae cambios hechos a mano en el dashboard (requiere Docker/Colima corriendo, usa un shadow DB)
-- `supabase migration list` — compara historial local vs remoto
-
-> **Limitación conocida del CLI:** `db pull` no capturó las policies de `storage.objects` (bug del engine `pg-delta` con ese schema) ni los buckets/cron jobs (son datos, no schema) — hubo que escribirlos a mano comparando contra `pg_policies` / `storage.buckets` / `cron.job` en vivo. Si se agregan buckets o cron jobs nuevos por el dashboard, van a necesitar el mismo tratamiento manual, no un `db pull` limpio.
-
-> Requiere Docker corriendo para `db pull` / `db reset` local (usa un shadow Postgres). En esta máquina se instaló Colima (`brew install colima docker`, `colima start`) en vez de Docker Desktop.
+> El schema autoritativo es `supabase/migrations/20260805171636_remote_schema.sql`, no el dashboard. Las columnas listadas abajo son referencia rápida — para detalle exacto o trabajar con migrations, ver `@supabase/CLAUDE.md`.
 
 ### `users`
-Campos usados: `id`, `email` (único), `nombre`, `apellido`, `avatar_color` (default `#78BF32`), `avatar_icon` (default `person`), `avatar_image` (**URL de Supabase Storage**, bucket `avatars` — ver nota de imágenes más abajo), `phone`, `genero`, `fecha_nacimiento`, `dark_mode` (int 0/1), `language`, `created_at`.
+Columnas exactas: ver migrations. Gotchas: `avatar_color`/`avatar_icon` tienen default (`#78BF32`/`person`); `avatar_image` es URL de Storage, no base64.
 
 `GET /users/profile/:email?lite=true` omite `avatar_image` del select — usar siempre que no se necesite la foto.
 
 ### `user_phones`
-`user_email` (UNIQUE — hay upsert con `onConflict: 'user_email'`), `country_code`, `country_name`, `phone_number`.
+`user_email` es UNIQUE — hay upsert con `onConflict: 'user_email'`.
 
 ### `user_addresses`
-`user_email`, `address_name`, `department_id` → `departments`, `city_id` → `cities`, `type_via`, `number_principal`, `number_secondary`, `number_final`, `additional_info`, `address_icon`, `created_at`.
-
 El join a `departments(name)` / `cities(name)` se hace con la sintaxis anidada de Supabase y se aplana a `department_name` / `city_name` antes de responder.
 
 ### `user_cards`
-`user_email`, `card_number` (**guardado enmascarado**: `**** **** **** 1234`), `card_holder`, `expiry_date`, `card_type`, `document_type`, `document_number`, `card_mode`, `is_default` (int 0/1), `created_at`.
-
-La primera tarjeta de un usuario se marca `is_default` automáticamente.
+`card_number` se guarda enmascarado (`**** **** **** 1234`), nunca completo. La primera tarjeta de un usuario se marca `is_default` automáticamente.
 
 ### `device_sessions` / `ally_device_sessions`
-`user_email` / `ally_email`, `device_id`, `device_info`, `is_active` (int 0/1), `last_activity`.
-
 `device_sessions` tiene constraint compuesta `(user_email, device_id)` — el users backend hace upsert con `onConflict: 'user_email,device_id'`. El allies backend **no** usa upsert; hace select-then-insert-or-update manual.
 
 Regla de negocio: registrar un dispositivo desactiva todos los demás del mismo email (sesión única).
 
 ### `photo_change_requests`
-`id`, `user_email`, `new_avatar_image` (URL de Storage, bucket `avatars`), `status` (`pending` / `approved` / `rejected`), `rejection_reason`, `read_at`, `user_notified` (bool), `created_at`, `updated_at`.
-
 Limpieza automática: `cleanupOldPhotoRequests()` borra las que tienen `user_notified = true`. **Ya no es un `setInterval` en producción** — el job real vive en `pg_cron` (`supabase/migrations/20260805172201_cron_jobs.sql`, cada hora, corre dentro de Postgres). El `setInterval` en Node sigue en el código como respaldo para desarrollo local, pero solo se activa con `MANTENIMIENTO_EN_PROCESO=true` — apagado por defecto.
 
 ### `search_history`
-`user_email`, `query` (⚠ la columna se llama `query`, pero la API la expone como `search_query`), `created_at`. Se devuelven las últimas 10.
+⚠ La columna se llama `query`, pero la API la expone como `search_query` (regla #11). Se devuelven las últimas 10.
 
 ### `services`
-`id`, `name`, `created_at`. Catálogo compartido. Los aliados pueden crear entradas nuevas vía `POST /services` (allies backend).
+Catálogo compartido. Los aliados pueden crear entradas nuevas vía `POST /services` (allies backend).
 
 ### `services_in_search`
-`id`, `user_email`, `ally_email`, `title`, `description`, `time_quantity`, `time_unit`, `budget` (string ya formateado con comas), `worker_info`, `status`, `assigned` (int 0/1), `created_at`.
-
 `budget` se normaliza en `POST /publish-service`: se parsea a número, se redondea a la centena más cercana y se re-formatea con separador de miles.
 
 ### `allies`
-`id`, `email` (único), `nombre`, `apellido`, `fecha_nacimiento`, `kyc_cedula_frente`, `kyc_cedula_reverso`, `kyc_selfie` (URLs/rutas del bucket privado `kyc` — leídas con URL firmada, ver `storage.js`), `kyc_status` (`submitted` / `approved` / `rejected`), `kyc_submitted_at`, `updated_at`.
-
-KYC ya tiene flujo de revisión completo: `GET /api/admin/kyc`, `GET /api/admin/kyc/:email`, `PUT /api/admin/kyc/:email` (aprobar/rechazar con motivo) en el backend de allies, más `kyc_review_screen.dart` en el panel admin.
+Campos `kyc_*` son URLs/rutas del bucket privado `kyc` — leídas con URL firmada, ver `storage.js`. KYC tiene flujo de revisión completo: `GET/PUT /api/admin/kyc*` en el backend de allies, más `kyc_review_screen.dart` en el panel admin.
 
 ### `ally_service_profiles`
-`ally_email`, `service_id`, `nombre_comercial`, `frase_presentacion`, `resumen`, `created_at`.
-
-> El mismatch `ally_email` / `ally_id` que hacía que `check-ally` nunca encontrara los perfiles **ya está corregido** — ambos lados usan `ally_email`.
+Clave es `ally_email` (no `ally_id`) — el mismatch viejo que hacía que `check-ally` nunca encontrara los perfiles ya está corregido.
 
 ### `admins`
-`id`, `username` (único), `password` (**bcrypt**; filas heredadas en texto plano se migran a hash automáticamente en su próximo login exitoso — ver `tudu_admin/backend/server.js`, función `passwordCoincide`), `email` (único), `name`, `role` (default `admin`), `created_at`, `updated_at`.
+`password` es bcrypt; filas heredadas en texto plano se migran a hash automáticamente en su próximo login exitoso (`passwordCoincide` en `tudu_admin/backend/server.js`).
 
 ### `departments`, `cities`, `countries`
 Catálogos pre-cargados. `cities.department_id` → `departments.id`. `countries` incluye códigos de marcación. Los datos incorrectos que había antes (Cali bajo Antioquia, Barranquilla/Luruaco bajo Bolívar) **ya están corregidos** — verificado contra `supabase/seed.sql`.
 
 ### Imágenes: Storage, no base64
 
-`avatar_image`, `new_avatar_image` y los 3 campos `kyc_*` guardan **URLs de Supabase Storage** (bucket `avatars` público, `kyc` privado con URL firmada — ver §3.1 buckets), no base64 dentro de Postgres. La subida pasa por `subirImagen()` en `storage.js`: si el bucket falla o no existe, cae a guardar el base64 tal cual para no romper la funcionalidad — así que en teoría puede aparecer una fila vieja con base64 crudo si la subida falló en su momento, pero el camino normal ya no pasa por Postgres.
-
-### Código SQLite muerto — ya no existe
-Los archivos de la arquitectura SQLite anterior (`index.js.old`, `index.sqlite.js`, `server.sqlite.js`, `init-db.js`) **fueron borrados**. Verificado: no quedan en el repo.
+`avatar_image`, `new_avatar_image` y los 3 campos `kyc_*` guardan **URLs de Supabase Storage** (bucket `avatars` público, `kyc` privado con URL firmada — ver `@supabase/CLAUDE.md` buckets), no base64 dentro de Postgres. La subida pasa por `subirImagen()` en `storage.js`: si el bucket falla o no existe, cae a guardar el base64 tal cual para no romper la funcionalidad — así que en teoría puede aparecer una fila vieja con base64 crudo si la subida falló en su momento, pero el camino normal ya no pasa por Postgres.
 
 ---
 
 ## 4. API ENDPOINTS
 
-### Users Backend — puerto 3000 (`tudu_users/backend/index.js`)
+Detalle de rutas por backend — cada uno carga solo cuando se trabaja en esa carpeta:
+- Users (3000): `@tudu_users/backend/CLAUDE.md`
+- Allies (3002): `@tudu_allies/backend/CLAUDE.md`
+- Admin (3003): `@tudu_admin/backend/CLAUDE.md`
 
-**Auth y registro**
-| Método | Ruta | Notas |
-|--------|------|-------|
-| POST | `/send-otp` | Rate limit por correo. Supabase Auth `signInWithOtp`. Con `DEV_MODE=true` se salta el envío para **cualquier** correo |
-| POST | `/verify-otp` | Rate limit por correo. Supabase Auth `verifyOtp`. Con `DEV_MODE=true`, código maestro `DEV_OTP` (default `123456`) para cualquier correo — apagado por completo si `DEV_MODE` no está en `true`. Responde `signSession()`: `{ token, refresh_token, expires_in }` |
-| POST | `/users/phone/send-otp` | Rate limit por correo. OTP por SMS real vía Twilio (`sms_otp.js`) si hay credenciales; si no, error explícito (ya no finge el envío) |
-| POST | `/users/phone/verify-otp` | Rate limit por correo. Contra el código emitido por `sms_otp.js` |
-| POST | `/auth/refresh` | Canjea `refresh_token` por una sesión nueva. Revoca si la sesión ya no está activa en `device_sessions` |
-| POST | `/check-user` | `{exists, user}` — pública |
-| POST | `/register-user` | |
-
-> `/check-ally` y `/register-ally` **ya no existen en este backend** (fueron borrados, no solo dejados de documentar — verificado por `grep`). Los aliados se gestionan enteramente en el backend de allies (3002); esas copias quedaban desactualizadas y dejaban aliados en un estado inconsistente que el otro backend no reconocía.
->
-> Fuera de las rutas listadas como públicas (más `/departments`, `/cities`, `/countries`, `/services`, `/search-services`, `/categories`, `/category-offers`, `/device-session/check`), **todo el resto exige `Authorization: Bearer <token>`** válido, y el dueño del token solo puede operar sobre su propio email/fila (ver §5).
-
-**Perfil**
-| Método | Ruta | Notas |
-|--------|------|-------|
-| GET | `/users/profile/:email` | `?lite=true` omite `avatar_image` |
-| PUT | `/users/profile/avatar` | `avatar_image: null` vuelve a color+icono; con imagen resetea color a `#78BF32` |
-| PUT | `/users/profile/data` | upsert de `user_phones` si vienen `country_code` + `phone_number` |
-| DELETE | `/users/:email` | Llama al RPC `tudu_borrar_cuenta(email)` — borrado transaccional en Postgres, no deletes secuenciales desde Node. Exige token y que el email coincida con el dueño (o rol admin) |
-
-**Fotos (usuario ↔ admin)**
-| Método | Ruta |
-|--------|------|
-| POST | `/api/user/photo-change-request` |
-| GET | `/api/user/photo-change-request/pending` |
-| GET | `/api/user/photo-change-request/unnotified` |
-| PUT | `/api/user/photo-change-request/mark-notified/:id` |
-| GET | `/api/admin/photo-change-requests` |
-| PUT | `/api/admin/photo-change-requests/:id` |
-| PUT | `/api/admin/photo-change-requests/:id/read` |
-
-`PUT /api/admin/photo-change-requests/:id` con `status: 'approved'` copia `new_avatar_image` a `users.avatar_image` y emite `photoRequestUpdated` por socket **incluyendo `new_avatar_image`** — el Provider de Flutter depende de ese campo.
-
-**Ubicaciones y direcciones**
-`GET /departments` · `GET /cities?department_id=` · `GET /countries` · `GET /user-addresses?user_email=` · `POST /user-addresses` · `PUT /user-addresses/:id` · `DELETE /user-addresses/:id`
-
-Validación: `number_principal` debe contener al menos un dígito; `address_name` único por usuario.
-
-**Tarjetas**
-`GET /users/cards/:userEmail` · `POST /users/cards` · `DELETE /users/cards/:id` · `PUT /users/cards/:id/default`
-
-**Servicios y búsqueda**
-`GET /services` · `POST /publish-service` · `GET /services-in-search?user_email=` · `PUT /services-in-search/:id/assign` · `PUT /services-in-search/:id/status` · `DELETE /services-in-search/:id?user_email=` · `GET /search-services?query=` (ilike) · `POST /search-history` · `GET /search-history?user_email=` · `DELETE /search-history/:id`
-
-**Sesiones de dispositivo**
-`POST /device-session/check` · `POST /device-session/register` · `GET /device-session/status` · `POST /device-session/logout` · `GET /device-session/list` · `POST /device-session/close-others`
-
-### Allies Backend — puerto 3002 (`tudu_allies/backend/index.js`)
-
-| Método | Ruta | Notas |
-|--------|------|-------|
-| POST | `/send-otp` | Igual que users: rate limit por correo |
-| POST | `/verify-otp` | Igual que users: `DEV_OTP` maestro solo con `DEV_MODE=true`, ya no es un backdoor sin condición. Responde `signSession()` |
-| POST | `/auth/refresh` | Igual mecanismo que users |
-| POST | `/check-ally` | Devuelve `partial: 'personal'` / `'kyc'` / `'service'` / `'kyc_pending'` según qué falte. Consulta `ally_service_profiles` por `ally_email` (el mismatch con `ally_id` está corregido) |
-| POST | `/register-ally` | upsert con `onConflict: 'email'` |
-| POST | `/ally-kyc` | Sube 3 imágenes a Storage (bucket `kyc`, privado), marca `kyc_status = 'submitted'` |
-| GET | `/api/admin/kyc` | Lista aliados con KYC pendiente de revisión |
-| GET | `/api/admin/kyc/:email` | Detalle con URLs firmadas de los 3 documentos |
-| PUT | `/api/admin/kyc/:email` | Aprobar/rechazar (rol admin, `/api/admin/*` exige `req.auth.role === 'admin'`) |
-| POST | `/ally-service-profile` | |
-| GET | `/services` | |
-| POST | `/services` | Crea servicio nuevo (mín. 2 chars) |
-| GET | `/services-in-search` | Solo `assigned = 0` |
-| PUT | `/services-in-search/:id/assign` | Requiere `ally_email`; pone `status: 'EN PROCESO'` (igual que users ahora — ver §8) |
-| PUT | `/services-in-search/:id/status` | |
-| GET | `/my-services?ally_email=` | |
-| — | `/ally-device-session/*` | check · register · status · logout · list · close-others |
-
-El caso especial que forzaba `requires_verification: true` para `cosmodavid2009@gmail.com` **ya no existe** — verificado, no aparece ninguna referencia a ese correo en el código.
-
-### Admin Backend — puerto 3003 (`tudu_admin/backend/server.js`)
-
-`GET /` (health) · `POST /api/admin/login` · `POST /auth/refresh` · `GET /api/admins` · `POST /api/admins` · `PUT /api/admins/:id` · `DELETE /api/admins/:id` · `PUT /api/admins/:id/change-password`
-
-`POST /api/admin/login` trae la fila por `username` y compara el hash en memoria con bcrypt (`passwordCoincide`) — ya no filtra por `.eq('password', password)`. Si la fila todavía tiene la contraseña en texto plano y el login es correcto, se migra a hash automáticamente en ese mismo request. Responde `signSession({ role: 'admin' })`. Todo `/api/admins/*` exige token con `role: 'admin'`. Código Postgres `23505` (unique violation) se traduce a "Username or email already exists".
+Regla transversal (aplica a users y allies): fuera de rutas públicas (OTP, catálogos de solo lectura, búsqueda, `/auth/refresh`), **todo exige `Authorization: Bearer <token>`** válido, y el dueño del token solo puede operar sobre su propio email/fila (ver §5).
 
 ---
 
@@ -304,33 +186,6 @@ El caso especial que forzaba `requires_verification: true` para `cosmodavid2009@
 
 ## 6. DEV CONVENTIONS
 
-### Naming
-| Elemento | Convención | Ejemplo |
-|----------|-----------|---------|
-| Archivos Dart | `snake_case.dart` | `dashboard_screen.dart` |
-| Clases Dart | `PascalCase` | `DashboardScreen` |
-| State classes Dart | `_PascalCaseState` | `_DashboardScreenState` |
-| Variables privadas Dart | `_camelCase` | `_isLoading` |
-| Endpoints REST | `kebab-case` | `/services-in-search` |
-| Prefijo admin/user | `/api/admin/` o `/api/user/` | solo para gestión de fotos y admins |
-| Campos de BD | `snake_case` | `created_at`, `dark_mode` |
-| Roles en BD | inglés, minúsculas | `'user'`, `'ally'`, `'admin'` |
-| Estados de servicio | español, MAYÚSCULAS | `'EN ESPERA'`, `'EN PROCESO'` |
-| Estados de photo_request | inglés, minúsculas | `'pending'`, `'approved'`, `'rejected'` |
-
-### Estructura Flutter
-```
-lib/
-├── main.dart        # MaterialApp, MultiProvider, rutas
-├── config.dart      # Config: baseUrl vía --dart-define=LOCAL_IP, colores, helpers
-├── screens/         # Un archivo por pantalla; StatefulWidget por defecto
-├── models/          # Data classes simples (users, allies)
-├── providers/       # ChangeNotifier: theme, language (solo users)
-├── services/        # Sesiones y lógica de negocio (users, allies)
-└── l10n/            # Localizaciones (solo users)
-```
-`tudu_admin/admin/lib/` solo tiene `config.dart`, `main.dart` y `screens/`.
-
 ### Patrones de código observados
 - **Backend:** `async/await` con el patrón `const { data, error } = await supabase...`. Ya no hay callback hell — eso era SQLite.
 - **Errores backend:** se chequea `error` y se responde `res.status(4xx/5xx).json({ error })`. `error.code === 'PGRST116'` = "no rows", se trata como "no existe", no como fallo.
@@ -358,64 +213,15 @@ Config.textColor       // Color(0xFF78BF32) — igual que primary
 
 ### Variables (los `.env` están gitignored)
 
-> ⚠ Los `.env.example` versionados en el repo están desactualizados (todavía piden `MAILGUN_*`, les falta `SUPABASE_URL`/`JWT_SECRET`). La lista de abajo sale de `grep process.env` sobre el código real, no de esos archivos — no confiar en los `.example` hasta que se actualicen.
-
-**`tudu_users/backend/.env`**
-```env
-PORT=3000
-SUPABASE_URL=                 # REQUERIDO — process.exit(1) si falta
-SUPABASE_SERVICE_ROLE_KEY=    # REQUERIDO — process.exit(1) si falta
-JWT_SECRET=                   # REQUERIDO — process.exit(1) si falta. Compartido con allies y admin
-ACCESS_TOKEN_TTL=30m          # opcional, default 30m
-REFRESH_TOKEN_TTL=180d        # opcional, default 180d
-CORS_ORIGINS=                 # opcional, lista separada por comas. Vacío = CORS abierto (*)
-DEV_MODE=true                 # habilita DEV_OTP para cualquier correo — NUNCA en producción
-DEV_OTP=123456                # opcional, default 123456
-MANTENIMIENTO_EN_PROCESO=false # opcional — respaldo de limpieza en Node para desarrollo local sin pg_cron
-TWILIO_ACCOUNT_SID=           # opcional — con las 3 puestas, /users/phone/send-otp manda SMS real
-TWILIO_AUTH_TOKEN=
-TWILIO_FROM=                  # número emisor en formato E.164 (+57...)
-```
-
-**`tudu_allies/backend/.env`**
-```env
-PORT=3002
-SUPABASE_URL=                 # REQUERIDO
-SUPABASE_SERVICE_ROLE_KEY=    # REQUERIDO
-JWT_SECRET=                   # REQUERIDO — mismo valor que users y admin
-ACCESS_TOKEN_TTL=30m
-REFRESH_TOKEN_TTL=180d
-CORS_ORIGINS=
-DEV_MODE=true
-DEV_OTP=123456
-MANTENIMIENTO_EN_PROCESO=false
-```
-
-**`tudu_admin/backend/.env`**
-```env
-PORT=3003
-SUPABASE_URL=                 # REQUERIDO
-SUPABASE_SERVICE_ROLE_KEY=    # REQUERIDO
-JWT_SECRET=                   # REQUERIDO — mismo valor que users y allies
-ACCESS_TOKEN_TTL=30m
-REFRESH_TOKEN_TTL=180d
-CORS_ORIGINS=
-```
+Lista completa de variables por backend (requeridas/opcionales/defaults): skill `env-setup` — se carga cuando hace falta, no acá.
 
 > `SUPABASE_SERVICE_ROLE_KEY` **bypassa RLS**. Nunca exponerla al cliente ni commitearla.
 >
 > `JWT_SECRET` **debe ser el mismo valor en los 3 backends** — un token firmado por uno se valida en los otros dos (así el rol `admin` funciona cruzado). Si no está seteado, cada backend hace `process.exit(1)` al arrancar.
 
-### Toolchain de desarrollo (macOS, verificado 2026-07-28)
+### Toolchain de desarrollo (macOS)
 
-| Componente | Versión |
-|---|---|
-| Flutter | 3.44.8 (stable) · Dart 3.12.2 |
-| Node / npm | 26.5.0 / 11.17.0 |
-| Xcode | 26.6 + runtime iOS 26.5 |
-| CocoaPods | 1.17.0 |
-| Android SDK | 36.1.0 (platform android-36.1, build-tools 36.1.0/37.0.0) |
-| JDK | 21 (el bundled de Android Studio) |
+Versiones exactas: `flutter --version`, `node --version`, etc. — re-verificar en vez de confiar en un snapshot viejo.
 
 Variables en `~/.zshrc`:
 ```sh
@@ -423,8 +229,6 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 export ANDROID_HOME="$HOME/Library/Android/sdk"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 ```
-
-Emuladores configurados: `Pixel_8_API_36` (Android 16, arm64) · iPhone 17 Pro · iPhone 17 Pro Max · iPad Pro 13-inch (M5) · iPad mini (A17 Pro).
 
 ### Arranque
 
@@ -469,34 +273,7 @@ El script detecta la IP con `ipconfig getifaddr en0` y la pasa como `--dart-defi
 
 ## 9. KNOWN ISSUES — DEUDA TÉCNICA
 
-> **Toda esta sección se re-verificó línea por línea contra el código el 2026-08-05.** La revisión anterior (2026-07-28) documentaba una lista larga de backdoors, bugs y deuda de arquitectura — casi todo ya estaba resuelto en el código sin que este documento se hubiera actualizado. Abajo, lo que se confirmó **resuelto** (con evidencia) y lo poco que queda genuinamente abierto.
-
-### Resuelto — verificado contra el código (ya no aplica)
-
-**Seguridad:**
-- ~~Backdoor OTP en allies para cualquier email~~ — ahora usa el mismo gate `DEV_MODE=true` que users, no un atajo incondicional.
-- ~~Passwords de admin en texto plano~~ — bcrypt, con migración automática de filas heredadas en su primer login.
-- ~~Sin JWT ni middleware de auth~~ — JWT propio (access+refresh) + autorización por dueño en los 3 backends. Ver §5.
-- ~~Sin rate limiting en `/send-otp`~~ — `rate_limit.js`, límite por correo.
-- ~~`DELETE /users/:email` sin auth~~ — exige token + dueño, y ahora es transaccional (RPC `tudu_borrar_cuenta`).
-- ~~El backend descarta la sesión de Supabase Auth~~ — ahora emite su propia sesión JWT en `/verify-otp`.
-- **CORS: parcialmente resuelto.** Ya existe `CORS_ORIGINS` para restringir por allowlist (`cors_config.js`), pero **el default sigue siendo abierto (`*`)** si la variable no está seteada — hay que setearla explícitamente antes de producción. Esto sigue siendo responsabilidad de quien despliegue, no del código.
-
-**Bugs:**
-- ~~`ally_service_profiles` con clave inconsistente~~ — `check-ally` ya consulta por `ally_email`, no por `ally_id`.
-- ~~Status case inconsistency ('En Proceso' vs 'EN PROCESO')~~ — ambos backends escriben `'EN PROCESO'`.
-- ~~`POST /users/cards` detecta duplicados con `.like('%1234')`~~ — ahora compara últimos 4 dígitos + titular + vencimiento exactos.
-- ~~`DELETE /users/:email` sin transacción~~ — ver arriba, es un RPC transaccional.
-- ~~`GET /api/user/photo-change-request/unnotified` ignora el error~~ — ahora responde `500` si Supabase falla.
-- ~~`cities` con datos incorrectos (Cali/Antioquia, Barranquilla-Luruaco/Bolívar)~~ — corregido en `supabase/seed.sql`.
-
-**Arquitectura:**
-- ~~Imágenes base64 en columnas de Postgres~~ — migradas a Supabase Storage (`storage.js`), con fallback a base64 solo si la subida falla.
-- ~~Sin migraciones versionadas~~ — `supabase/migrations/` + CLI linkeado, ver §3.1.
-- ~~Código SQLite muerto sin borrar~~ — los archivos ya no existen.
-- ~~Mailgun muerto en allies~~ — ni el cliente `mg` ni la dependencia quedan en el código.
-- ~~`users` backend duplica endpoints de allies~~ — `/check-ally` y `/register-ally` fueron borrados de `tudu_users/backend`.
-- ~~Limpieza de fotos por `setInterval` frágil~~ — el job real es `pg_cron` (§3.1); el `setInterval` en Node quedó como respaldo opcional de desarrollo (`MANTENIMIENTO_EN_PROCESO`), apagado por defecto.
+> Historial de bugs/backdoors ya resueltos: ver `git log`, no repetido acá. Lo que queda genuinamente abierto:
 
 ### Todavía abierto
 
