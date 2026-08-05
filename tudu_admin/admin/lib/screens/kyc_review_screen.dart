@@ -426,8 +426,6 @@ class _DetalleKycScreenState extends State<_DetalleKycScreen> {
       backgroundColor: Config.backgroundColor,
       appBar: AppBar(
         title: const Text('Verificación de identidad'),
-        backgroundColor: Config.primaryColor,
-        foregroundColor: Colors.white,
       ),
       body: _cuerpo(),
       bottomNavigationBar: _barraDecision(),

@@ -245,7 +245,6 @@ class _PhotoChangeRequestsScreenState extends State<PhotoChangeRequestsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Solicitudes de Cambio de Foto'),
-        backgroundColor: Config.primaryColor,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

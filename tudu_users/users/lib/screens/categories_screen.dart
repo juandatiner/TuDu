@@ -70,17 +70,22 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               : RefreshIndicator(
                   color: const Color(0xFF78BF32),
                   onRefresh: _cargar,
-                  child: ListView.separated(
+                  child: GridView.builder(
                     padding: const EdgeInsets.all(16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 1.2,
+                    ),
                     itemCount: _categorias.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (_, i) {
                       final categoria = _categorias[i];
                       return Material(
                         color: themeProvider.cardBgColor,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -91,29 +96,31 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                             ),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-                            child: Row(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(10),
+                                  padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF78BF32).withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
-                                  child: const Icon(Icons.category_outlined, color: Color(0xFF78BF32)),
+                                  child: const Icon(Icons.category_outlined,
+                                      color: Color(0xFF78BF32), size: 28),
                                 ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Text(
-                                    categoria['name'] ?? '',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: themeProvider.textColor,
-                                    ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  categoria['name'] ?? '',
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: themeProvider.textColor,
                                   ),
                                 ),
-                                Icon(Icons.chevron_right, color: themeProvider.secondaryTextColor),
                               ],
                             ),
                           ),

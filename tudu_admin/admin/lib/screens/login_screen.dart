@@ -119,7 +119,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.black, width: 2),
+                      borderSide:
+                          BorderSide(color: Color(0xFF78BF32), width: 2),
                     ),
                     errorStyle: TextStyle(
                       color: Colors.red,
@@ -148,7 +149,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.black, width: 2),
+                      borderSide:
+                          BorderSide(color: Color(0xFF78BF32), width: 2),
                     ),
                     suffixIcon: IconButton(
                       icon: Icon(

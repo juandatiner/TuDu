@@ -43,12 +43,18 @@ class MyApp extends StatelessWidget {
           secondary: Config.secondaryColor,
         ),
         scaffoldBackgroundColor: Config.backgroundColor,
+        // Doble fondo — barra blanca sobre cuerpo gris — igual que
+        // `user_services_screen.dart` en users (appBar = cardBg blanco,
+        // scaffold = scaffoldBg gris). Antes era una barra verde sólida con
+        // texto blanco, la única pantalla del ecosistema con ese estilo.
         appBarTheme: const AppBarTheme(
-          backgroundColor: Config.primaryColor,
+          backgroundColor: Config.whiteColor,
+          surfaceTintColor: Colors.transparent,
+          scrolledUnderElevation: 0,
           elevation: 0,
-          iconTheme: IconThemeData(color: Colors.white),
+          iconTheme: IconThemeData(color: Colors.black87),
           titleTextStyle: TextStyle(
-            color: Colors.white,
+            color: Colors.black87,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
@@ -78,6 +84,20 @@ class MyApp extends StatelessWidget {
           fillColor: Colors.white,
           contentPadding:
               const EdgeInsets.symmetric(vertical: 14.0, horizontal: 16.0),
+          // Mismo criterio que users/allies: verde al enfocar, rojo si hay
+          // error (y le gana al verde aunque el campo tenga el foco puesto).
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Config.primaryColor, width: 2),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Config.redColor, width: 2),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Config.redColor, width: 2),
+          ),
         ),
         visualDensity: VisualDensity.adaptivePlatformDensity,
         useMaterial3: true,

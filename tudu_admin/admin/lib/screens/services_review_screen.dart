@@ -428,8 +428,6 @@ class _DetalleServicioScreenState extends State<_DetalleServicioScreen> {
       backgroundColor: Config.backgroundColor,
       appBar: AppBar(
         title: const Text('Servicio propuesto'),
-        backgroundColor: Config.primaryColor,
-        foregroundColor: Colors.white,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
