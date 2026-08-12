@@ -1062,10 +1062,12 @@ class _PerfilTabState extends State<_PerfilTab> with CameraCaptureMixin {
     }
   }
 
-  Future<void> _cambiarFoto(ImageSource source) async {
+  /// Solo galería, igual que la foto de perfil en la app de usuarios. La
+  /// cámara queda para el KYC, que sí se toma en vivo.
+  Future<void> _cambiarFoto() async {
     await tomarFoto(
       etiqueta: 'PERFIL',
-      source: source,
+      source: ImageSource.gallery,
       onListo: (archivo) async {
         setState(() => _enviandoFoto = true);
         try {
@@ -1321,7 +1323,7 @@ class _PerfilTabState extends State<_PerfilTab> with CameraCaptureMixin {
     final enRevision = _fotoPendiente != null;
 
     return GestureDetector(
-      onTap: _enviandoFoto ? null : _elegirOrigen,
+      onTap: _enviandoFoto ? null : _cambiarFoto,
       child: Column(
         children: [
           Stack(
@@ -1370,35 +1372,6 @@ class _PerfilTabState extends State<_PerfilTab> with CameraCaptureMixin {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  void _elegirOrigen() {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: Text(context.tr('camera')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _cambiarFoto(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: Text(context.tr('gallery')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _cambiarFoto(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
       ),
     );
   }

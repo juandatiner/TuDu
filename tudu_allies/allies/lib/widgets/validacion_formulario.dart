@@ -14,6 +14,12 @@ class Validacion {
       'Completa todos los campos marcados en rojo';
   static const String requerido = 'Campo obligatorio';
 
+  /// Palabras de un texto, para los mínimos que se cuentan en palabras y no en
+  /// caracteres (frase de presentación, experiencia, descripción del servicio).
+  /// Diez caracteres los cumple "puertas ok"; cinco palabras obligan a decir algo.
+  static int palabras(String texto) =>
+      texto.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).length;
+
   /// Aviso general, pensado para ir pegado al botón de enviar.
   static Widget aviso(String? mensaje) {
     if (mensaje == null) return const SizedBox.shrink();

@@ -69,13 +69,13 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
     super.dispose();
   }
 
-  int _contarPalabras(String texto) =>
-      texto.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
-
-  Future<void> _elegirFoto(ImageSource source) async {
+  /// Solo galería, igual que la foto de perfil en la app de usuarios: es una
+  /// foto elegida, no una selfie tomada en el momento. La de la cámara es la
+  /// del KYC, que es otra cosa y sí se toma en vivo.
+  Future<void> _elegirFoto() async {
     await tomarFoto(
       etiqueta: 'PERFIL',
-      source: source,
+      source: ImageSource.gallery,
       onListo: (f) {
         _foto = f;
         _errorFoto = null;
@@ -107,10 +107,10 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
         : (nombre.length < 3 ? context.tr('commercial_name_too_short') : null);
     final errorFrase = frase.isEmpty
         ? Validacion.requerido
-        : (_contarPalabras(frase) < 3 ? context.tr('pitch_too_short') : null);
+        : (Validacion.palabras(frase) < 3 ? context.tr('pitch_too_short') : null);
     final errorResumen = resumen.isEmpty
         ? Validacion.requerido
-        : (_contarPalabras(resumen) < 15 ? context.tr('summary_too_short') : null);
+        : (Validacion.palabras(resumen) < 15 ? context.tr('summary_too_short') : null);
 
     final hayErrores = errorFoto != null ||
         errorNombre != null ||
@@ -338,7 +338,7 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
       child: Column(
         children: [
           GestureDetector(
-            onTap: _elegirOrigen,
+            onTap: _elegirFoto,
             child: Container(
               width: 120,
               height: 120,
@@ -359,7 +359,7 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
           ),
           const SizedBox(height: 10),
           TextButton.icon(
-            onPressed: _elegirOrigen,
+            onPressed: _elegirFoto,
             icon: const Icon(Icons.photo_camera_outlined, size: 18),
             label: Text(
               _foto != null || (_fotoActualUrl ?? '').isNotEmpty
@@ -378,35 +378,6 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
         size: 54,
         color: Colors.black.withOpacity(0.25),
       );
-
-  void _elegirOrigen() {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: Text(context.tr('camera')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _elegirFoto(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: Text(context.tr('gallery')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _elegirFoto(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   InputDecoration _inputDeco(String label, {String? hint}) {
     return InputDecoration(

@@ -11,10 +11,11 @@ import '../l10n/app_localizations.dart';
 /// servicio). Por defecto solo cámara — para KYC eso es a propósito, no se
 /// negocia — pero cada llamado puede pedir galería (`source`) para casos
 /// donde sí tiene sentido, como el portafolio de un servicio.
-/// En simulador/emulador no hay cámara real: en vez de intentar abrirla y
-/// fallar, se genera una foto de prueba y se asigna directo, como si la
-/// persona ya la hubiera tomado. En un dispositivo físico esa rama nunca se
-/// activa y siempre pasa por la cámara o galería real.
+///
+/// El simulador no tiene cámara: pedirla ahí falla, así que se genera una foto
+/// de prueba y se asigna directo. La galería **sí** existe en el simulador (el
+/// carrete trae imágenes de muestra), así que esa siempre abre el selector
+/// real: si no, era imposible probar el flujo de elegir una foto propia.
 mixin CameraCaptureMixin<T extends StatefulWidget> on State<T> {
   bool esDispositivoFisico = true;
 
@@ -40,7 +41,8 @@ mixin CameraCaptureMixin<T extends StatefulWidget> on State<T> {
     double maxWidth = 1200,
     ImageSource source = ImageSource.camera,
   }) async {
-    if (!esDispositivoFisico) {
+    // Solo la cámara necesita el atajo: la galería del simulador funciona.
+    if (!esDispositivoFisico && source == ImageSource.camera) {
       final foto = await _generarFotoPruebaSimulador(etiqueta);
       if (!mounted) return;
       setState(() => onListo(foto));

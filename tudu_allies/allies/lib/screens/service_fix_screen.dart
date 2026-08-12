@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../services/api.dart';
 import '../services/ally_api.dart';
 import '../widgets/camera_capture_mixin.dart';
+import '../widgets/validacion_formulario.dart';
 
 /// Corregir un servicio que el admin rechazó y volver a mandarlo a revisión.
 ///
@@ -81,8 +82,9 @@ class _ServiceFixScreenState extends State<ServiceFixScreen> with CameraCaptureM
     // Si el admin marcó las fotos, reenviar sin fotos nuevas devolvería
     // exactamente lo mismo que ya rechazó.
     final errorNombre = nombre.length < 3 ? context.tr('service_name_too_short') : null;
-    final errorDescripcion =
-        descripcion.length < 10 ? context.tr('service_description_required') : null;
+    final errorDescripcion = Validacion.palabras(descripcion) < 5
+        ? context.tr('service_description_required')
+        : null;
     final errorFotos =
         _marcado('portfolio') && _fotos.isEmpty ? context.tr('portfolio_required') : null;
 

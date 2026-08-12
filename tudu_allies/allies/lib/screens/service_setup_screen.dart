@@ -225,8 +225,11 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     final descripcion = _nuevoServicioDescripcionController.text.trim();
 
     final errorNombre = nombre.length < 3 ? context.tr('service_name_too_short') : null;
-    final errorDescripcion =
-        descripcion.length < 10 ? context.tr('service_description_required') : null;
+    // Palabras, no caracteres: "puertas" son 7 caracteres y no describe nada.
+    // Mismo criterio que la frase de presentación y la experiencia.
+    final errorDescripcion = Validacion.palabras(descripcion) < 5
+        ? context.tr('service_description_required')
+        : null;
     final errorFotos = _fotosPortafolio.isEmpty ? context.tr('portfolio_required') : null;
 
     setState(() {
