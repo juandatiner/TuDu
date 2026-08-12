@@ -15,8 +15,16 @@ class Config {
   /// Puerto del backend de allies.
   static const int port = 3002;
 
+  /// Puerto del backend de users. Las solicitudes de cambio de foto viven allí
+  /// para aliados y clientes por igual: es una sola cola para el admin y el
+  /// único backend con el Socket.io que le avisa en vivo.
+  static const int usersPort = 3000;
+
   /// URL base del backend. Síncrona a propósito: se usa dentro de `build()`.
   static String get baseUrl => _resolverUrl(port);
+
+  /// URL del backend de users (solo para solicitudes de cambio de foto).
+  static String get usersBaseUrl => _resolverUrl(usersPort);
 
   /// Resuelve la URL según dónde se esté ejecutando la app.
   static String _resolverUrl(int puerto) {

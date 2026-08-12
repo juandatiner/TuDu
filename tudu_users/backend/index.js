@@ -545,12 +545,106 @@ app.post('/api/user/photo-change-request', async (req, res) => {
 
   const { data, error } = await supabase.from('photo_change_requests')
     .insert([{ user_email, new_avatar_image: imagen, status: 'pending' }]).select().single();
-    
+
   if (error) return res.status(500).json({ error: 'Error creando solicitud' });
 
   // Notificar al admin via socket
   io.emit('newPhotoChangeRequest', data);
   res.json({ success: true, data });
+});
+
+// ==========================================
+//  SOLICITUDES DE FOTO — VERSIÓN COMPARTIDA (clientes y aliados)
+// ==========================================
+//
+// La foto de un aliado la ve el usuario igual que la de un cliente, así que
+// pasa por la misma revisión y la misma cola del admin. La tabla dejó de tener
+// FK contra `users` y ahora lleva `owner_role` para saber en qué tabla vive el
+// correo (ver `supabase/migrations/20260812150100_photo_requests_allies.sql`).
+//
+// La app de aliados llama a estas rutas contra el puerto 3000 a propósito: es
+// el único backend con el Socket.io que le avisa al admin en vivo.
+
+const ROLES_FOTO = ['user', 'ally'];
+
+function tablaDe(rol) {
+  return rol === 'ally' ? 'allies' : 'users';
+}
+
+app.post('/api/photo-change-request', async (req, res) => {
+  const { email, new_avatar_image, owner_role } = req.body;
+  const rol = owner_role || 'user';
+
+  if (!email || !new_avatar_image) return res.status(400).json({ error: 'Faltan datos' });
+  if (!ROLES_FOTO.includes(rol)) return res.status(400).json({ error: 'Rol inválido' });
+
+  // La FK ya no protege esto: se comprueba a mano que el dueño exista.
+  const { data: dueno } = await supabase
+    .from(tablaDe(rol)).select('email').eq('email', email).single();
+  if (!dueno) return res.status(404).json({ error: 'Cuenta no encontrada' });
+
+  await supabase.from('photo_change_requests')
+    .delete().eq('user_email', email).eq('owner_role', rol).eq('status', 'pending');
+
+  const imagen = await subirImagen(supabase, {
+    bucket: 'avatars',
+    dueno: email,
+    etiqueta: 'solicitud',
+    valor: new_avatar_image
+  });
+
+  const { data, error } = await supabase.from('photo_change_requests')
+    .insert([{ user_email: email, owner_role: rol, new_avatar_image: imagen, status: 'pending' }])
+    .select().single();
+
+  if (error) {
+    console.error('Error creando solicitud de foto:', error.message);
+    return res.status(500).json({ error: 'Error creando solicitud' });
+  }
+
+  io.emit('newPhotoChangeRequest', data);
+  res.json({ success: true, data });
+});
+
+app.get('/api/photo-change-request/pending', async (req, res) => {
+  const { email, owner_role } = req.query;
+  const rol = owner_role || 'user';
+  if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+  const { data } = await supabase.from('photo_change_requests')
+    .select('id, status, rejection_reason, new_avatar_image, created_at')
+    .eq('user_email', email)
+    .eq('owner_role', rol)
+    .eq('status', 'pending')
+    .limit(1)
+    .maybeSingle();
+
+  res.json({ success: true, data: data || null });
+});
+
+app.get('/api/photo-change-request/unnotified', async (req, res) => {
+  const { email, owner_role } = req.query;
+  const rol = owner_role || 'user';
+  if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+  const { data, error } = await supabase.from('photo_change_requests')
+    .select('*')
+    .eq('user_email', email)
+    .eq('owner_role', rol)
+    .neq('status', 'pending')
+    .eq('user_notified', false)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return res.status(500).json({ success: false, error: 'Error consultando solicitudes' });
+  res.json({ success: true, data: data || null });
+});
+
+app.put('/api/photo-change-request/mark-notified/:id', async (req, res) => {
+  await supabase.from('photo_change_requests')
+    .update({ user_notified: true }).eq('id', req.params.id);
+  cleanupOldPhotoRequests();
+  res.json({ success: true });
 });
 
 // ==========================================
@@ -941,28 +1035,55 @@ app.get('/search-services', async (req, res) => {
 // ==========================================
 
 app.get('/api/admin/photo-change-requests', async (req, res) => {
+  // Ya no se puede anidar `users(...)`: la FK se quitó para que la tabla sirva
+  // también a los aliados. El nombre se resuelve después, contra la tabla que
+  // diga `owner_role`.
   const { data, error } = await supabase
     .from('photo_change_requests')
-    .select(`*, users ( nombre, apellido, avatar_image )`)
+    .select('*')
     .order('created_at', { ascending: false });
-    
+
   if (error) return res.status(500).json({ error: 'Error interno' });
 
-  // Map para mantener exactamente la estructura original SQLite que esperaba el ADMIN frontend
-  const requests = (data || []).map(row => ({
-    id: row.id,
-    user_email: row.user_email,
-    new_avatar_image: row.new_avatar_image,
-    status: row.status,
-    read: row.read_at !== null,
-    created_at: row.created_at,
-    nombre: row.users?.nombre,
-    apellido: row.users?.apellido,
-    avatar_image: row.users?.avatar_image,
-    read_at: row.read_at,
-    rejection_reason: row.rejection_reason,
-    user_notified: row.user_notified
-  }));
+  const filas = data || [];
+  const correosPorRol = { user: [], ally: [] };
+  for (const f of filas) (correosPorRol[f.owner_role === 'ally' ? 'ally' : 'user']).push(f.user_email);
+
+  const [clientes, aliados] = await Promise.all([
+    correosPorRol.user.length
+      ? supabase.from('users').select('email, nombre, apellido, avatar_image').in('email', correosPorRol.user)
+      : Promise.resolve({ data: [] }),
+    correosPorRol.ally.length
+      ? supabase.from('allies').select('email, nombre, apellido, avatar_image').in('email', correosPorRol.ally)
+      : Promise.resolve({ data: [] })
+  ]);
+
+  const porCorreo = {
+    user: Object.fromEntries((clientes.data || []).map(u => [u.email, u])),
+    ally: Object.fromEntries((aliados.data || []).map(a => [a.email, a]))
+  };
+
+  // Se mantiene la estructura plana que ya esperaba el frontend del admin.
+  const requests = filas.map(row => {
+    const rol = row.owner_role === 'ally' ? 'ally' : 'user';
+    const dueno = porCorreo[rol][row.user_email];
+
+    return {
+      id: row.id,
+      user_email: row.user_email,
+      owner_role: rol,
+      new_avatar_image: row.new_avatar_image,
+      status: row.status,
+      read: row.read_at !== null,
+      created_at: row.created_at,
+      nombre: dueno?.nombre,
+      apellido: dueno?.apellido,
+      avatar_image: dueno?.avatar_image,
+      read_at: row.read_at,
+      rejection_reason: row.rejection_reason,
+      user_notified: row.user_notified
+    };
+  });
   res.json({ success: true, data: requests });
 });
 
@@ -978,16 +1099,22 @@ app.put('/api/admin/photo-change-requests/:id', async (req, res) => {
   // Actualizar tabla requests
   await supabase.from('photo_change_requests').update({ status, rejection_reason: rejection_reason || null, updated_at: new Date().toISOString() }).eq('id', id);
 
+  // La foto aprobada se escribe en la tabla del dueño: `users` o `allies`.
+  const rolSolicitud = request.owner_role === 'ally' ? 'ally' : 'user';
+
   if (status === 'approved') {
-    await supabase.from('users').update({ avatar_image: request.new_avatar_image, avatar_color: '#78BF32', avatar_icon: 'person' }).eq('email', request.user_email);
-    io.emit('photoRequestUpdated', { 
-      id: parseInt(id), 
-      user_email: request.user_email, 
-      status: 'approved', 
+    await supabase.from(tablaDe(rolSolicitud))
+      .update({ avatar_image: request.new_avatar_image, avatar_color: '#78BF32', avatar_icon: 'person' })
+      .eq('email', request.user_email);
+    io.emit('photoRequestUpdated', {
+      id: parseInt(id),
+      user_email: request.user_email,
+      owner_role: rolSolicitud,
+      status: 'approved',
       new_avatar_image: request.new_avatar_image // Crítico para Flutter Provider
     });
   } else {
-    io.emit('photoRequestUpdated', { id: parseInt(id), user_email: request.user_email, status: 'rejected', rejection_reason });
+    io.emit('photoRequestUpdated', { id: parseInt(id), user_email: request.user_email, owner_role: rolSolicitud, status: 'rejected', rejection_reason });
   }
   
   res.json({ success: true, message: `Solicitud ${status}` });

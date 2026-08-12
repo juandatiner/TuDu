@@ -47,8 +47,14 @@ class ApiSinConexion implements Exception {
 class Api {
   static const Duration _tiempoLimite = Duration(seconds: 15);
 
+  /// Casi todo va al backend de aliados (3002). La excepción son las
+  /// solicitudes de cambio de foto: viven en el de users (3000), que es donde
+  /// está la cola única del admin y su Socket.io.
+  static String _baseDe(String ruta) =>
+      ruta.startsWith('/api/photo-change-request') ? Config.usersBaseUrl : Config.baseUrl;
+
   static Uri _uri(String ruta, [Map<String, dynamic>? query]) {
-    final base = Uri.parse('${Config.baseUrl}$ruta');
+    final base = Uri.parse('${_baseDe(ruta)}$ruta');
     if (query == null || query.isEmpty) return base;
 
     return base.replace(queryParameters: {

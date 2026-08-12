@@ -76,6 +76,39 @@ async function subirImagen(supabase, { bucket, dueno, etiqueta, valor }) {
   }
 }
 
+/// Ruta dentro del bucket a partir de lo guardado en la fila: una URL pública
+/// (`.../object/public/<bucket>/<ruta>`) o ya la ruta pelada del bucket privado.
+/// Devuelve null si el valor es base64 heredado — ahí no hay nada que borrar.
+function rutaDeBucket(bucket, valor) {
+  if (!valor || typeof valor !== 'string') return null;
+  if (!valor.startsWith('http')) return esBase64(valor) && valor.length > 500 ? null : valor;
+
+  const marca = `/object/public/${bucket}/`;
+  const corte = valor.indexOf(marca);
+  if (corte === -1) return null;
+
+  return decodeURIComponent(valor.slice(corte + marca.length).split('?')[0]);
+}
+
+/// Borra un archivo de Storage. No lanza: si el archivo ya no está o el valor
+/// era base64 heredado, la fila igual se borra en el llamador.
+async function borrarImagen(supabase, bucket, valor) {
+  const ruta = rutaDeBucket(bucket, valor);
+  if (!ruta) return false;
+
+  try {
+    const { error } = await supabase.storage.from(bucket).remove([ruta]);
+    if (error) {
+      console.warn(`⚠️  No se pudo borrar de Storage (${bucket}/${ruta}): ${error.message}`);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn(`⚠️  Error borrando imagen de Storage: ${e.message}`);
+    return false;
+  }
+}
+
 /// URL temporal para leer un archivo del bucket privado de KYC.
 async function urlFirmada(supabase, bucket, ruta, segundos = 3600) {
   if (!ruta || esBase64(ruta) === false && ruta.startsWith('http')) return ruta;
@@ -89,4 +122,4 @@ async function urlFirmada(supabase, bucket, ruta, segundos = 3600) {
   }
 }
 
-module.exports = { subirImagen, urlFirmada, esBase64 };
+module.exports = { subirImagen, borrarImagen, urlFirmada, esBase64 };

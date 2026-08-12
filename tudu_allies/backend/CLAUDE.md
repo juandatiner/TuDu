@@ -13,6 +13,11 @@
 | GET | `/api/admin/kyc` | Lista aliados con KYC pendiente de revisión |
 | GET | `/api/admin/kyc/:email` | Detalle con URLs firmadas de los 3 documentos |
 | PUT | `/api/admin/kyc/:email` | Aprobar/rechazar (rol admin, `/api/admin/*` exige `req.auth.role === 'admin'`) |
+| GET | `/api/admin/services` | Servicios propuestos + categoría, aliado y pruebas. `?estado=pending` por defecto |
+| PUT | `/api/admin/services/:id` | Aprobar/rechazar/corregir. **Responde 409 `CATEGORIA_PENDIENTE`** si se aprueba con la categoría sin aprobar — quedaría invisible en `GET /categories` de users |
+| PUT | `/api/admin/categories/:id` | Aprobar/rechazar una categoría propuesta. Decisión independiente de la del servicio |
+| POST | `/api/admin/categories` | El admin la crea ya aprobada |
+| DELETE | `/api/admin/portfolio-items/:id` | Borra una prueba puntual (fila + archivo del bucket `portfolio`) sin rechazar el servicio entero |
 | POST | `/ally-service-profile` | |
 | GET | `/services` | |
 | POST | `/services` | Crea servicio nuevo (mín. 2 chars) |

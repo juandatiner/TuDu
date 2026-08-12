@@ -58,6 +58,7 @@ class Api {
     if (ruta.startsWith('/api/admin/kyc') ||
         ruta.startsWith('/api/admin/services') ||
         ruta.startsWith('/api/admin/categories') ||
+        ruta.startsWith('/api/admin/portfolio-items') ||
         ruta.startsWith('/categories')) {
       return Config.alliesBaseUrl;
     }

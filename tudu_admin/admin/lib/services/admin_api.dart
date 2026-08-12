@@ -102,6 +102,9 @@ class ServiciosAdminApi {
 
   /// Aprobar, rechazar o corregir (nombre/descripción/categoría) un servicio
   /// propuesto. Al rechazar, el motivo es obligatorio.
+  /// [campos] marca qué hay que corregir (`name`, `description`, `portfolio`,
+  /// `category`): el aliado ve resaltado eso mismo en su formulario. Obligatorio
+  /// al rechazar.
   static Future<void> revisar(
     int id,
     String estado, {
@@ -109,6 +112,7 @@ class ServiciosAdminApi {
     String? descripcion,
     int? categoryId,
     String? motivo,
+    List<String>? campos,
   }) =>
       Api.put('/api/admin/services/$id', {
         'status': estado,
@@ -116,7 +120,12 @@ class ServiciosAdminApi {
         'description': descripcion,
         'category_id': categoryId,
         'admin_note': motivo,
+        'rejected_fields': campos,
       });
+
+  /// Borra una prueba concreta del portafolio: deja aprobar un servicio bueno
+  /// al que se le coló una foto que no corresponde.
+  static Future<void> borrarFoto(int id) => Api.delete('/api/admin/portfolio-items/$id');
 }
 
 /// Revisión de categorías propuestas por aliados. Decisión independiente de

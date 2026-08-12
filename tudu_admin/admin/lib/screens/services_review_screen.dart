@@ -58,12 +58,14 @@ class _ServiciosReviewScreenState extends State<ServiciosReviewScreen> {
   }
 
   Future<void> _abrirDetalle(Map<String, dynamic> servicio) async {
-    final revisado = await Navigator.push<bool>(
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => _DetalleServicioScreen(servicio: servicio)),
     );
 
-    if (revisado == true) _cargar();
+    // Siempre se recarga: en el detalle se puede haber decidido el servicio, la
+    // categoría o borrado una prueba, y salir con gesto no devuelve resultado.
+    if (mounted) _cargar();
   }
 
   @override
@@ -271,6 +273,15 @@ class _ServiciosReviewScreenState extends State<ServiciosReviewScreen> {
   }
 }
 
+/// Lo que devuelve el diálogo de rechazo: el motivo escrito y los campos que
+/// el admin marcó para corregir.
+class _Rechazo {
+  final String motivo;
+  final List<String> campos;
+
+  const _Rechazo(this.motivo, this.campos);
+}
+
 /// Detalle de un servicio propuesto: categoría (con opción de redirigir),
 /// nombre/descripción editables, pruebas y la decisión final.
 class _DetalleServicioScreen extends StatefulWidget {
@@ -293,12 +304,29 @@ class _DetalleServicioScreenState extends State<_DetalleServicioScreen> {
   bool _redirigiendoCategoria = false;
   bool _enviando = false;
 
+  /// Copias mutables: la categoría se puede aprobar sin salir de la pantalla y
+  /// las pruebas se pueden borrar de a una, así que no se puede leer siempre
+  /// del mapa que llegó por parámetro.
+  Map<String, dynamic>? _categoria;
+  List<Map<String, dynamic>> _fotos = [];
+  bool _revisandoCategoria = false;
+
+  /// La categoría con la que el servicio quedaría al aprobarlo: la redirigida
+  /// si el admin eligió otra, si no la que propuso el aliado.
+  Map<String, dynamic>? get _categoriaFinal => _categoriaElegida ?? _categoria;
+
+  bool get _categoriaResuelta => _categoriaFinal?['review_status'] == 'approved';
+
   @override
   void initState() {
     super.initState();
     _nombreController = TextEditingController(text: widget.servicio['name'] ?? '');
     _descripcionController =
         TextEditingController(text: widget.servicio['description'] ?? '');
+    _categoria = widget.servicio['category'] as Map<String, dynamic>?;
+    _fotos = ((widget.servicio['portfolio'] as List?) ?? [])
+        .cast<Map<String, dynamic>>()
+        .toList();
     _buscarCategoriaController.addListener(_filtrarCategorias);
     _cargarCategorias();
   }
@@ -331,12 +359,106 @@ class _DetalleServicioScreenState extends State<_DetalleServicioScreen> {
     });
   }
 
-  Future<void> _revisar(String estado) async {
+  /// Aprueba o rechaza la categoría que propuso el aliado, sin tocar el
+  /// servicio: son dos decisiones separadas ("la categoría sirve, el servicio
+  /// no" es un caso normal).
+  Future<void> _revisarCategoria(String estado) async {
+    final categoria = _categoria;
+    if (categoria == null) return;
+
     String? motivo;
+    if (estado == 'rejected') {
+      motivo = await _pedirMotivo(
+        titulo: 'Motivo del rechazo de la categoría',
+        ayuda: 'El aliado verá este mensaje. Si la categoría ya existe con otro '
+            'nombre, mejor usá "redirigir" en vez de rechazarla.',
+      );
+      if (motivo == null) return;
+    }
+
+    setState(() => _revisandoCategoria = true);
+
+    try {
+      await CategoriasAdminApi.revisar(
+        categoria['id'],
+        estado,
+        nombre: categoria['name'],
+        motivo: motivo,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _categoria = {...categoria, 'review_status': estado};
+        _revisandoCategoria = false;
+      });
+      _avisar(
+        estado == 'approved' ? 'Categoría aprobada' : 'Categoría rechazada',
+        esError: estado != 'approved',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _revisandoCategoria = false);
+      _avisar(e is ApiException ? e.message : 'No se pudo revisar la categoría',
+          esError: true);
+    }
+  }
+
+  /// Borra una prueba puntual. Evita rechazar un servicio entero por una sola
+  /// foto que no corresponde.
+  Future<void> _borrarFoto(Map<String, dynamic> foto) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('¿Borrar esta prueba?'),
+        content: const Text(
+          'Se borra del portafolio del aliado y del almacenamiento. No se puede deshacer.',
+          style: TextStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Borrar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmado != true) return;
+
+    try {
+      await ServiciosAdminApi.borrarFoto(foto['id']);
+      if (!mounted) return;
+      setState(() => _fotos.removeWhere((f) => f['id'] == foto['id']));
+      _avisar('Prueba borrada');
+    } catch (e) {
+      if (!mounted) return;
+      _avisar(e is ApiException ? e.message : 'No se pudo borrar la foto', esError: true);
+    }
+  }
+
+  Future<void> _revisar(String estado) async {
+    // El backend rechaza aprobar un servicio con la categoría sin resolver
+    // (quedaría invisible para los usuarios); acá se avisa antes de gastar el
+    // viaje, explicando las dos salidas.
+    if (estado == 'approved' && !_categoriaResuelta) {
+      _avisar(
+        'Primero resolvé la categoría: aprobala o redirigí el servicio a una existente.',
+        esError: true,
+      );
+      return;
+    }
+
+    String? motivo;
+    List<String>? campos;
 
     if (estado == 'rejected') {
-      motivo = await _pedirMotivo();
-      if (motivo == null) return;
+      final rechazo = await _pedirRechazo();
+      if (rechazo == null) return;
+      motivo = rechazo.motivo;
+      campos = rechazo.campos;
     }
 
     setState(() => _enviando = true);
@@ -349,7 +471,29 @@ class _DetalleServicioScreenState extends State<_DetalleServicioScreen> {
         descripcion: _descripcionController.text.trim(),
         categoryId: _categoriaElegida?['id'],
         motivo: motivo,
+        campos: campos,
       );
+
+      // Redirigir deja la categoría propuesta sin usar: si no se resuelve acá,
+      // se queda pendiente para siempre en la cola del admin.
+      final propuesta = _categoria;
+      if (_categoriaElegida != null &&
+          propuesta != null &&
+          propuesta['review_status'] != 'approved' &&
+          propuesta['id'] != _categoriaElegida!['id']) {
+        try {
+          await CategoriasAdminApi.revisar(
+            propuesta['id'],
+            'rejected',
+            nombre: propuesta['name'],
+            motivo: 'Ya existe como "${_categoriaElegida!['name']}" — '
+                'el servicio se movió a esa categoría.',
+          );
+        } catch (_) {
+          // La decisión del servicio ya quedó guardada: que falle el descarte de
+          // la categoría no debe deshacerla ni bloquear al admin.
+        }
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -373,20 +517,116 @@ class _DetalleServicioScreenState extends State<_DetalleServicioScreen> {
     }
   }
 
-  Future<String?> _pedirMotivo() {
+  void _avisar(String mensaje, {bool esError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(mensaje),
+      backgroundColor: esError ? Colors.red : Colors.green,
+    ));
+  }
+
+  /// Rechazo de un servicio: motivo en prosa + los campos concretos a corregir.
+  /// Sin los campos el aliado lee "las fotos no corresponden" y no sabe si
+  /// tiene que rehacer también el nombre o la descripción.
+  Future<_Rechazo?> _pedirRechazo() {
+    final controlador = TextEditingController();
+    final seleccionados = <String>{};
+
+    const campos = {
+      'name': 'Nombre',
+      'description': 'Descripción',
+      'portfolio': 'Fotos de prueba',
+      'category': 'Categoría',
+    };
+
+    return showDialog<_Rechazo>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Rechazar servicio'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('¿Qué tiene que corregir el aliado?',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: campos.entries.map((c) {
+                    final activo = seleccionados.contains(c.key);
+                    return FilterChip(
+                      label: Text(c.value, style: const TextStyle(fontSize: 12)),
+                      selected: activo,
+                      selectedColor: Config.primaryColor.withOpacity(0.25),
+                      checkmarkColor: Colors.black87,
+                      onSelected: (_) => setStateDialog(() {
+                        activo ? seleccionados.remove(c.key) : seleccionados.add(c.key);
+                      }),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'El aliado verá este mensaje y los campos marcados, y podrá corregir y reenviar.',
+                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: controlador,
+                  maxLines: 3,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Ej: las fotos parecen generadas con IA',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                final texto = controlador.text.trim();
+                if (texto.isEmpty || seleccionados.isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('Marcá al menos un campo y escribí el motivo'),
+                    backgroundColor: Colors.red,
+                  ));
+                  return;
+                }
+                Navigator.pop(ctx, _Rechazo(texto, seleccionados.toList()));
+              },
+              child: const Text('Rechazar', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _pedirMotivo({
+    String titulo = 'Motivo del rechazo',
+    String ayuda =
+        'El aliado verá este mensaje: fotos inapropiadas, contenido generado con IA, texto ofensivo, etc.',
+  }) {
     final controlador = TextEditingController();
 
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Motivo del rechazo'),
+        title: Text(titulo),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'El aliado verá este mensaje: fotos inapropiadas, contenido generado con IA, texto ofensivo, etc.',
-              style: TextStyle(fontSize: 13, color: Colors.black54),
+            Text(
+              ayuda,
+              style: const TextStyle(fontSize: 13, color: Colors.black54),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -419,10 +659,9 @@ class _DetalleServicioScreenState extends State<_DetalleServicioScreen> {
   @override
   Widget build(BuildContext context) {
     final s = widget.servicio;
-    final categoria = s['category'] as Map<String, dynamic>?;
     final aliado = s['allies'] as Map<String, dynamic>?;
-    final fotos = (s['portfolio'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-    final categoriaPendiente = categoria == null || categoria['review_status'] != 'approved';
+    final fotos = _fotos;
+    final categoriaPendiente = !_categoriaResuelta;
 
     return Scaffold(
       backgroundColor: Config.backgroundColor,
@@ -434,7 +673,7 @@ class _DetalleServicioScreenState extends State<_DetalleServicioScreen> {
         children: [
           if (aliado != null) _bloqueAliado(aliado),
           const SizedBox(height: 16),
-          _bloqueCategoria(categoria, categoriaPendiente),
+          _bloqueCategoria(_categoria, categoriaPendiente),
           const SizedBox(height: 16),
           const Text('Nombre y descripción',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -458,6 +697,11 @@ class _DetalleServicioScreenState extends State<_DetalleServicioScreen> {
           const SizedBox(height: 20),
           Text('Pruebas (${fotos.length})',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          const Text(
+            'Tocá una para verla grande. La ✕ la borra sin rechazar el servicio entero.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
           const SizedBox(height: 10),
           fotos.isEmpty
               ? Container(
@@ -476,17 +720,35 @@ class _DetalleServicioScreenState extends State<_DetalleServicioScreen> {
                     mainAxisSpacing: 8,
                   ),
                   itemCount: fotos.length,
-                  itemBuilder: (_, i) => ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: InkWell(
-                      onTap: () => _verGrande(fotos[i]['image_path']),
-                      child: Image.network(
-                        fotos[i]['image_path'],
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            const Center(child: Icon(Icons.broken_image_outlined)),
+                  itemBuilder: (_, i) => Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          onTap: () => _verGrande(fotos[i]['image_path']),
+                          child: Image.network(
+                            fotos[i]['image_path'],
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const Center(child: Icon(Icons.broken_image_outlined)),
+                          ),
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: GestureDetector(
+                          onTap: () => _borrarFoto(fotos[i]),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                                color: Colors.black54, shape: BoxShape.circle),
+                            child: const Icon(Icons.close, size: 14, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
           if (s['admin_note'] != null) ...[
@@ -575,30 +837,97 @@ class _DetalleServicioScreenState extends State<_DetalleServicioScreen> {
               children: [
                 const Text('Categoría', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(width: 8),
-                if (pendiente)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-                    child: const Text('Propuesta nueva',
-                        style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold)),
-                  ),
+                _insigniaCategoria(categoria),
               ],
             ),
             const SizedBox(height: 6),
             Text(
               _categoriaElegida != null
-                  ? '→ ${_categoriaElegida!['name']}'
+                  ? '${categoria?['name'] ?? 'Sin categoría'}  →  ${_categoriaElegida!['name']}'
                   : (categoria?['name'] ?? 'Sin categoría'),
               style: const TextStyle(fontSize: 15),
             ),
-            if (pendiente) ...[
+            if (_categoriaElegida != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Al guardar, el servicio queda en "${_categoriaElegida!['name']}" y '
+                '"${categoria?['name'] ?? ''}" se descarta como duplicada.',
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ],
+            // El aliado propuso una categoría que no existía: hay que decidirla
+            // antes de aprobar el servicio, o el servicio queda invisible para
+            // los usuarios (`GET /categories` solo devuelve las aprobadas).
+            if (pendiente && _categoriaElegida == null && categoria != null) ...[
+              const SizedBox(height: 4),
+              const Text(
+                'Decidila antes de aprobar el servicio: aprobala si es una categoría '
+                'que falta en el catálogo, o redirigí el servicio si ya existe con otro nombre.',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              const SizedBox(height: 10),
+              if (_revisandoCategoria)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Config.primaryColor),
+                  ),
+                )
+              else if (categoria['review_status'] == 'pending')
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _revisarCategoria('approved'),
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text('Aprobar categoría'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.green,
+                          side: const BorderSide(color: Colors.green),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _revisarCategoria('rejected'),
+                        icon: const Icon(Icons.close, size: 18),
+                        label: const Text('Rechazar'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'Categoría rechazada: el servicio no se puede aprobar acá. '
+                    'Redirigilo a una categoría existente o rechazalo también.',
+                    style: TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
+                ),
+            ],
+            // Se sigue mostrando con la redirección ya elegida: si no, aceptar
+            // una categoría existente escondería el botón de deshacerla.
+            if (pendiente || _categoriaElegida != null) ...[
               const SizedBox(height: 10),
               if (!_redirigiendoCategoria)
                 TextButton.icon(
                   onPressed: () => setState(() => _redirigiendoCategoria = true),
                   icon: const Icon(Icons.swap_horiz, size: 18),
-                  label: const Text('Esto ya existe con otro nombre — redirigir'),
+                  label: Text(_categoriaElegida != null
+                      ? 'Elegir otra categoría'
+                      : 'Esto ya existe con otro nombre — redirigir'),
                 )
               else ...[
                 TextField(
@@ -643,6 +972,35 @@ class _DetalleServicioScreenState extends State<_DetalleServicioScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Estado de la categoría en el momento: propuesta por el aliado, ya aprobada
+  /// (existía o la acaba de aprobar el admin) o rechazada.
+  static Widget _insigniaCategoria(Map<String, dynamic>? categoria) {
+    late final Color color;
+    late final String texto;
+
+    switch (categoria?['review_status']) {
+      case 'approved':
+        color = Colors.green;
+        texto = 'Del catálogo';
+        break;
+      case 'rejected':
+        color = Colors.red;
+        texto = 'Rechazada';
+        break;
+      default:
+        color = Colors.orange;
+        texto = 'Propuesta nueva';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+          color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+      child: Text(texto,
+          style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
     );
   }
 

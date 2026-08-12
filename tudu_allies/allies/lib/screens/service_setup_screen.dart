@@ -46,11 +46,6 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
       TextEditingController();
   final TextEditingController _nuevoServicioDescripcionController =
       TextEditingController();
-  final TextEditingController _nombreComercialController =
-      TextEditingController();
-  final TextEditingController _frasePresentacionController =
-      TextEditingController();
-  final TextEditingController _resumenController = TextEditingController();
 
   // Categoría
   List<Map<String, dynamic>> _categorias = [];
@@ -80,9 +75,6 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
   String? _errorNuevoServicioNombre;
   String? _errorNuevoServicioDescripcion;
   String? _errorPortafolio;
-  String? _errorNombreComercial;
-  String? _errorFrase;
-  String? _errorResumen;
   String? _avisoGeneral;
 
   bool get _categoriaEsAprobada =>
@@ -103,9 +95,6 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     _nuevaCategoriaController.dispose();
     _nuevoServicioNombreController.dispose();
     _nuevoServicioDescripcionController.dispose();
-    _nombreComercialController.dispose();
-    _frasePresentacionController.dispose();
-    _resumenController.dispose();
     super.dispose();
   }
 
@@ -287,16 +276,10 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
   /// El aviso general solo tiene sentido mientras quede algún campo en rojo.
   void _revisarAviso() {
     if (_errorCategoria == null &&
-        _errorServicio == null &&
-        _errorNombreComercial == null &&
-        _errorFrase == null &&
-        _errorResumen == null) {
+        _errorServicio == null) {
       _avisoGeneral = null;
     }
   }
-
-  int _contarPalabras(String texto) =>
-      texto.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
 
   Future<void> _guardarYContinuar() async {
     // Todo se revisa de una sola pasada: lo que falte queda marcado en rojo.
@@ -306,45 +289,17 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     final errorServicio =
         _servicioSeleccionado == null ? Validacion.requerido : null;
 
-    final nombreTexto = _nombreComercialController.text.trim();
-    final errorNombre = nombreTexto.isEmpty
-        ? Validacion.requerido
-        : (nombreTexto.length < 3
-            ? context.tr('commercial_name_too_short')
-            : null);
-
-    final fraseTexto = _frasePresentacionController.text.trim();
-    final errorFrase = fraseTexto.isEmpty
-        ? Validacion.requerido
-        : (_contarPalabras(fraseTexto) < 3
-            ? context.tr('pitch_too_short')
-            : null);
-
-    final resumenTexto = _resumenController.text.trim();
-    final errorResumen = resumenTexto.isEmpty
-        ? Validacion.requerido
-        : (_contarPalabras(resumenTexto) < 15
-            ? context.tr('summary_too_short')
-            : null);
-
     final faltanFotos = _servicioSeleccionado != null &&
         _fotosYaSubidasParaServicioId != _servicioSeleccionado!['id'] &&
         _fotosPortafolio.isEmpty;
     final errorFotos = faltanFotos ? context.tr('portfolio_required') : null;
 
-    final hayErrores = errorCategoria != null ||
-        errorServicio != null ||
-        errorNombre != null ||
-        errorFrase != null ||
-        errorResumen != null ||
-        errorFotos != null;
+    final hayErrores =
+        errorCategoria != null || errorServicio != null || errorFotos != null;
 
     setState(() {
       _errorCategoria = errorCategoria;
       _errorServicio = errorServicio;
-      _errorNombreComercial = errorNombre;
-      _errorFrase = errorFrase;
-      _errorResumen = errorResumen;
       _errorPortafolio = errorFotos;
       _avisoGeneral = hayErrores ? Validacion.textoCamposFaltantes : null;
     });
@@ -358,12 +313,11 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
         _fotosPortafolio.map((f) async => base64Encode(await f.readAsBytes())),
       );
 
+      // Nombre comercial, frase y experiencia ya no viajan acá: se piden una
+      // sola vez en el paso de perfil y el backend los copia desde `allies`.
       await AliadoApi.crearPerfilServicio({
         'email': widget.email,
         'service_id': _servicioSeleccionado!['id'],
-        'nombre_comercial': _nombreComercialController.text.trim(),
-        'frase_presentacion': _frasePresentacionController.text.trim(),
-        'resumen': _resumenController.text.trim(),
         'images': imagenes,
       });
 
@@ -632,103 +586,6 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
                       if (_servicioSeleccionado == null) _buildCrearServicio(),
                       const SizedBox(height: 24),
                     ],
-
-                    // ─── Nombre comercial ─────────────────────────────────
-                    Text(
-                      context.tr('your_business_name'),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _nombreComercialController,
-                      maxLength: 50,
-                      textCapitalization: TextCapitalization.words,
-                      onChanged: (_) => setState(() {
-                        _errorNombreComercial = null;
-                        _revisarAviso();
-                      }),
-                      decoration: Validacion.decorar(
-                        _inputDeco(
-                          context.tr('commercial_name'),
-                          hint: context.tr('commercial_name_hint'),
-                        ),
-                        error: _errorNombreComercial,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ─── Frase de presentación ────────────────────────────
-                    Text(
-                      context.tr('pitch_title'),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      context.tr('pitch_help'),
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.black.withOpacity(0.45)),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _frasePresentacionController,
-                      maxLength: 80,
-                      onChanged: (_) => setState(() {
-                        _errorFrase = null;
-                        _revisarAviso();
-                      }),
-                      decoration: Validacion.decorar(
-                        _inputDeco(
-                          context.tr('pitch_label'),
-                          hint: context.tr('pitch_hint'),
-                        ),
-                        error: _errorFrase,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ─── Resumen del perfil ───────────────────────────────
-                    Text(
-                      context.tr('summary_title'),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      context.tr('summary_help'),
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.black.withOpacity(0.45),
-                          height: 1.4),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _resumenController,
-                      maxLength: 400,
-                      maxLines: 5,
-                      textCapitalization: TextCapitalization.sentences,
-                      onChanged: (_) => setState(() {
-                        _errorResumen = null;
-                        _revisarAviso();
-                      }),
-                      decoration: Validacion.decorar(
-                        _inputDeco(
-                          context.tr('summary_label'),
-                          hint: context.tr('summary_hint'),
-                        ),
-                        error: _errorResumen,
-                      ),
-                    ),
 
                     // Aviso informativo
                     const SizedBox(height: 12),

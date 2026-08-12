@@ -525,14 +525,140 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _newServices = _services.length > 5
               ? _services.sublist(_services.length - 5)
               : _services;
-          _suggestedServices = List.from(_services)
-            ..shuffle()
-            ..take(5).toList();
+          _suggestedServices = (List<Service>.from(_services)..shuffle())
+              .take(5)
+              .toList();
         });
       }
     } catch (e) {
       debugPrint('Error cargando servicios: $e');
     }
+  }
+
+  Widget _buildCarruselServicios({
+    required ThemeProvider themeProvider,
+    required List<Service> servicios,
+    required PageController controller,
+    required Color colorAcento,
+    required int paginaActual,
+  }) {
+    if (servicios.isEmpty) {
+      return Container(
+        height: 150,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: themeProvider.cardBgColor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          AppLocalizations.of(context)?.translate('no_services') ??
+              'No hay servicios disponibles',
+          style: TextStyle(color: themeProvider.secondaryTextColor),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 150,
+          child: PageView.builder(
+            controller: controller,
+            itemCount: servicios.length,
+            itemBuilder: (context, index) {
+              final service = servicios[index];
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          AlliesByServiceScreen(service: service),
+                    ),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 5),
+                  decoration: BoxDecoration(
+                    color: themeProvider.cardBgColor,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: themeProvider.shadowColor,
+                        spreadRadius: 1,
+                        blurRadius: 3,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: colorAcento, // Placeholder
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(10),
+                              bottomLeft: Radius.circular(10),
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              AppLocalizations.of(context)
+                                      ?.translate('image') ??
+                                  'Imagen',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                service.name,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: themeProvider.textColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(servicios.length, (index) {
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: paginaActual == index
+                    ? colorAcento
+                    : themeProvider.secondaryTextColor,
+              ),
+            );
+          }),
+        ),
+      ],
+    );
   }
 
   @override
@@ -660,112 +786,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 10),
                 // Carrusel Sugerencias
-                SizedBox(
-                  height: 150,
-                  child: PageView.builder(
-                    controller: _suggestionsController,
-                    itemCount: 5,
-                    itemBuilder: (context, index) {
-                      final service = index < _suggestedServices.length
-                          ? _suggestedServices[index]
-                          : null;
-                      return GestureDetector(
-                        onTap: () {
-                          if (service != null) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    AlliesByServiceScreen(service: service),
-                              ),
-                            );
-                          }
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 5),
-                          decoration: BoxDecoration(
-                            color: themeProvider.cardBgColor,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: themeProvider.shadowColor,
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 1,
-                                child: Container(
-                                  decoration: const BoxDecoration(
-                                    color: Colors.blue, // Placeholder
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: Radius.circular(10),
-                                      bottomLeft: Radius.circular(10),
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      AppLocalizations.of(context)
-                                              ?.translate('image') ??
-                                          'Imagen',
-                                      style:
-                                          const TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 1,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        service?.name ??
-                                            AppLocalizations.of(context)
-                                                ?.translate('home_service') ??
-                                            'Servicio de hogar',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: themeProvider.textColor,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 10),
-                // Indicadores de página para Sugerencias
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (index) {
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _suggestionsCurrentPage == index
-                            ? Colors.blue
-                            : themeProvider.secondaryTextColor,
-                      ),
-                    );
-                  }),
+                _buildCarruselServicios(
+                  themeProvider: themeProvider,
+                  servicios: _suggestedServices,
+                  controller: _suggestionsController,
+                  colorAcento: Colors.blue,
+                  paginaActual: _suggestionsCurrentPage,
                 ),
                 const SizedBox(height: 10),
                 // Sección Nuevos Servicios
@@ -786,112 +812,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 10),
                 // Carrusel Nuevos Servicios
-                SizedBox(
-                  height: 150,
-                  child: PageView.builder(
-                    controller: _newServicesController,
-                    itemCount: 5,
-                    itemBuilder: (context, index) {
-                      final service = index < _newServices.length
-                          ? _newServices[index]
-                          : null;
-                      return GestureDetector(
-                        onTap: () {
-                          if (service != null) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    AlliesByServiceScreen(service: service),
-                              ),
-                            );
-                          }
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 5),
-                          decoration: BoxDecoration(
-                            color: themeProvider.cardBgColor,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: themeProvider.shadowColor,
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 1,
-                                child: Container(
-                                  decoration: const BoxDecoration(
-                                    color: Colors.green, // Placeholder
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: Radius.circular(10),
-                                      bottomLeft: Radius.circular(10),
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      AppLocalizations.of(context)
-                                              ?.translate('image') ??
-                                          'Imagen',
-                                      style:
-                                          const TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 1,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        service?.name ??
-                                            AppLocalizations.of(context)
-                                                ?.translate('home_service') ??
-                                            'Servicio de hogar',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: themeProvider.textColor,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 10),
-                // Indicadores de página para Nuevos Servicios
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (index) {
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _newServicesCurrentPage == index
-                            ? Colors.green
-                            : themeProvider.secondaryTextColor,
-                      ),
-                    );
-                  }),
+                _buildCarruselServicios(
+                  themeProvider: themeProvider,
+                  servicios: _newServices,
+                  controller: _newServicesController,
+                  colorAcento: Colors.green,
+                  paginaActual: _newServicesCurrentPage,
                 ),
                 const SizedBox(height: 10),
                 // Sección "¿No encuentras lo que buscas?"

@@ -1,0 +1,428 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+
+import '../l10n/app_localizations.dart';
+import '../services/api.dart';
+import '../services/ally_api.dart';
+import '../services/ally_routing.dart';
+import '../services/session_service.dart';
+import '../widgets/camera_capture_mixin.dart';
+import '../widgets/validacion_formulario.dart';
+
+/// Perfil comercial del aliado: foto, cómo se presenta y su experiencia.
+///
+/// Va entre el KYC y el primer servicio. Estos datos describen al aliado, no al
+/// servicio: antes se pedían dentro del formulario de cada servicio y había que
+/// reescribirlos por cada uno aunque la respuesta fuera siempre la misma.
+class AllyProfileSetupScreen extends StatefulWidget {
+  final String email;
+
+  /// Datos ya guardados (cuando vuelve a esta pantalla a completar algo).
+  final Map<String, dynamic>? perfil;
+
+  const AllyProfileSetupScreen({super.key, required this.email, this.perfil});
+
+  @override
+  State<AllyProfileSetupScreen> createState() => _AllyProfileSetupScreenState();
+}
+
+class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
+    with CameraCaptureMixin {
+  static const Color _brandColor = Color(0xFF78BF32);
+  static const Color _bgColor = Color(0xFFF4F2F2);
+
+  late final TextEditingController _nombreComercialController;
+  late final TextEditingController _frasePresentacionController;
+  late final TextEditingController _resumenController;
+
+  File? _foto;
+  String? _fotoActualUrl;
+  bool _guardando = false;
+
+  String? _errorFoto;
+  String? _errorNombreComercial;
+  String? _errorFrase;
+  String? _errorResumen;
+  String? _avisoGeneral;
+
+  @override
+  void initState() {
+    super.initState();
+    detectarDispositivo();
+    final p = widget.perfil ?? const {};
+    _nombreComercialController = TextEditingController(text: p['nombre_comercial'] ?? '');
+    _frasePresentacionController =
+        TextEditingController(text: p['frase_presentacion'] ?? '');
+    _resumenController = TextEditingController(text: p['resumen'] ?? '');
+    _fotoActualUrl = p['avatar_image'] as String?;
+  }
+
+  @override
+  void dispose() {
+    _nombreComercialController.dispose();
+    _frasePresentacionController.dispose();
+    _resumenController.dispose();
+    super.dispose();
+  }
+
+  int _contarPalabras(String texto) =>
+      texto.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+
+  Future<void> _elegirFoto(ImageSource source) async {
+    await tomarFoto(
+      etiqueta: 'PERFIL',
+      source: source,
+      onListo: (f) {
+        _foto = f;
+        _errorFoto = null;
+        _revisarAviso();
+      },
+    );
+  }
+
+  /// El aviso general solo tiene sentido mientras quede algún campo en rojo.
+  void _revisarAviso() {
+    if (_errorFoto == null &&
+        _errorNombreComercial == null &&
+        _errorFrase == null &&
+        _errorResumen == null) {
+      _avisoGeneral = null;
+    }
+  }
+
+  Future<void> _guardar() async {
+    // Todo se revisa de una pasada: lo que falte queda marcado en rojo.
+    final nombre = _nombreComercialController.text.trim();
+    final frase = _frasePresentacionController.text.trim();
+    final resumen = _resumenController.text.trim();
+
+    final errorFoto =
+        (_foto == null && (_fotoActualUrl ?? '').isEmpty) ? context.tr('photo_required') : null;
+    final errorNombre = nombre.isEmpty
+        ? Validacion.requerido
+        : (nombre.length < 3 ? context.tr('commercial_name_too_short') : null);
+    final errorFrase = frase.isEmpty
+        ? Validacion.requerido
+        : (_contarPalabras(frase) < 3 ? context.tr('pitch_too_short') : null);
+    final errorResumen = resumen.isEmpty
+        ? Validacion.requerido
+        : (_contarPalabras(resumen) < 15 ? context.tr('summary_too_short') : null);
+
+    final hayErrores = errorFoto != null ||
+        errorNombre != null ||
+        errorFrase != null ||
+        errorResumen != null;
+
+    setState(() {
+      _errorFoto = errorFoto;
+      _errorNombreComercial = errorNombre;
+      _errorFrase = errorFrase;
+      _errorResumen = errorResumen;
+      _avisoGeneral = hayErrores ? Validacion.textoCamposFaltantes : null;
+    });
+
+    if (hayErrores) return;
+
+    setState(() => _guardando = true);
+
+    try {
+      await AliadoApi.guardarPerfil(
+        email: widget.email,
+        nombreComercial: nombre,
+        frasePresentacion: frase,
+        resumen: resumen,
+      );
+
+      // La foto no se guarda directo: la revisa el admin, igual que la de un
+      // cliente. Hasta que la apruebe, el perfil la muestra como "en revisión".
+      if (_foto != null) {
+        await SolicitudFotoAliadoService.crear(
+          widget.email,
+          base64Encode(await _foto!.readAsBytes()),
+        );
+      }
+
+      if (!mounted) return;
+      // La sesión se registra acá y no en el paso del servicio: a partir de
+      // este punto el aliado ya tiene identidad propia en la app.
+      await Provider.of<SessionService>(context, listen: false)
+          .registerSession(widget.email);
+
+      if (!mounted) return;
+      final destino = await AllyRouting.resolveDestination(widget.email);
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => destino,
+          transitionsBuilder: (_, animation, __, child) =>
+              FadeTransition(opacity: animation, child: child),
+          transitionDuration: const Duration(milliseconds: 400),
+        ),
+        (route) => false,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _guardando = false;
+        _avisoGeneral = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _guardando = false;
+        _avisoGeneral = context.tr('connection_error');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _bgColor,
+      appBar: AppBar(
+        backgroundColor: _bgColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 40,
+        centerTitle: true,
+        title: const Text(
+          'TuDu',
+          style: TextStyle(fontFamily: 'TitanOne', fontSize: 26, color: _brandColor),
+        ),
+        automaticallyImplyLeading: false,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                context.tr('ally_profile_title'),
+                style: const TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                context.tr('ally_profile_intro'),
+                style: TextStyle(
+                    fontSize: 14, color: Colors.black.withOpacity(0.55), height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              _buildFoto(),
+              const SizedBox(height: 8),
+              Text(
+                context.tr('photo_needs_review'),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11.5, color: Colors.black.withOpacity(0.45)),
+              ),
+              if (_errorFoto != null) ...[
+                const SizedBox(height: 8),
+                Text(_errorFoto!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: Validacion.colorError)),
+              ],
+              const SizedBox(height: 28),
+
+              // ─── Nombre comercial ─────────────────────────────────────
+              _etiqueta(context.tr('your_business_name')),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _nombreComercialController,
+                maxLength: 50,
+                textCapitalization: TextCapitalization.words,
+                onChanged: (_) => setState(() {
+                  _errorNombreComercial = null;
+                  _revisarAviso();
+                }),
+                decoration: Validacion.decorar(
+                  _inputDeco(context.tr('commercial_name'),
+                      hint: context.tr('commercial_name_hint')),
+                  error: _errorNombreComercial,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ─── Frase de presentación ────────────────────────────────
+              _etiqueta(context.tr('pitch_title')),
+              const SizedBox(height: 6),
+              _ayuda(context.tr('pitch_help')),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _frasePresentacionController,
+                maxLength: 80,
+                onChanged: (_) => setState(() {
+                  _errorFrase = null;
+                  _revisarAviso();
+                }),
+                decoration: Validacion.decorar(
+                  _inputDeco(context.tr('pitch_label'), hint: context.tr('pitch_hint')),
+                  error: _errorFrase,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ─── Resumen / experiencia ────────────────────────────────
+              _etiqueta(context.tr('summary_title')),
+              const SizedBox(height: 6),
+              _ayuda(context.tr('summary_help')),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _resumenController,
+                maxLength: 400,
+                maxLines: 5,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() {
+                  _errorResumen = null;
+                  _revisarAviso();
+                }),
+                decoration: Validacion.decorar(
+                  _inputDeco(context.tr('summary_label'), hint: context.tr('summary_hint')),
+                  error: _errorResumen,
+                ),
+              ),
+
+              if (_avisoGeneral != null) ...[
+                const SizedBox(height: 16),
+                Validacion.aviso(_avisoGeneral!),
+              ],
+
+              const SizedBox(height: 28),
+              ElevatedButton(
+                onPressed: _guardando ? null : _guardar,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _brandColor,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 52),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: _guardando
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(context.tr('continue_to_service'),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _etiqueta(String texto) => Text(
+        texto,
+        style: const TextStyle(
+            fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black87),
+      );
+
+  Widget _ayuda(String texto) => Text(
+        texto,
+        style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.45), height: 1.4),
+      );
+
+  Widget _buildFoto() {
+    final borde = _errorFoto != null ? Validacion.colorError : _brandColor;
+
+    return Center(
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: _elegirOrigen,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                border: Border.all(color: borde, width: 2),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: _foto != null
+                  ? Image.file(_foto!, fit: BoxFit.cover)
+                  : ((_fotoActualUrl ?? '').isNotEmpty
+                      ? Image.network(_fotoActualUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _placeholderFoto())
+                      : _placeholderFoto()),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: _elegirOrigen,
+            icon: const Icon(Icons.photo_camera_outlined, size: 18),
+            label: Text(
+              _foto != null || (_fotoActualUrl ?? '').isNotEmpty
+                  ? context.tr('change_photo')
+                  : context.tr('add_profile_photo'),
+            ),
+            style: TextButton.styleFrom(foregroundColor: _brandColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _placeholderFoto() => Icon(
+        Icons.person_outline,
+        size: 54,
+        color: Colors.black.withOpacity(0.25),
+      );
+
+  void _elegirOrigen() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: Text(context.tr('camera')),
+              onTap: () {
+                Navigator.pop(ctx);
+                _elegirFoto(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: Text(context.tr('gallery')),
+              onTap: () {
+                Navigator.pop(ctx);
+                _elegirFoto(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDeco(String label, {String? hint}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.black26),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _brandColor, width: 1.6),
+      ),
+    );
+  }
+}

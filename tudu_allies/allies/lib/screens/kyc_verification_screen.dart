@@ -14,7 +14,12 @@ import 'service_setup_screen.dart';
 class KycVerificationScreen extends StatefulWidget {
   final String email;
 
-  const KycVerificationScreen({super.key, required this.email});
+  /// Motivo escrito por el admin cuando el KYC fue rechazado. Sin esto el
+  /// aliado volvía al mismo formulario sin saber qué había fallado y reenviaba
+  /// las mismas fotos.
+  final String? motivoRechazo;
+
+  const KycVerificationScreen({super.key, required this.email, this.motivoRechazo});
 
   @override
   State<KycVerificationScreen> createState() => _KycVerificationScreenState();
@@ -222,6 +227,43 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+              // Rechazo anterior: va arriba de todo, antes del título, porque
+              // es la razón por la que el aliado está viendo esta pantalla otra vez.
+              if ((widget.motivoRechazo ?? '').isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.error_outline, size: 18, color: Colors.red),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(context.tr('kyc_rejected_title'),
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(widget.motivoRechazo!,
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.black.withOpacity(0.75),
+                              height: 1.4)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               // Título
               Text(context.tr('identity_verification'),
                 style: TextStyle(

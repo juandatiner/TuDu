@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const compression = require('compression'); // Acelera cargas de Base64 reduciendo 80%
 const { corsOptions, corsSocket, avisarConfiguracion } = require('./cors_config');
-const { subirImagen, urlFirmada } = require('./storage');
+const { subirImagen, borrarImagen, urlFirmada } = require('./storage');
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
@@ -143,6 +143,13 @@ function fechaLimiteSesion() {
 
 function fechaLimiteRegistroIncompleto() {
   return new Date(Date.now() - REGISTRO_INCOMPLETO_MAX_DIAS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/// Palabras de un texto. El mínimo de la frase y del resumen se cuenta en
+/// palabras, no en caracteres: 15 caracteres es una palabra larga, 15 palabras
+/// es una experiencia contada.
+function contarPalabras(texto) {
+  return String(texto || '').trim().split(/\s+/).filter(Boolean).length;
 }
 
 // Cierra sesiones de aliado sin actividad reciente.
@@ -287,7 +294,10 @@ app.post('/check-ally', async (req, res) => {
 
   const { data: ally, error } = await supabase
     .from('allies')
-    .select('id, nombre, apellido, fecha_nacimiento, kyc_status, created_at')
+    .select(`
+      id, nombre, apellido, fecha_nacimiento, kyc_status, kyc_reviewer_note, created_at,
+      avatar_image, nombre_comercial, frase_presentacion, resumen
+    `)
     .eq('email', email)
     .single();
   if (error && error.code !== 'PGRST116') return res.status(500).json({ error: 'Error verificando' });
@@ -323,11 +333,27 @@ app.post('/check-ally', async (req, res) => {
   }
 
   // 2. Ya tiene datos personales. Si todavía no subió cédula, ese es el paso.
+  //    Si viene de un rechazo, viaja el motivo: sin él el aliado ve el mismo
+  //    formulario otra vez sin saber qué corregir y vuelve a mandar lo mismo.
   if (!identificado) {
-    return res.json({ exists: false, partial: 'kyc', kyc_status: kyc, ally });
+    return res.json({
+      exists: false,
+      partial: 'kyc',
+      kyc_status: kyc,
+      kyc_reviewer_note: kyc === 'rejected' ? ally.kyc_reviewer_note : null,
+      ally
+    });
   }
 
-  // 3. Documentos ya enviados. Falta el perfil del primer servicio.
+  // 3. Documentos enviados. Antes del primer servicio se pide una sola vez el
+  //    perfil comercial: cómo se presenta y su experiencia. Describe al aliado,
+  //    no al servicio, así que no tiene sentido volver a pedirlo por cada uno.
+  const perfilCompleto = ally.nombre_comercial && ally.frase_presentacion && ally.resumen;
+  if (!perfilCompleto) {
+    return res.json({ exists: false, partial: 'profile', kyc_status: kyc, ally });
+  }
+
+  // 4. Falta el perfil del primer servicio.
   //    La tabla guarda `ally_email`, no `ally_id` — consultar por `ally_id` nunca encontraba nada.
   const { data: services } = await supabase
     .from('ally_service_profiles')
@@ -408,6 +434,48 @@ app.post('/ally-kyc', async (req, res) => {
   res.json({ message: 'Documentos KYC enviados para revisión' });
 });
 
+/// Perfil comercial del aliado: cómo se presenta al usuario. Se pide una sola
+/// vez, entre el KYC y el primer servicio.
+///
+/// La foto NO se guarda acá: pasa por la misma revisión del admin que la de un
+/// cliente (`POST /api/photo-change-request` en el backend de users, puerto
+/// 3000). `avatar_image` solo se llena cuando el admin aprueba.
+app.post('/ally-profile', async (req, res) => {
+  const { email, nombre_comercial, frase_presentacion, resumen } = req.body;
+
+  if (!email) return res.status(400).json({ error: 'Email requerido' });
+  if (!nombre_comercial || nombre_comercial.trim().length < 3) {
+    return res.status(400).json({ error: 'El nombre comercial debe tener al menos 3 caracteres' });
+  }
+  if (!frase_presentacion || contarPalabras(frase_presentacion) < 3) {
+    return res.status(400).json({ error: 'La frase de presentación debe tener al menos 3 palabras' });
+  }
+  if (!resumen || contarPalabras(resumen) < 15) {
+    return res.status(400).json({ error: 'El resumen debe tener al menos 15 palabras' });
+  }
+
+  const cambios = {
+    nombre_comercial: nombre_comercial.trim(),
+    frase_presentacion: frase_presentacion.trim(),
+    resumen: resumen.trim()
+  };
+
+  const { data, error } = await supabase
+    .from('allies')
+    .update(cambios)
+    .eq('email', email)
+    .select('email, nombre_comercial, frase_presentacion, resumen, avatar_image')
+    .single();
+
+  if (error || !data) {
+    console.error('Error guardando perfil del aliado:', error?.message);
+    return res.status(500).json({ error: 'Error guardando el perfil' });
+  }
+
+  console.log(`👤 Perfil comercial guardado: ${email}`);
+  res.json({ message: 'Perfil guardado', data });
+});
+
 // Guardar perfil del primer servicio del aliado
 // El portafolio es por (aliado, servicio): aunque el servicio del catálogo ya
 // exista (lo haya propuesto otro aliado), cada aliado prueba con sus propias
@@ -431,12 +499,22 @@ app.post('/ally-service-profile', async (req, res) => {
     if (!count) return res.status(400).json({ error: 'Sube al menos una foto de un trabajo real que hayas hecho' });
   }
 
+  // El perfil comercial se llenó una vez en el paso previo al primer servicio.
+  // Se copia acá para que `/category-offers` (backend de users) siga leyendo de
+  // `ally_service_profiles` como siempre. El body puede traerlos igual: así el
+  // endpoint sirve tal cual para clientes viejos.
+  const { data: perfilAliado } = await supabase
+    .from('allies')
+    .select('nombre_comercial, frase_presentacion, resumen')
+    .eq('email', email)
+    .single();
+
   const { error } = await supabase.from('ally_service_profiles').insert([{
     ally_email: email,
     service_id,
-    nombre_comercial: nombre_comercial || null,
-    frase_presentacion: frase_presentacion || null,
-    resumen: resumen || null,
+    nombre_comercial: nombre_comercial || perfilAliado?.nombre_comercial || null,
+    frase_presentacion: frase_presentacion || perfilAliado?.frase_presentacion || null,
+    resumen: resumen || perfilAliado?.resumen || null,
     created_at: new Date().toISOString()
   }]);
 
@@ -477,10 +555,16 @@ app.get('/ally-service-profiles', async (req, res) => {
   if (error) return res.status(500).json({ error: 'Error obteniendo servicios' });
   if (!perfiles || perfiles.length === 0) return res.json({ profiles: [] });
 
+  // `admin_note` y el estado de la categoría viajan a propósito: sin ellos el
+  // aliado ve "Rechazado" sin saber por qué, ni se entera de que lo que sigue
+  // pendiente es la categoría que propuso y no su servicio.
   const serviceIds = [...new Set(perfiles.map(p => p.service_id))];
   const { data: servicios } = await supabase
     .from('services')
-    .select('id, name, description, review_status, category_id')
+    .select(`
+      id, name, description, review_status, admin_note, rejected_fields, reviewed_at, category_id,
+      category:categories ( id, name, review_status, admin_note )
+    `)
     .in('id', serviceIds);
 
   const servicioPorId = Object.fromEntries((servicios || []).map(s => [s.id, s]));
@@ -644,8 +728,8 @@ app.get('/api/admin/services', async (req, res) => {
   let consulta = supabase
     .from('services')
     .select(`
-      id, name, description, review_status, admin_note, created_at, reviewed_at,
-      created_by_ally_email,
+      id, name, description, review_status, admin_note, rejected_fields,
+      created_at, reviewed_at, created_by_ally_email,
       category:categories ( id, name, review_status ),
       allies ( nombre, apellido, email )
     `)
@@ -684,7 +768,7 @@ app.get('/api/admin/services', async (req, res) => {
 /// redirigir a una categoría existente que el aliado no encontró).
 app.put('/api/admin/services/:id', async (req, res) => {
   const { id } = req.params;
-  const { status, name, description, category_id, admin_note } = req.body;
+  const { status, name, description, category_id, admin_note, rejected_fields } = req.body;
 
   if (!ESTADOS_REVISION.includes(status)) {
     return res.status(400).json({ error: "El estado debe ser 'approved' o 'rejected'" });
@@ -692,15 +776,48 @@ app.put('/api/admin/services/:id', async (req, res) => {
   if (status === 'rejected' && (!admin_note || !admin_note.trim())) {
     return res.status(400).json({ error: 'Al rechazar hay que indicar el motivo' });
   }
+  if (status === 'rejected' && (!Array.isArray(rejected_fields) || rejected_fields.length === 0)) {
+    return res.status(400).json({
+      error: 'Al rechazar hay que marcar qué campo hay que corregir',
+      code: 'SIN_CAMPOS'
+    });
+  }
 
   const cambios = {
     review_status: status,
     reviewed_at: new Date().toISOString(),
-    admin_note: admin_note ? admin_note.trim() : null
+    admin_note: admin_note ? admin_note.trim() : null,
+    // Aprobar limpia lo marcado: si no, un servicio ya corregido seguiría
+    // mostrándole al aliado los campos del rechazo anterior.
+    rejected_fields: status === 'rejected' ? rejected_fields : null
   };
   if (name && name.trim()) cambios.name = name.trim();
   if (description !== undefined) cambios.description = description ? description.trim() : null;
   if (category_id) cambios.category_id = category_id;
+
+  // Aprobar un servicio colgado de una categoría sin aprobar lo deja invisible:
+  // `GET /categories` del backend de users solo devuelve categorías `approved`,
+  // así que el servicio existiría sin forma de llegar a él. Se decide primero
+  // la categoría (aprobarla o redirigir el servicio a una que ya exista).
+  if (status === 'approved') {
+    const { data: servicioActual } = await supabase
+      .from('services').select('category_id').eq('id', id).single();
+
+    const categoriaFinal = cambios.category_id || servicioActual?.category_id;
+    if (!categoriaFinal) {
+      return res.status(409).json({ error: 'El servicio no tiene categoría', code: 'SIN_CATEGORIA' });
+    }
+
+    const { data: categoria } = await supabase
+      .from('categories').select('id, name, review_status').eq('id', categoriaFinal).single();
+
+    if (!categoria || categoria.review_status !== 'approved') {
+      return res.status(409).json({
+        error: `Primero hay que resolver la categoría "${categoria?.name || ''}": aprobarla o redirigir el servicio a una existente`,
+        code: 'CATEGORIA_PENDIENTE'
+      });
+    }
+  }
 
   const { data, error } = await supabase
     .from('services')
@@ -713,6 +830,31 @@ app.put('/api/admin/services/:id', async (req, res) => {
 
   console.log(`🛠️ Servicio ${id} (${data.name}): ${status}`);
   res.json({ success: true, data });
+});
+
+/// Borra una prueba concreta del portafolio. Sirve para aprobar un servicio
+/// bueno al que el aliado le coló una foto que no corresponde, sin tener que
+/// rechazar todo el servicio y hacerlo empezar de cero.
+app.delete('/api/admin/portfolio-items/:id', async (req, res) => {
+  const { id } = req.params;
+
+  const { data: item, error: errorBusqueda } = await supabase
+    .from('ally_portfolio_items')
+    .select('id, image_path')
+    .eq('id', id)
+    .single();
+
+  if (errorBusqueda || !item) return res.status(404).json({ error: 'Foto no encontrada' });
+
+  // Primero el archivo: si falla, la fila queda y se puede reintentar. Al revés
+  // quedaría un archivo huérfano en el bucket sin nada que lo referencie.
+  await borrarImagen(supabase, 'portfolio', item.image_path);
+
+  const { error } = await supabase.from('ally_portfolio_items').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: 'Error borrando la foto' });
+
+  console.log(`🗑️  Prueba ${id} borrada por el admin`);
+  res.json({ success: true });
 });
 
 /// Aprueba o rechaza una categoría propuesta por un aliado. Decisión
@@ -861,6 +1003,93 @@ app.post('/services', async (req, res) => {
   }
 
   res.status(201).json({ message: 'Servicio enviado a revisión', id: servicio.id, name: servicio.name, review_status: servicio.review_status });
+});
+
+/// El aliado corrige un servicio que el admin le rechazó y lo vuelve a mandar.
+///
+/// Sin esto, un rechazo era definitivo: el aliado leía el motivo pero la única
+/// salida era crear otro servicio desde cero y dejar el rechazado ahí colgado.
+/// Solo se puede reenviar lo propio y solo si está `rejected` — reenviar algo
+/// aprobado sería una forma de cambiarle el nombre al catálogo sin revisión.
+app.put('/services/:id/resubmit', async (req, res) => {
+  const { id } = req.params;
+  const { name, description, ally_email, images, replace_images } = req.body;
+
+  if (!ally_email) return res.status(400).json({ error: 'Email del aliado requerido' });
+  if (!name || name.trim().length < 2) return res.status(400).json({ error: 'Nombre del servicio requerido' });
+
+  const { data: servicio, error: errorBusqueda } = await supabase
+    .from('services')
+    .select('id, created_by_ally_email, review_status')
+    .eq('id', id)
+    .single();
+
+  if (errorBusqueda || !servicio) return res.status(404).json({ error: 'Servicio no encontrado' });
+  if (servicio.created_by_ally_email !== ally_email) {
+    return res.status(403).json({ error: 'Este servicio no es tuyo', code: 'FORBIDDEN' });
+  }
+  if (servicio.review_status !== 'rejected') {
+    return res.status(409).json({
+      error: 'Solo se puede corregir un servicio rechazado',
+      code: 'NO_RECHAZADO'
+    });
+  }
+
+  // Fotos nuevas. `replace_images` borra las anteriores: el motivo más común de
+  // rechazo es justamente la foto, así que reenviar sin poder quitarla no
+  // arreglaría nada.
+  const lista = Array.isArray(images) ? images : [];
+  if (replace_images === true) {
+    const { data: viejas } = await supabase
+      .from('ally_portfolio_items')
+      .select('id, image_path')
+      .eq('service_id', id)
+      .eq('ally_email', ally_email);
+
+    for (const foto of viejas || []) await borrarImagen(supabase, 'portfolio', foto.image_path);
+    await supabase.from('ally_portfolio_items').delete().eq('service_id', id).eq('ally_email', ally_email);
+  }
+
+  if (lista.length > 0) {
+    const subidas = await Promise.all(
+      lista.map((img, i) => subirImagen(supabase, {
+        bucket: 'portfolio',
+        dueno: ally_email,
+        etiqueta: `trabajo-${i}`,
+        valor: img
+      }))
+    );
+
+    const filas = subidas
+      .filter(url => url)
+      .map(url => ({ service_id: Number(id), ally_email, image_path: url }));
+
+    if (filas.length > 0) {
+      const { error: errorFotos } = await supabase.from('ally_portfolio_items').insert(filas);
+      if (errorFotos) console.error('Error guardando pruebas corregidas:', errorFotos.message);
+    }
+  }
+
+  // Queda pendiente otra vez y se limpia la nota: la vieja ya no describe lo
+  // que el admin está por mirar.
+  const { data, error } = await supabase
+    .from('services')
+    .update({
+      name: name.trim(),
+      description: description ? description.trim() : null,
+      review_status: 'pending',
+      admin_note: null,
+      rejected_fields: null,
+      reviewed_at: null
+    })
+    .eq('id', id)
+    .select('id, name, description, review_status')
+    .single();
+
+  if (error || !data) return res.status(500).json({ error: 'Error reenviando el servicio' });
+
+  console.log(`🔁 Servicio ${id} corregido y reenviado por ${ally_email}`);
+  res.json({ message: 'Servicio enviado a revisión', data });
 });
 
 

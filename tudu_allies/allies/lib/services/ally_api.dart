@@ -62,6 +62,55 @@ class AliadoApi {
 
   static Future<void> crearPerfilServicio(Map<String, dynamic> perfil) =>
       Api.post('/ally-service-profile', perfil);
+
+  /// Perfil comercial: se pide una sola vez, entre el KYC y el primer servicio.
+  /// La foto va aparte, por [SolicitudFotoAliadoService], porque la revisa el
+  /// admin antes de que se vea.
+  static Future<void> guardarPerfil({
+    required String email,
+    required String nombreComercial,
+    required String frasePresentacion,
+    required String resumen,
+  }) =>
+      Api.post('/ally-profile', {
+        'email': email,
+        'nombre_comercial': nombreComercial,
+        'frase_presentacion': frasePresentacion,
+        'resumen': resumen,
+      });
+}
+
+/// Cambios de foto de perfil del aliado.
+///
+/// Van contra el backend de USERS (3000), no el de aliados: la cola de revisión
+/// del admin es una sola y ese es el backend con el Socket.io que le avisa.
+/// `Api` enruta solo estas rutas a ese puerto.
+class SolicitudFotoAliadoService {
+  static Future<void> crear(String email, String imagenBase64) =>
+      Api.post('/api/photo-change-request', {
+        'email': email,
+        'owner_role': 'ally',
+        'new_avatar_image': imagenBase64,
+      });
+
+  /// La solicitud pendiente, si hay una esperando al admin.
+  static Future<Map<String, dynamic>?> pendiente(String email) async {
+    final data = await Api.get('/api/photo-change-request/pending',
+        query: {'email': email, 'owner_role': 'ally'});
+    final fila = (data is Map) ? data['data'] : null;
+    return fila == null ? null : Map<String, dynamic>.from(fila as Map);
+  }
+
+  /// Una decisión ya tomada que el aliado todavía no vio.
+  static Future<Map<String, dynamic>?> sinNotificar(String email) async {
+    final data = await Api.get('/api/photo-change-request/unnotified',
+        query: {'email': email, 'owner_role': 'ally'});
+    final fila = (data is Map) ? data['data'] : null;
+    return fila == null ? null : Map<String, dynamic>.from(fila as Map);
+  }
+
+  static Future<void> marcarNotificada(int id) =>
+      Api.put('/api/photo-change-request/mark-notified/$id');
 }
 
 /// Categorías: nivel arriba de los servicios.
@@ -112,6 +161,28 @@ class ServicioApi {
       'category_id': categoryId,
       'ally_email': allyEmail,
       'images': imagenes,
+    });
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  /// Corrige un servicio rechazado y lo vuelve a mandar a revisión.
+  ///
+  /// [reemplazarImagenes] borra las pruebas anteriores antes de subir las
+  /// nuevas: cuando lo rechazado fueron las fotos, dejarlas no arregla nada.
+  static Future<Map<String, dynamic>> reenviar({
+    required int id,
+    required String nombre,
+    String? descripcion,
+    required String allyEmail,
+    List<String> imagenes = const [],
+    bool reemplazarImagenes = false,
+  }) async {
+    final data = await Api.put('/services/$id/resubmit', {
+      'name': nombre,
+      'description': descripcion,
+      'ally_email': allyEmail,
+      'images': imagenes,
+      'replace_images': reemplazarImagenes,
     });
     return Map<String, dynamic>.from(data as Map);
   }
