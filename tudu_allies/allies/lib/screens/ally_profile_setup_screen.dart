@@ -165,20 +165,28 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
         ),
         (route) => false,
       );
-    } on ApiException catch (e) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _guardando = false;
-        _avisoGeneral = e.message;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _guardando = false;
-        _avisoGeneral = context.tr('connection_error');
+        _avisoGeneral = _mensajeError(e);
+        // El nombre comercial no se repite entre aliados: si el backend lo
+        // rechaza por eso, se marca el campo concreto y no solo el aviso de
+        // arriba, que obliga a adivinar cuál de los tres corregir.
+        if (e is ApiException && e.code == 'NOMBRE_COMERCIAL_EN_USO') {
+          _errorNombreComercial = e.message;
+        }
       });
     }
   }
+
+  /// Mensaje presentable: el del servidor solo cuando el aliado puede
+  /// corregirlo (4xx). Un fallo nuestro sale como texto amable y genérico.
+  String _mensajeError(Object e) => mensajeParaElAliado(
+        e,
+        siEsNuestro: context.tr('error_nuestro'),
+        siNoHayRed: context.tr('error_sin_red'),
+      );
 
   @override
   Widget build(BuildContext context) {

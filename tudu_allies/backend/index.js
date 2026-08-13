@@ -63,7 +63,13 @@ io.on('connection', (socket) => {
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(express.json());
+// 50mb como en los otros dos backends: por acá entran fotos en base64 (KYC,
+// pruebas del portafolio). Con el límite por defecto de body-parser (100kb)
+// cualquier foto real de la galería hacía fallar el POST con
+// `PayloadTooLargeError`; solo pasaban las de prueba del simulador, que son
+// diminutas.
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const { signSession, requireAuth, createRefreshHandler, authenticateSocket } = require('./auth');
 const { limiteEnvioOtp, limiteVerificacionOtp } = require('./rate_limit');
@@ -460,6 +466,24 @@ app.post('/ally-profile', async (req, res) => {
     resumen: resumen.trim()
   };
 
+  // El nombre comercial identifica al aliado frente al usuario, así que no se
+  // repite (índice único sobre `lower(trim(...))`). Se comprueba antes para
+  // responder algo claro; el índice queda igual como red de seguridad ante dos
+  // registros simultáneos, y ese caso se traduce abajo.
+  const { data: tomado } = await supabase
+    .from('allies')
+    .select('email')
+    .ilike('nombre_comercial', cambios.nombre_comercial)
+    .neq('email', email)
+    .maybeSingle();
+
+  if (tomado) {
+    return res.status(409).json({
+      error: 'Ese nombre comercial ya está en uso. Elige otro.',
+      code: 'NOMBRE_COMERCIAL_EN_USO'
+    });
+  }
+
   const { data, error } = await supabase
     .from('allies')
     .update(cambios)
@@ -469,6 +493,16 @@ app.post('/ally-profile', async (req, res) => {
 
   if (error || !data) {
     console.error('Error guardando perfil del aliado:', error?.message);
+
+    // Carrera: otro aliado registró el mismo nombre entre la comprobación de
+    // arriba y este update. Es corregible por el aliado, así que va como 409.
+    if (error?.code === '23505') {
+      return res.status(409).json({
+        error: 'Ese nombre comercial ya está en uso. Elige otro.',
+        code: 'NOMBRE_COMERCIAL_EN_USO'
+      });
+    }
+
     return res.status(500).json({ error: 'Error guardando el perfil' });
   }
 
@@ -759,7 +793,33 @@ app.get('/api/admin/services', async (req, res) => {
     }, {});
   }
 
-  const resultado = (data || []).map(s => ({ ...s, portfolio: fotosPorServicio[s.id] || [] }));
+  // Primer servicio vs. servicio nuevo de un aliado que ya trabaja.
+  //
+  // No es lo mismo para el admin: el primero bloquea a alguien que todavía no
+  // puede recibir un solo trabajo — su cuenta depende de esa revisión —,
+  // mientras que el segundo lo propone alguien que ya está operando. Por eso el
+  // panel los separa en dos colas.
+  //
+  // El criterio es tener ya algún servicio aprobado, no la cantidad de filas:
+  // un aliado puede haber propuesto tres y seguir sin poder trabajar.
+  const correos = [...new Set((data || []).map(s => s.created_by_ally_email).filter(Boolean))];
+  let conServicioAprobado = new Set();
+
+  if (correos.length > 0) {
+    const { data: aprobados } = await supabase
+      .from('services')
+      .select('created_by_ally_email')
+      .in('created_by_ally_email', correos)
+      .eq('review_status', 'approved');
+
+    conServicioAprobado = new Set((aprobados || []).map(s => s.created_by_ally_email));
+  }
+
+  const resultado = (data || []).map(s => ({
+    ...s,
+    portfolio: fotosPorServicio[s.id] || [],
+    es_primer_servicio: !conServicioAprobado.has(s.created_by_ally_email)
+  }));
   res.json({ success: true, data: resultado });
 });
 
@@ -976,6 +1036,12 @@ app.post('/services', async (req, res) => {
   }]).select('id, name, description, category_id, review_status').single();
 
   if (error) {
+    // Dos aliados pueden llamar igual a su servicio y eso es correcto: cada
+    // fila es la oferta de UNO, no una entrada de catálogo compartido. Por eso
+    // `services.name` ya no es único (migration
+    // `20260812200000_services_name_no_unico.sql`). Si algún día vuelve a
+    // aparecer un 23505 acá es un problema de schema, no algo que el aliado
+    // pueda corregir: va como 500 y en pantalla sale el mensaje genérico.
     console.error('Error creando servicio:', error.message);
     return res.status(500).json({ error: 'Error creando servicio' });
   }

@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+
+import '../services/admin_api.dart';
+import '../services/api.dart';
+import '../services/auth_store.dart';
+import 'dashboard_screen.dart';
 import 'login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -20,6 +25,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   static const Color _bgColor = Color(0xFFF4F2F2);
   static const Color _brandColor = Color(0xFF78BF32);
+
+  /// Pizarra del icono del panel: lo distingue de las apps de cliente y aliado.
+  static const Color _pizarra = Color(0xFF1F2A44);
 
   @override
   void initState() {
@@ -61,19 +69,39 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       _shimmerController.repeat();
     });
 
-    Timer(const Duration(milliseconds: 2000), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const LoginScreen(),
-            transitionsBuilder: (_, animation, __, child) =>
-                FadeTransition(opacity: animation, child: child),
-            transitionDuration: const Duration(milliseconds: 400),
-          ),
-        );
+    Timer(const Duration(milliseconds: 2000), _resolverDestino);
+  }
+
+  /// Con un token guardado y todavía válido se entra directo al panel. Antes se
+  /// mandaba siempre al login, así que había que escribir usuario y contraseña
+  /// en cada arranque aunque la sesión siguiera viva.
+  Future<void> _resolverDestino() async {
+    Widget destino = const LoginScreen();
+
+    if (AuthStore.hasToken) {
+      try {
+        // Una llamada real: es la única forma de saber si el token sigue
+        // sirviendo. Si expiró, `Api` intenta refrescarlo solo y, si tampoco,
+        // responde 401 y se cae al login.
+        await AdminsApi.listar();
+        destino = const DashboardScreen();
+      } on ApiException catch (e) {
+        if (!e.esSesionInvalida) destino = const DashboardScreen();
+      } catch (_) {
+        // Sin red no se puede confirmar: mejor el login que un panel vacío.
       }
-    });
+    }
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => destino,
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
   }
 
   @override
@@ -86,8 +114,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final wordmarkSize = (size.width * 0.50).clamp(70.0, 320.0);
-    final subtitleSize = (size.width * 0.12).clamp(30.0, 68.0);
+    final wordmarkSize = (size.width * 0.38).clamp(60.0, 240.0);
+    final subtitleSize = (size.width * 0.095).clamp(24.0, 54.0);
 
     return Scaffold(
       body: Container(
@@ -100,6 +128,25 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             return Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // ── Emblema: el escudo del icono del panel ───────────────
+                Opacity(
+                  opacity: _fadeAnimation.value,
+                  child: Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: _pizarra.withOpacity(0.10),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.verified_user,
+                          size: 52, color: _pizarra),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
                 // ── Brand wordmark: "Tu" / "Du" + subtitle ───────────────
                 Opacity(
                   opacity: _fadeAnimation.value,

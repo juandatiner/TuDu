@@ -26,6 +26,8 @@ class AppLocalizations {
       'confirm': 'Confirmar',
       'close_session': 'Cerrar sesión',
       'connection_error': 'Error de conexión',
+      'error_nuestro': 'Algo falló de nuestro lado. Vuelve a intentarlo en un momento.',
+      'error_sin_red': 'No pudimos conectarnos. Revisa tu conexión e inténtalo de nuevo.',
       'connection_error_check': 'Error de conexión. Verifica tu conexión a internet.',
 
       // Validación
@@ -132,7 +134,7 @@ class AppLocalizations {
       'summary_too_short': 'Escribe al menos 15 palabras',
       'portfolio_required': 'Sube al menos una foto de un trabajo real que hayas hecho',
       'portfolio_already_sent': 'Ya enviaste tus fotos de prueba para este servicio',
-      'create_this_service': 'Guardar este servicio',
+      'photo_duplicated': 'Esa foto ya la agregaste',
       'select_or_create_service': 'Selecciona una categoría o propone una nueva',
       'service_created': 'creado exitosamente',
       'service_suggested': 'Servicio guardado, queda en revisión',
@@ -158,12 +160,18 @@ class AppLocalizations {
       'change_photo': 'Cambiar foto',
       'photo_required': 'Agrega una foto de perfil',
       'photo_needs_review': 'Tu foto pasa por revisión antes de mostrarse.',
+      'photo_too_heavy': 'Esa foto pesa demasiado. Elige una más liviana.',
+      'save_changes': 'Guardar cambios',
+      'data_saved': 'Datos actualizados',
       'photo_under_review': 'Tu foto está en revisión',
       'photo_approved': 'Tu foto de perfil fue aprobada',
       'photo_rejected': 'Tu foto de perfil no fue aprobada',
       'continue_to_service': 'Continuar',
       'verified_badge': 'Verificado',
       'account_under_review_short': 'Tu cuenta está en revisión',
+      'review_banner_title': 'Estamos verificando tu cuenta',
+      'review_banner_body':
+          'Es el último paso. Mientras tanto puedes mirar las solicitudes, pero aún no tomarlas ni aparecer en las búsquedas. Te avisamos apenas quede lista.',
       'your_business_name': 'Tu nombre o nombre de negocio',
       'commercial_name': 'Nombre comercial',
       'commercial_name_hint': 'Ej: Juan López / Electricidad López',
@@ -180,6 +188,12 @@ class AppLocalizations {
       'service_setup_tip':
           'Este es tu primer servicio. Más adelante vas a poder agregar otros desde tu perfil.',
       'start_as_ally': '¡Comenzar como Aliado!',
+      'create_first_service': 'Crear primer servicio',
+      'create_service': 'Crear servicio',
+      'service_sent_title': '¡Tu servicio está en camino!',
+      'service_sent_body':
+          'Nuestro equipo lo va a revisar para asegurarse de que todo esté en orden. Te avisamos apenas quede público y la gente pueda contratarte.',
+      'understood': 'Entendido',
 
       // Home
       'hello_ally': '¡Hola, Aliado! 👋',
@@ -210,6 +224,8 @@ class AppLocalizations {
       'confirm': 'Confirm',
       'close_session': 'Log out',
       'connection_error': 'Connection error',
+      'error_nuestro': 'Something went wrong on our side. Please try again in a moment.',
+      'error_sin_red': 'We could not connect. Check your connection and try again.',
       'connection_error_check': 'Connection error. Check your internet connection.',
 
       // Validation
@@ -316,7 +332,7 @@ class AppLocalizations {
       'summary_too_short': 'Write at least 15 words',
       'portfolio_required': 'Upload at least one photo of real work you have done',
       'portfolio_already_sent': 'You already sent your proof photos for this service',
-      'create_this_service': 'Save this service',
+      'photo_duplicated': 'You already added that photo',
       'select_or_create_service': 'Pick a category or suggest a new one',
       'service_created': 'created successfully',
       'service_suggested': 'Service saved, pending review',
@@ -342,12 +358,18 @@ class AppLocalizations {
       'change_photo': 'Change photo',
       'photo_required': 'Add a profile photo',
       'photo_needs_review': 'Your photo is reviewed before it is shown.',
+      'photo_too_heavy': 'That photo is too heavy. Choose a lighter one.',
+      'save_changes': 'Save changes',
+      'data_saved': 'Details updated',
       'photo_under_review': 'Your photo is under review',
       'photo_approved': 'Your profile photo was approved',
       'photo_rejected': 'Your profile photo was not approved',
       'continue_to_service': 'Continue',
       'verified_badge': 'Verified',
       'account_under_review_short': 'Your account is under review',
+      'review_banner_title': 'We are verifying your account',
+      'review_banner_body':
+          'It is the last step. Meanwhile you can browse requests, but not take them or show up in searches yet. We will let you know as soon as it is ready.',
       'your_business_name': 'Your name or business name',
       'commercial_name': 'Business name',
       'commercial_name_hint': 'E.g.: John Smith / Smith Electrical',
@@ -364,6 +386,12 @@ class AppLocalizations {
       'service_setup_tip':
           'This is your first service. You will be able to add more later from your profile.',
       'start_as_ally': 'Start as an Ally!',
+      'create_first_service': 'Create first service',
+      'create_service': 'Create service',
+      'service_sent_title': 'Your service is on its way!',
+      'service_sent_body':
+          'Our team will review it to make sure everything is in order. We will let you know as soon as it goes public and people can hire you.',
+      'understood': 'Got it',
 
       // Home
       'hello_ally': 'Hi, Ally! 👋',

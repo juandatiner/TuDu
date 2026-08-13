@@ -21,6 +21,15 @@ class ApiException implements Exception {
   /// True cuando se agotó el límite de intentos.
   bool get esLimiteAlcanzado => code == 'RATE_LIMITED';
 
+  /// True cuando el problema es algo que el aliado puede arreglar: un campo mal
+  /// llenado, un nombre repetido, un permiso. Solo en esos casos tiene sentido
+  /// mostrarle el mensaje del servidor.
+  ///
+  /// Un 5xx es un fallo nuestro — base caída, constraint que nadie previó, bug.
+  /// Enseñarle ese texto no le sirve de nada y lo deja preocupado por algo que
+  /// no puede resolver.
+  bool get esCulpaDelCliente => statusCode >= 400 && statusCode < 500;
+
   @override
   String toString() => message;
 }
@@ -32,6 +41,27 @@ class ApiSinConexion implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// Traduce cualquier error a algo que se le pueda mostrar al aliado.
+///
+/// Regla: si es culpa suya (4xx), va el mensaje del servidor, que es concreto y
+/// accionable ("Ya existe un servicio con ese nombre"). Si es nuestra (5xx) o
+/// no hay red, va un texto amable y genérico — nunca el detalle técnico, que en
+/// pantalla solo asusta. El detalle igual queda en los logs del backend.
+///
+/// [siEsNuestro] y [siNoHayRed] se pasan ya traducidos desde la pantalla, que
+/// es la que tiene el `context` de localización.
+String mensajeParaElAliado(
+  Object error, {
+  required String siEsNuestro,
+  required String siNoHayRed,
+}) {
+  if (error is ApiException) {
+    return error.esCulpaDelCliente ? error.message : siEsNuestro;
+  }
+  if (error is ApiSinConexion) return siNoHayRed;
+  return siEsNuestro;
 }
 
 /// Punto único por el que pasan las llamadas al backend.

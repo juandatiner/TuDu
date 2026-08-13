@@ -133,14 +133,100 @@ class _ServiciosReviewScreenState extends State<ServiciosReviewScreen> {
       );
     }
 
+    // Dos colas, no una: el primer servicio de un aliado decide si esa persona
+    // puede empezar a trabajar, y esperar bloquea toda su cuenta. Un servicio
+    // más de alguien que ya opera puede esperar sin dejar a nadie parado.
+    final primeros = _servicios.where((s) => s['es_primer_servicio'] == true).toList();
+    final adicionales = _servicios.where((s) => s['es_primer_servicio'] != true).toList();
+
     return RefreshIndicator(
       color: Config.primaryColor,
       onRefresh: _cargar,
-      child: ListView.builder(
+      child: ListView(
         padding: const EdgeInsets.all(16),
-        itemCount: _servicios.length,
-        itemBuilder: (_, i) => _tarjeta(_servicios[i]),
+        children: [
+          _caja(
+            titulo: 'Primeros servicios',
+            subtitulo: 'Aliados que todavía no pueden trabajar: su cuenta espera esta revisión',
+            icono: Icons.person_add_alt_1,
+            color: Colors.orange,
+            servicios: primeros,
+          ),
+          const SizedBox(height: 24),
+          _caja(
+            titulo: 'Servicios nuevos',
+            subtitulo: 'De aliados que ya están operando',
+            icono: Icons.add_business_outlined,
+            color: Config.primaryColor,
+            servicios: adicionales,
+          ),
+        ],
       ),
+    );
+  }
+
+  /// Una de las dos colas, con su encabezado y su contador.
+  Widget _caja({
+    required String titulo,
+    required String subtitulo,
+    required IconData icono,
+    required Color color,
+    required List<Map<String, dynamic>> servicios,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icono, size: 18, color: color),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(titulo,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(subtitulo,
+                      style: TextStyle(fontSize: 11.5, color: Colors.grey[600])),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('${servicios.length}',
+                  style: const TextStyle(
+                      color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (servicios.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.03),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text('Nada por acá',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+            ),
+          )
+        else
+          ...servicios.map(_tarjeta),
+      ],
     );
   }
 

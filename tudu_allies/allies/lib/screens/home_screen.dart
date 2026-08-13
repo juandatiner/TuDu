@@ -13,6 +13,7 @@ import '../services/ally_api.dart';
 import '../services/api.dart';
 import '../config.dart';
 import 'login_screen.dart';
+import 'ally_personal_data_screen.dart';
 import 'service_fix_screen.dart';
 import 'service_setup_screen.dart';
 
@@ -35,8 +36,11 @@ class AllyHomeScreen extends StatefulWidget {
   State<AllyHomeScreen> createState() => _AllyHomeScreenState();
 }
 
+/// Azul del velo de fondo del aliado. El verde es la marca compartida con la
+/// app de usuarios; este tono distingue de un vistazo en cuál de las dos estás.
+const Color kAzulAliado = Color(0xFF2C7BE5);
+
 class _AllyHomeScreenState extends State<AllyHomeScreen> {
-  static const Color _brandColor = Color(0xFF78BF32);
   static const Color _bgColor = Color(0xFFF4F2F2);
 
   int _selectedIndex = 0;
@@ -144,91 +148,56 @@ class _AllyHomeScreenState extends State<AllyHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgColor,
-      body: SafeArea(
-        child: IndexedStack(
-          index: _selectedIndex,
-          children: [
-            _InicioTab(allyEmail: widget.allyEmail, kycStatus: widget.kycStatus),
-            _MensajesTab(),
-            _MisServiciosTab(allyEmail: widget.allyEmail),
-            _PerfilTab(
-              allyEmail: widget.allyEmail,
-              kycStatus: widget.kycStatus,
-              avatarEnVivo: _avatarEnVivo,
-            ),
-          ],
-        ),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          SafeArea(
+            child: _InicioTab(allyEmail: widget.allyEmail, kycStatus: widget.kycStatus),
+          ),
+          SafeArea(child: _MensajesTab()),
+          SafeArea(child: _MisServiciosTab(allyEmail: widget.allyEmail)),
+          // Sin SafeArea acá: el degradado tiene que llegar hasta el borde de
+          // arriba, y el propio tab lo aplica por dentro sobre su contenido.
+          _PerfilTab(
+            allyEmail: widget.allyEmail,
+            kycStatus: widget.kycStatus,
+            avatarEnVivo: _avatarEnVivo,
+          ),
+        ],
       ),
       bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
+  /// Misma barra que la app de usuarios: `BottomNavigationBar` estándar de
+  /// Material, no una fila propia. La versión anterior era un `Row` a mano que
+  /// se veía distinta (otro espaciado, otro color activo) y había que mantener
+  /// aparte.
   Widget _buildBottomNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, -3),
-          ),
+    // `removeBottom` saca el hueco reservado para el indicador de inicio, que
+    // dejaba una franja vacía grande bajo los íconos. Mismo tratamiento que en
+    // la app de usuarios.
+    return MediaQuery(
+      // Franja mínima abajo: sin nada, las etiquetas se cortaban contra el
+      // borde; con la del sistema completa quedaba un hueco enorme.
+      data: MediaQuery.of(context).copyWith(
+        padding: MediaQuery.of(context).padding.copyWith(bottom: 6),
+      ),
+      child: BottomNavigationBar(
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.home), label: context.tr('home')),
+          BottomNavigationBarItem(icon: const Icon(Icons.message), label: context.tr('messages')),
+          BottomNavigationBarItem(icon: const Icon(Icons.work), label: context.tr('my_services')),
+          BottomNavigationBarItem(icon: const Icon(Icons.person), label: context.tr('profile')),
         ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _navItem(index: 0, icon: Icons.home, label: context.tr('home')),
-              _navItem(index: 1, icon: Icons.message, label: context.tr('messages')),
-              _navItem(index: 2, icon: Icons.work, label: context.tr('my_services')),
-              _navItem(index: 3, icon: Icons.person, label: context.tr('profile')),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem({
-    required int index,
-    required IconData icon,
-    required String label,
-  }) {
-    final isActive = _selectedIndex == index;
-    return Material(
-      color: Colors.transparent,
-      clipBehavior: Clip.antiAlias,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: () => setState(() => _selectedIndex = index),
-        splashColor: _brandColor.withOpacity(0.15),
-        highlightColor: _brandColor.withOpacity(0.05),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                color: isActive ? _brandColor : Colors.black.withOpacity(0.4),
-                size: 24,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                  color: isActive ? _brandColor : Colors.black.withOpacity(0.4),
-                ),
-              ),
-            ],
-          ),
-        ),
+        currentIndex: _selectedIndex,
+        // Azul: es el acento del aliado, el verde queda para la marca.
+        selectedItemColor: kAzulAliado,
+        unselectedItemColor: Colors.grey,
+        onTap: (i) => setState(() => _selectedIndex = i),
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        elevation: 10,
       ),
     );
   }
@@ -501,34 +470,55 @@ class _EmptyStateCard extends StatelessWidget {
   }
 }
 
-/// Una solicitud de un usuario, sin asignar todavía, con botón para tomarla.
+/// Único aviso de revisión de cuenta en toda la app.
+///
+/// Antes se repetía en el Home y en el Perfil, y el aliado leía lo mismo dos
+/// veces. Se queda en el Home, que es donde importa: es la pantalla donde ve
+/// las solicitudes que todavía no puede tomar.
 class _AvisoRevision extends StatelessWidget {
+  static const Color _naranja = Color(0xFFF5A623);
+
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF4E5),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF5A623).withOpacity(0.4)),
+        color: const Color(0xFFFFF9F0),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _naranja.withOpacity(0.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, color: Color(0xFFF5A623), size: 22),
-          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: _naranja.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.verified_user_outlined,
+                color: _naranja, size: 20),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Cuenta en revisión: tus servicios no serán visibles y no puedes tomar solicitudes todavía.',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87, height: 1.35),
-                ),
-                const SizedBox(height: 4),
                 Text(
-                  'Nuestro equipo revisará tu cuenta lo más rápido posible.',
-                  style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.6), height: 1.35),
+                  context.tr('review_banner_title'),
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                      height: 1.3),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  context.tr('review_banner_body'),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.black.withOpacity(0.6),
+                      height: 1.45),
                 ),
               ],
             ),
@@ -1003,20 +993,17 @@ class _PerfilTab extends StatefulWidget {
   State<_PerfilTab> createState() => _PerfilTabState();
 }
 
-class _PerfilTabState extends State<_PerfilTab> with CameraCaptureMixin {
+class _PerfilTabState extends State<_PerfilTab> {
   static const Color _brandColor = Color(0xFF78BF32);
 
   Map<String, dynamic> _ally = const {};
-  Map<String, dynamic>? _fotoPendiente;
   bool _cargando = true;
-  bool _enviandoFoto = false;
 
   bool get _verificado => (_ally['kyc_status'] ?? widget.kycStatus) == 'approved';
 
   @override
   void initState() {
     super.initState();
-    detectarDispositivo();
     _cargar();
     widget.avatarEnVivo.addListener(_aplicarAvatarEnVivo);
   }
@@ -1036,7 +1023,6 @@ class _PerfilTabState extends State<_PerfilTab> with CameraCaptureMixin {
       // Cadena vacía = rechazada: no se toca la foto, pero deja de estar en
       // revisión.
       if (nueva.isNotEmpty) _ally = {..._ally, 'avatar_image': nueva};
-      _fotoPendiente = null;
     });
 
     _avisar(nueva.isNotEmpty
@@ -1047,13 +1033,11 @@ class _PerfilTabState extends State<_PerfilTab> with CameraCaptureMixin {
   Future<void> _cargar() async {
     try {
       final estado = await AliadoApi.estado(widget.allyEmail);
-      final pendiente = await SolicitudFotoAliadoService.pendiente(widget.allyEmail);
       if (!mounted) return;
       setState(() {
         _ally = estado['ally'] is Map
             ? Map<String, dynamic>.from(estado['ally'])
             : const {};
-        _fotoPendiente = pendiente;
         _cargando = false;
       });
     } catch (_) {
@@ -1064,31 +1048,6 @@ class _PerfilTabState extends State<_PerfilTab> with CameraCaptureMixin {
 
   /// Solo galería, igual que la foto de perfil en la app de usuarios. La
   /// cámara queda para el KYC, que sí se toma en vivo.
-  Future<void> _cambiarFoto() async {
-    await tomarFoto(
-      etiqueta: 'PERFIL',
-      source: ImageSource.gallery,
-      onListo: (archivo) async {
-        setState(() => _enviandoFoto = true);
-        try {
-          await SolicitudFotoAliadoService.crear(
-            widget.allyEmail,
-            base64Encode(await archivo.readAsBytes()),
-          );
-          if (!mounted) return;
-          _avisar(context.tr('photo_under_review'));
-          await _cargar();
-        } catch (e) {
-          if (!mounted) return;
-          _avisar(e is ApiException ? e.message : context.tr('connection_error'),
-              esError: true);
-        } finally {
-          if (mounted) setState(() => _enviandoFoto = false);
-        }
-      },
-    );
-  }
-
   void _avisar(String mensaje, {bool esError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(mensaje),
@@ -1104,125 +1063,101 @@ class _PerfilTabState extends State<_PerfilTab> with CameraCaptureMixin {
       return const Center(child: CircularProgressIndicator(color: _brandColor));
     }
 
-    final nombre =
-        '${_ally['nombre'] ?? ''} ${_ally['apellido'] ?? ''}'.trim();
+    // Solo el nombre comercial: es con el que lo ve el cliente. El nombre
+    // personal y el correo son datos internos y viven en "Mis datos".
     final comercial = (_ally['nombre_comercial'] as String?) ?? '';
-    final frase = (_ally['frase_presentacion'] as String?) ?? '';
 
-    return RefreshIndicator(
-      color: _brandColor,
+    // Banda sólida con el borde inferior redondeado, igual que el perfil de la
+    // app de usuarios pero en azul.
+    return Stack(
+      children: [
+        Container(
+          height: 250,
+          decoration: BoxDecoration(
+            color: kAzulAliado.withOpacity(0.16),
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
+            ),
+          ),
+        ),
+        SafeArea(
+        child: RefreshIndicator(
+      color: kAzulAliado,
       onRefresh: _cargar,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(20),
+        // Las medidas de acá abajo están copiadas del perfil de users para que
+        // las dos pantallas queden a la misma altura: padding 16, separación 5
+        // sobre el nombre y 15 antes de los accesos, avatar de 80 con borde 3.
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (!_verificado) _bandaEnRevision(),
-            const SizedBox(height: 10),
+            const SizedBox(height: 5),
 
             // Nombre a la izquierda, foto a la derecha — igual que en users.
             Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              nombre.isEmpty ? widget.allyEmail : nombre,
-                              style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 16.0),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            comercial.isEmpty ? widget.allyEmail : comercial,
+                            style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          if (_verificado) ...[
-                            const SizedBox(width: 6),
-                            const Icon(Icons.verified, size: 20, color: _brandColor),
-                          ],
-                        ],
-                      ),
-                      if (comercial.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(comercial,
-                            style: TextStyle(
-                                fontSize: 14, color: Colors.black.withOpacity(0.6))),
-                      ],
-                      const SizedBox(height: 2),
-                      Text(widget.allyEmail,
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.black.withOpacity(0.45))),
-                      if (_verificado) ...[
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.check_circle, size: 13, color: _brandColor),
-                            const SizedBox(width: 4),
-                            Text(context.tr('verified_badge'),
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    color: _brandColor,
-                                    fontWeight: FontWeight.bold)),
-                          ],
                         ),
+                        if (_verificado) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.verified, size: 22, color: _brandColor),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                _buildFoto(),
+                Padding(
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: _buildFoto(),
+                ),
               ],
             ),
 
-            if (frase.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+            const SizedBox(height: 15),
+
+            // Los tres accesos rápidos, como en el perfil de la app de
+            // usuarios. Lo que está acá arriba no se repite en la lista.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _accesoRapido(
+                  icon: Icons.support_agent,
+                  label: context.tr('support'),
+                  onTap: () {},
                 ),
-                child: Text('"$frase"',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.black.withOpacity(0.7))),
-              ),
-            ],
-
-            const SizedBox(height: 28),
-
-            _profileOption(
-              icon: Icons.person_outline,
-              label: context.tr('my_data'),
-              onTap: () {},
+                _accesoRapido(
+                  icon: Icons.badge_outlined,
+                  label: context.tr('my_data'),
+                  onTap: _abrirMisDatos,
+                ),
+                _accesoRapido(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: context.tr('wallet'),
+                  onTap: () {},
+                ),
+              ],
             ),
-            _profileOption(
-              icon: Icons.account_balance_wallet_outlined,
-              label: context.tr('wallet'),
-              onTap: () {},
-            ),
+            const SizedBox(height: 24),
+
             _profileOption(
               icon: Icons.star_outline,
               label: context.tr('my_ratings'),
-              onTap: () {},
-            ),
-            _profileOption(
-              icon: Icons.support_agent,
-              label: context.tr('support'),
               onTap: () {},
             ),
             const SizedBox(height: 8),
@@ -1279,99 +1214,90 @@ class _PerfilTabState extends State<_PerfilTab> with CameraCaptureMixin {
           ],
         ),
       ),
+      ),
+      ),
+      ],
     );
   }
 
-  /// Mientras el admin no apruebe el KYC. Naranja y arriba de todo: es lo que
-  /// explica por qué todavía no puede tomar solicitudes.
-  Widget _bandaEnRevision() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.withOpacity(0.4)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.access_time, size: 18, color: Colors.orange.shade900),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(context.tr('account_under_review_short'),
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange.shade900)),
-                const SizedBox(height: 2),
-                Text(context.tr('kyc_pending_body'),
-                    style: TextStyle(
-                        fontSize: 11.5, color: Colors.orange.shade900, height: 1.35)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  /// Solo la foto, sin botón de cámara encima: en el perfil de la app de
+  /// usuarios el avatar tampoco se toca. La foto se cambia desde "Mis datos",
+  /// que es el único lugar donde se editan los datos.
   Widget _buildFoto() {
     final url = (_ally['avatar_image'] as String?) ?? '';
-    final enRevision = _fotoPendiente != null;
 
-    return GestureDetector(
-      onTap: _enviandoFoto ? null : _cambiarFoto,
-      child: Column(
-        children: [
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              Container(
-                width: 84,
-                height: 84,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _brandColor.withOpacity(0.15),
-                  border: Border.all(color: _brandColor, width: 2.5),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: url.isEmpty
-                    ? const Icon(Icons.person, size: 44, color: _brandColor)
-                    : Image.network(url,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.person, size: 44, color: _brandColor)),
-              ),
-              Container(
-                padding: const EdgeInsets.all(5),
-                decoration: const BoxDecoration(
-                    color: _brandColor, shape: BoxShape.circle),
-                child: _enviandoFoto
-                    ? const SizedBox(
-                        height: 12,
-                        width: 12,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.photo_camera, size: 13, color: Colors.white),
-              ),
-            ],
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: url.isEmpty ? kAzulAliado.withOpacity(0.15) : Colors.transparent,
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            spreadRadius: 2,
+            blurRadius: 5,
+            offset: const Offset(0, 3),
           ),
-          if (enRevision) ...[
-            const SizedBox(height: 6),
-            SizedBox(
-              width: 90,
-              child: Text(
-                context.tr('photo_under_review'),
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 10, color: Colors.orange.shade900),
-              ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: url.isEmpty
+          ? Icon(Icons.person, size: 40, color: kAzulAliado.withOpacity(0.7))
+          : Image.network(url,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                  Icon(Icons.person, size: 40, color: kAzulAliado.withOpacity(0.7))),
+    );
+  }
+
+  Future<void> _abrirMisDatos() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AllyPersonalDataScreen(email: widget.allyEmail),
+      ),
+    );
+    // Puede haber cambiado el nombre, el perfil o la foto.
+    if (mounted) _cargar();
+  }
+
+  /// Tarjeta cuadrada de acceso rápido, con la misma forma que las de users.
+  Widget _accesoRapido({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              spreadRadius: 1,
+              blurRadius: 3,
+              offset: const Offset(0, 2),
             ),
           ],
-        ],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 32, color: kAzulAliado),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black87),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

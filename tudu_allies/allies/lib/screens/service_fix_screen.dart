@@ -68,6 +68,11 @@ class _ServiceFixScreenState extends State<ServiceFixScreen> with CameraCaptureM
     await tomarFoto(
       etiqueta: 'SERVICIO',
       source: source,
+      noRepetirDe: _fotos,
+      onRepetida: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.tr('photo_duplicated')),
+        backgroundColor: Colors.red,
+      )),
       onListo: (f) {
         _fotos.add(f);
         _errorFotos = null;
@@ -120,20 +125,23 @@ class _ServiceFixScreenState extends State<ServiceFixScreen> with CameraCaptureM
         backgroundColor: _brandColor,
       ));
       Navigator.pop(context, true);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _enviando = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _enviando = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(context.tr('connection_error')),
+        content: Text(_mensajeError(e)),
         backgroundColor: Colors.red,
       ));
     }
   }
+
+  /// Mensaje presentable: el del servidor solo cuando el aliado puede
+  /// corregirlo (4xx). Un fallo nuestro sale como texto amable y genérico.
+  String _mensajeError(Object e) => mensajeParaElAliado(
+        e,
+        siEsNuestro: context.tr('error_nuestro'),
+        siNoHayRed: context.tr('error_sin_red'),
+      );
 
   @override
   Widget build(BuildContext context) {

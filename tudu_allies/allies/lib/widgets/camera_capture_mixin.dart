@@ -34,12 +34,18 @@ mixin CameraCaptureMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// [noRepetirDe] son las fotos ya elegidas: si la nueva es la misma imagen,
+  /// se descarta y se avisa por [onRepetida] en vez de agregarla. Elegir dos
+  /// veces la misma del carrete da rutas distintas, así que no alcanza con
+  /// comparar el path — se compara el contenido.
   Future<void> tomarFoto({
     required String etiqueta,
     required void Function(File) onListo,
     CameraDevice camaraPreferida = CameraDevice.rear,
     double maxWidth = 1200,
     ImageSource source = ImageSource.camera,
+    List<File>? noRepetirDe,
+    VoidCallback? onRepetida,
   }) async {
     // Solo la cámara necesita el atajo: la galería del simulador funciona.
     if (!esDispositivoFisico && source == ImageSource.camera) {
@@ -57,12 +63,46 @@ mixin CameraCaptureMixin<T extends StatefulWidget> on State<T> {
         imageQuality: 70,
         maxWidth: maxWidth,
       );
-      if (picked != null) {
-        setState(() => onListo(File(picked.path)));
+      if (picked == null) return;
+
+      final archivo = File(picked.path);
+
+      if (noRepetirDe != null && await esFotoRepetida(noRepetirDe, archivo)) {
+        if (!mounted) return;
+        onRepetida?.call();
+        return;
       }
+
+      if (!mounted) return;
+      setState(() => onListo(archivo));
     } catch (e) {
       mostrarErrorCamara();
     }
+  }
+
+  /// True si [nueva] es exactamente la misma imagen que alguna de [existentes].
+  ///
+  /// Comparación byte a byte: sin dependencia de hashing (`crypto` acá es
+  /// transitiva) y con un máximo de 5 fotos el costo no se nota. Se descarta
+  /// por tamaño antes de comparar, que resuelve casi todos los casos de una.
+  Future<bool> esFotoRepetida(List<File> existentes, File nueva) async {
+    final bytesNueva = await nueva.readAsBytes();
+
+    for (final foto in existentes) {
+      if (await foto.length() != bytesNueva.length) continue;
+
+      final bytes = await foto.readAsBytes();
+      var iguales = true;
+      for (var i = 0; i < bytes.length; i++) {
+        if (bytes[i] != bytesNueva[i]) {
+          iguales = false;
+          break;
+        }
+      }
+      if (iguales) return true;
+    }
+
+    return false;
   }
 
   Future<File> _generarFotoPruebaSimulador(String etiqueta) async {

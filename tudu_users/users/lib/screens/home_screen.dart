@@ -914,9 +914,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         builder: (context, themeProvider, child) {
           return Theme(
             data: Theme.of(context).copyWith(
-              hoverColor: Colors.blue.withOpacity(0.1),
+              hoverColor: ThemeProvider.primaryColor.withOpacity(0.1),
             ),
-            child: BottomNavigationBar(
+            // `removeBottom` saca el hueco que el sistema reserva bajo la barra
+            // para el indicador de inicio. Sin esto quedaba una franja vacía
+            // grande debajo de los íconos.
+            child: MediaQuery(
+              // No `removeBottom` a secas: quitaba todo el margen y las
+              // etiquetas quedaban pegadas al borde. Se deja una franja
+              // pequeña, suficiente para que respire sin la banda enorme que
+              // reserva el sistema.
+              data: MediaQuery.of(context).copyWith(
+                padding: MediaQuery.of(context).padding.copyWith(bottom: 6),
+              ),
+              child: BottomNavigationBar(
               items: <BottomNavigationBarItem>[
                 BottomNavigationBarItem(
                     icon: const Icon(Icons.home),
@@ -938,12 +949,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         'Perfil'),
               ],
               currentIndex: _selectedIndex,
-              selectedItemColor: Colors.blue,
+              selectedItemColor: ThemeProvider.primaryColor,
               unselectedItemColor: Colors.grey,
               onTap: _onItemTapped,
               type: BottomNavigationBarType.fixed,
               backgroundColor: themeProvider.cardBgColor,
               elevation: 10,
+              ),
             ),
           );
         },

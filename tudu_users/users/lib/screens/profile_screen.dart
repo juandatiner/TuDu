@@ -360,7 +360,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: themeProvider.scaffoldBgColor,
-      body: SafeArea(
+      // Banda sólida con el borde inferior redondeado en vez de un degradado a
+      // toda la pantalla: el difuminado dejaba media pantalla en un color
+      // indefinido. Así el encabezado queda delimitado y el resto respira.
+      body: Stack(
+        children: [
+          Container(
+            height: 250,
+            decoration: BoxDecoration(
+              color: ThemeProvider.primaryColor
+                  .withOpacity(themeProvider.isDarkMode ? 0.22 : 0.16),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(32),
+                bottomRight: Radius.circular(32),
+              ),
+            ),
+          ),
+          SafeArea(
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -600,10 +616,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ),
+        ),
+        ],
       ),
       bottomNavigationBar: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
-          return BottomNavigationBar(
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              padding: MediaQuery.of(context).padding.copyWith(bottom: 6),
+            ),
+            child: BottomNavigationBar(
             items: <BottomNavigationBarItem>[
               BottomNavigationBarItem(
                 icon: const Icon(Icons.home),
@@ -623,12 +645,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
             currentIndex: _selectedIndex,
-            selectedItemColor: Colors.blue,
+            selectedItemColor: ThemeProvider.primaryColor,
             unselectedItemColor: Colors.grey,
             onTap: _onItemTapped,
             type: BottomNavigationBarType.fixed,
             backgroundColor: themeProvider.cardBgColor,
             elevation: 10,
+            ),
           );
         },
       ),

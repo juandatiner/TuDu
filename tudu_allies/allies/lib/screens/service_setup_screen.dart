@@ -161,10 +161,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
         _nuevaCategoriaController.clear();
       });
       _showSnack(context.tr('category_suggested'));
-    } on ApiException catch (e) {
-      _showSnack(e.message, isError: true);
     } catch (e) {
-      _showSnack(context.tr('connection_error'), isError: true);
+      _showSnack(_mensajeError(e), isError: true);
     } finally {
       if (mounted) setState(() => _enviandoCategoria = false);
     }
@@ -175,6 +173,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     await tomarFoto(
       etiqueta: 'SERVICIO',
       source: source,
+      noRepetirDe: _fotosPortafolio,
+      onRepetida: () => _showSnack(context.tr('photo_duplicated'), isError: true),
       onListo: (f) {
         _fotosPortafolio.add(f);
         _errorPortafolio = null;
@@ -218,8 +218,13 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     );
   }
 
-  Future<void> _crearServicio() async {
-    if (_categoriaSeleccionada == null) return;
+  /// Crea el servicio en el catálogo. Devuelve true si quedó creado.
+  ///
+  /// Ya no es el handler de un botón propio: el formulario tiene un solo botón,
+  /// el de abajo, y este paso ocurre dentro de él. Tener dos botones hacía
+  /// pensar que había que guardar el servicio aparte antes de continuar.
+  Future<bool> _crearServicio() async {
+    if (_categoriaSeleccionada == null) return false;
 
     final nombre = _nuevoServicioNombreController.text.trim();
     final descripcion = _nuevoServicioDescripcionController.text.trim();
@@ -238,7 +243,10 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
       _errorPortafolio = errorFotos;
     });
 
-    if (errorNombre != null || errorDescripcion != null || errorFotos != null) return;
+    if (errorNombre != null || errorDescripcion != null || errorFotos != null) {
+      setState(() => _avisoGeneral = Validacion.textoCamposFaltantes);
+      return false;
+    }
 
     setState(() => _enviandoServicio = true);
     try {
@@ -254,7 +262,7 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
         imagenes: imagenes,
       );
 
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _servicioSeleccionado = data;
         _fotosYaSubidasParaServicioId = data['id'] as int?;
@@ -265,12 +273,16 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
         _errorNuevoServicioNombre = null;
         _errorNuevoServicioDescripcion = null;
         _errorPortafolio = null;
+        _avisoGeneral = null;
       });
-      _showSnack(context.tr('service_suggested'));
-    } on ApiException catch (e) {
-      _showSnack(e.message, isError: true);
+      return true;
     } catch (e) {
-      _showSnack(context.tr('connection_error'), isError: true);
+      // También en el aviso del formulario: el snack se va solo y el aliado se
+      // queda mirando un botón que "no hizo nada".
+      final mensaje = _mensajeError(e);
+      if (mounted) setState(() => _avisoGeneral = mensaje);
+      _showSnack(mensaje, isError: true);
+      return false;
     } finally {
       if (mounted) setState(() => _enviandoServicio = false);
     }
@@ -285,31 +297,41 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
   }
 
   Future<void> _guardarYContinuar() async {
-    // Todo se revisa de una sola pasada: lo que falte queda marcado en rojo.
-    final errorCategoria = _categoriaSeleccionada == null
-        ? context.tr('select_or_create_service')
-        : null;
-    final errorServicio =
-        _servicioSeleccionado == null ? Validacion.requerido : null;
+    // Sin categoría no hay dónde crear el servicio: se corta antes de intentarlo.
+    if (_categoriaSeleccionada == null) {
+      setState(() {
+        _errorCategoria = context.tr('select_or_create_service');
+        _avisoGeneral = Validacion.textoCamposFaltantes;
+      });
+      return;
+    }
 
-    final faltanFotos = _servicioSeleccionado != null &&
+    // El servicio se crea acá, no en un botón aparte. `_crearServicio` marca en
+    // rojo lo que falte y devuelve false.
+    if (_servicioSeleccionado == null) {
+      final creado = await _crearServicio();
+      if (!creado || !mounted) return;
+    }
+
+    final faltanFotos =
         _fotosYaSubidasParaServicioId != _servicioSeleccionado!['id'] &&
-        _fotosPortafolio.isEmpty;
-    final errorFotos = faltanFotos ? context.tr('portfolio_required') : null;
+            _fotosPortafolio.isEmpty;
 
-    final hayErrores =
-        errorCategoria != null || errorServicio != null || errorFotos != null;
+    if (faltanFotos) {
+      setState(() {
+        _errorPortafolio = context.tr('portfolio_required');
+        _avisoGeneral = Validacion.textoCamposFaltantes;
+      });
+      return;
+    }
 
     setState(() {
-      _errorCategoria = errorCategoria;
-      _errorServicio = errorServicio;
-      _errorPortafolio = errorFotos;
-      _avisoGeneral = hayErrores ? Validacion.textoCamposFaltantes : null;
+      _errorCategoria = null;
+      _errorServicio = null;
+      _errorPortafolio = null;
+      _avisoGeneral = null;
+      _isSaving = true;
     });
-
-    if (hayErrores) return;
-
-    setState(() => _isSaving = true);
 
     try {
       final imagenes = await Future.wait(
@@ -330,6 +352,11 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
       final sessionService =
           Provider.of<SessionService>(context, listen: false);
       await sessionService.registerSession(widget.email);
+
+      if (!mounted) return;
+      // El servicio no queda publicado de inmediato: se le explica acá, que es
+      // cuando lo tiene presente, y no en un aviso suelto más adelante.
+      await _mostrarEnviadoARevision();
 
       if (!mounted) return;
       final destino = await AllyRouting.resolveDestination(widget.email);
@@ -365,13 +392,83 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     }
   }
 
+  /// Cierre del formulario: el servicio quedó enviado, no publicado.
+  Future<void> _mostrarEnviadoARevision() {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _brandColor.withOpacity(0.12),
+                ),
+                child: const Icon(Icons.hourglass_top_rounded,
+                    size: 36, color: _brandColor),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                context.tr('service_sent_title'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 19, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                context.tr('service_sent_body'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 14, height: 1.5, color: Colors.black.withOpacity(0.6)),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _brandColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape:
+                        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(context.tr('understood'),
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Mensaje presentable: el del servidor solo cuando el aliado puede
+  /// corregirlo (4xx). Un fallo nuestro sale como texto amable y genérico.
+  String _mensajeError(Object e) => mensajeParaElAliado(
+        e,
+        siEsNuestro: context.tr('error_nuestro'),
+        siNoHayRed: context.tr('error_sin_red'),
+      );
+
   void _showSnack(String msg, {bool isError = false}) {
+    // `floating` acá lo descartaba Flutter con "Floating SnackBar presented off
+    // screen" — el formulario scrollea y el snack quedaba fuera de la vista, así
+    // que los errores del servidor no se veían y el botón parecía no hacer nada.
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
         backgroundColor: isError ? Colors.red : _brandColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -675,8 +772,13 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
                                 ),
                               )
                             : Text(
-                                context.tr('start_as_ally'),
-                                style: TextStyle(
+                                // `esOpcional` es true solo cuando entra por
+                                // "Agregar" desde Mis Servicios: ahí ya no es
+                                // el primero.
+                                context.tr(widget.esOpcional
+                                    ? 'create_service'
+                                    : 'create_first_service'),
+                                style: const TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                       ),
@@ -976,31 +1078,6 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
                 Text(_errorPortafolio!,
                     style: TextStyle(fontSize: 12, color: Validacion.colorError)),
               ],
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: _enviandoServicio ? null : _crearServicio,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: _brandColor, width: 1.5),
-                    shape:
-                        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: _enviandoServicio
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: _brandColor),
-                        )
-                      : Text(
-                          context.tr('create_this_service'),
-                          style: TextStyle(
-                              color: _brandColor, fontWeight: FontWeight.w600),
-                        ),
-                ),
-              ),
             ],
           ),
         ),

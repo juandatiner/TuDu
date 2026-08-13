@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
+import '../services/ally_routing.dart';
+import '../services/auth_store.dart';
+import '../services/session_service.dart';
 import 'dart:async';
+import 'home_screen.dart' show kAzulAliado;
 import 'login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -63,19 +68,51 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       _shimmerController.repeat();
     });
 
-    Timer(const Duration(milliseconds: 2000), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const LoginScreen(),
-            transitionsBuilder: (_, animation, __, child) =>
-                FadeTransition(opacity: animation, child: child),
-            transitionDuration: const Duration(milliseconds: 400),
-          ),
-        );
+    Timer(const Duration(milliseconds: 2000), _resolverDestino);
+  }
+
+  /// Si hay una sesión guardada y el servidor la sigue aceptando, se entra
+  /// directo. Antes esta pantalla mandaba siempre al login, así que el aliado
+  /// tenía que pedir un OTP en cada arranque aunque su sesión estuviera activa
+  /// — la app de usuarios sí hacía esta comprobación.
+  Future<void> _resolverDestino() async {
+    if (!mounted) return;
+
+    Widget destino = const LoginScreen();
+
+    try {
+      final sessionService = Provider.of<SessionService>(context, listen: false);
+      await sessionService.initialize();
+
+      final email = sessionService.userEmail;
+
+      if (AuthStore.hasToken && email != null && email.isNotEmpty) {
+        final check = await sessionService.checkSession(email);
+
+        if (check['success'] == true && check['requires_verification'] == false) {
+          // El aliado puede estar a mitad del registro: el enrutado decide si
+          // le toca el home, el KYC, el perfil o el primer servicio.
+          if (!mounted) return;
+          destino = await AllyRouting.resolveDestination(email, onLogin: true);
+        } else {
+          // El servidor cerró la sesión (otro dispositivo, inactividad).
+          await sessionService.clearAllSessionData();
+        }
       }
-    });
+    } catch (e) {
+      debugPrint('No se pudo resolver la sesión guardada: $e');
+    }
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => destino,
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
   }
 
   @override
@@ -88,8 +125,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final wordmarkSize = (size.width * 0.50).clamp(70.0, 320.0);
-    final subtitleSize = (size.width * 0.12).clamp(30.0, 68.0);
+    final wordmarkSize = (size.width * 0.38).clamp(60.0, 240.0);
+    final subtitleSize = (size.width * 0.095).clamp(24.0, 54.0);
 
     return Scaffold(
       body: Container(
@@ -102,6 +139,25 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             return Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // ── Emblema: el casco del icono de la app ────────────────
+                Opacity(
+                  opacity: _fadeAnimation.value,
+                  child: Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: kAzulAliado.withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.engineering,
+                          size: 52, color: kAzulAliado),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
                 // ── Brand wordmark: "Tu" / "Du" + subtitle ───────────────
                 Opacity(
                   opacity: _fadeAnimation.value,
@@ -161,7 +217,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       height: 3,
                       child: Stack(
                         children: [
-                          Container(color: _brandColor.withOpacity(0.25)),
+                          Container(color: kAzulAliado.withOpacity(0.25)),
                           FractionallySizedBox(
                             alignment: Alignment(
                                 _shimmerAnimation.value.clamp(-1.0, 1.0), 0),
@@ -170,9 +226,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    _brandColor.withOpacity(0.0),
-                                    _brandColor,
-                                    _brandColor.withOpacity(0.0),
+                                    kAzulAliado.withOpacity(0.0),
+                                    kAzulAliado,
+                                    kAzulAliado.withOpacity(0.0),
                                   ],
                                 ),
                               ),
@@ -193,7 +249,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     style: TextStyle(
                       fontFamily: 'TitanOne',
                       fontSize: 14,
-                      color: Color(0xFF78BF32),
+                      color: kAzulAliado,
                       letterSpacing: 0.5,
                     ),
                   ),
