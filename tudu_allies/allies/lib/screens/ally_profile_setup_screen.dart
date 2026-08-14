@@ -39,6 +39,12 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
   late final TextEditingController _frasePresentacionController;
   late final TextEditingController _resumenController;
 
+  // El contador de caracteres y palabras solo se ve mientras se escribe ese
+  // campo: leyendo el formulario no aporta nada.
+  final _focoComercial = FocusNode();
+  final _focoFrase = FocusNode();
+  final _focoResumen = FocusNode();
+
   File? _foto;
   String? _fotoActualUrl;
   bool _guardando = false;
@@ -58,6 +64,17 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
     _frasePresentacionController =
         TextEditingController(text: p['frase_presentacion'] ?? '');
     _resumenController = TextEditingController(text: p['resumen'] ?? '');
+
+    for (final c in [
+      _nombreComercialController,
+      _frasePresentacionController,
+      _resumenController,
+    ]) {
+      c.addListener(() => setState(() {}));
+    }
+    for (final f in [_focoComercial, _focoFrase, _focoResumen]) {
+      f.addListener(() => setState(() {}));
+    }
     _fotoActualUrl = p['avatar_image'] as String?;
   }
 
@@ -66,6 +83,9 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
     _nombreComercialController.dispose();
     _frasePresentacionController.dispose();
     _resumenController.dispose();
+    _focoComercial.dispose();
+    _focoFrase.dispose();
+    _focoResumen.dispose();
     super.dispose();
   }
 
@@ -102,15 +122,25 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
 
     final errorFoto =
         (_foto == null && (_fotoActualUrl ?? '').isEmpty) ? context.tr('photo_required') : null;
+    // El perfil es público y pasa por revisión: un teléfono o una dirección lo
+    // hacen rebotar, así que se corta acá y no después de enviarlo.
+    final sinContacto = context.tr('no_contact_error');
+
     final errorNombre = nombre.isEmpty
         ? Validacion.requerido
-        : (nombre.length < 3 ? context.tr('commercial_name_too_short') : null);
+        : (nombre.length < 3
+            ? context.tr('commercial_name_too_short')
+            : (Validacion.tieneDatosDeContacto(nombre) ? sinContacto : null));
     final errorFrase = frase.isEmpty
         ? Validacion.requerido
-        : (Validacion.palabras(frase) < 3 ? context.tr('pitch_too_short') : null);
+        : (Validacion.palabras(frase) < 3
+            ? context.tr('pitch_too_short')
+            : (Validacion.tieneDatosDeContacto(frase) ? sinContacto : null));
     final errorResumen = resumen.isEmpty
         ? Validacion.requerido
-        : (Validacion.palabras(resumen) < 15 ? context.tr('summary_too_short') : null);
+        : (Validacion.palabras(resumen) < 15
+            ? context.tr('summary_too_short')
+            : (Validacion.tieneDatosDeContacto(resumen) ? sinContacto : null));
 
     final hayErrores = errorFoto != null ||
         errorNombre != null ||
@@ -238,13 +268,45 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: Validacion.colorError)),
               ],
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
+
+              // La regla del perfil público se dice antes de escribirlo, no
+              // solo cuando el guardado la rechaza.
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF4E5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFFC107)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 18, color: Color(0xFFB26A00)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        context.tr('no_contact_note'),
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B4A00),
+                            height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
 
               // ─── Nombre comercial ─────────────────────────────────────
               _etiqueta(context.tr('your_business_name')),
               const SizedBox(height: 8),
               TextField(
                 controller: _nombreComercialController,
+                focusNode: _focoComercial,
                 maxLength: 50,
                 textCapitalization: TextCapitalization.words,
                 onChanged: (_) => setState(() {
@@ -257,6 +319,8 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
                   error: _errorNombreComercial,
                 ),
               ),
+              _contador(_nombreComercialController, _focoComercial, 50,
+                  minCaracteres: 3),
               const SizedBox(height: 12),
 
               // ─── Frase de presentación ────────────────────────────────
@@ -266,6 +330,7 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
               const SizedBox(height: 8),
               TextField(
                 controller: _frasePresentacionController,
+                focusNode: _focoFrase,
                 maxLength: 80,
                 onChanged: (_) => setState(() {
                   _errorFrase = null;
@@ -276,6 +341,8 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
                   error: _errorFrase,
                 ),
               ),
+              _contador(_frasePresentacionController, _focoFrase, 80,
+                  minPalabras: 3),
               const SizedBox(height: 12),
 
               // ─── Resumen / experiencia ────────────────────────────────
@@ -285,6 +352,7 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
               const SizedBox(height: 8),
               TextField(
                 controller: _resumenController,
+                focusNode: _focoResumen,
                 maxLength: 400,
                 maxLines: 5,
                 textCapitalization: TextCapitalization.sentences,
@@ -297,6 +365,8 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
                   error: _errorResumen,
                 ),
               ),
+              _contador(_resumenController, _focoResumen, 400,
+                  minPalabras: 15),
 
               if (_avisoGeneral != null) ...[
                 const SizedBox(height: 16),
@@ -391,6 +461,9 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
     return InputDecoration(
       labelText: label,
       hintText: hint,
+      // El contador de `maxLength` se apaga: abajo va el nuestro, que cuenta lo
+      // que el campo exige. Con los dos encendidos salían dos contadores.
+      counterText: '',
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -401,6 +474,52 @@ class _AllyProfileSetupScreenState extends State<AllyProfileSetupScreen>
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: _brandColor, width: 1.6),
+      ),
+    );
+  }
+
+  /// Cuánto llevas de lo que el campo exige.
+  ///
+  /// Mientras no alcanza el mínimo cuenta hacia él ("3/5 palabras"): es lo que
+  /// la persona necesita saber para poder enviar. Cumplido el mínimo pasa a
+  /// mostrar el espacio que queda ("87/120"). Pasarse del tope no se avisa
+  /// porque no puede ocurrir: `maxLength` deja de aceptar teclas.
+  ///
+  /// Solo se ve mientras se escribe ese campo, y nunca en rojo: el rojo lo pone
+  /// el error del campo al enviar.
+  Widget _contador(
+    TextEditingController controller,
+    FocusNode foco,
+    int maxLength, {
+    int? minPalabras,
+    int? minCaracteres,
+  }) {
+    if (!foco.hasFocus) return const SizedBox.shrink();
+
+    final texto = controller.text;
+    final caracteres = texto.characters.length;
+
+    String etiqueta;
+    if (minPalabras != null) {
+      final palabras = Validacion.palabras(texto);
+      etiqueta = palabras < minPalabras
+          ? '$palabras/$minPalabras ${context.tr('words_label')}'
+          : '$caracteres/$maxLength';
+    } else if (minCaracteres != null && caracteres < minCaracteres) {
+      etiqueta = '$caracteres/$minCaracteres';
+    } else {
+      etiqueta = '$caracteres/$maxLength';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, right: 4),
+      child: SizedBox(
+        width: double.infinity,
+        child: Text(
+          etiqueta,
+          textAlign: TextAlign.right,
+          style: TextStyle(fontSize: 11.5, color: Colors.black.withOpacity(0.45)),
+        ),
       ),
     );
   }

@@ -10,7 +10,11 @@ import 'verification_success_screen.dart';
 class OtpScreen extends StatefulWidget {
   final String email;
 
-  const OtpScreen({super.key, required this.email});
+  /// true cuando el backend simuló el envío (`DEV_MODE`): no llega ningún
+  /// correo, así que el código maestro se rellena solo.
+  final bool devMode;
+
+  const OtpScreen({super.key, required this.email, this.devMode = false});
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -32,8 +36,9 @@ class _OtpScreenState extends State<OtpScreen> {
   void initState() {
     super.initState();
     _startResendTimer();
-    // Pre-llenar con código de desarrollo
-    _fillDevCode();
+    // Solo si el backend simuló el envío. Antes se rellenaba siempre, también
+    // con DEV_MODE apagado, y en producción habría mostrado un código falso.
+    if (widget.devMode) _fillDevCode();
   }
 
   void _fillDevCode() {
@@ -188,8 +193,28 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
+  /// Ancho de cada recuadro del código.
+  ///
+  /// Crece con el tamaño de letra del teléfono —si no, con Dynamic Type grande
+  /// el dígito quedaba apretado contra el borde— pero nunca más de lo que cabe:
+  /// son seis en fila y al pasarse se cortaban por los lados.
+  double _anchoRecuadro(BuildContext context) {
+    const base = 45.0;
+    const separacionMinima = 6.0;
+    const margenPantalla = 24.0 * 2;
+
+    final escala = MediaQuery.textScalerOf(context).scale(base) / base;
+    final disponible =
+        MediaQuery.sizeOf(context).width - margenPantalla - separacionMinima * 5;
+    final tope = disponible / 6;
+
+    return (base * escala).clamp(32.0, tope < 32.0 ? 32.0 : tope);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final anchoRecuadro = _anchoRecuadro(context);
+
     return Scaffold(
       body: Container(
         color: const Color(0xFFF4F2F2),
@@ -257,8 +282,8 @@ class _OtpScreenState extends State<OtpScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: List.generate(6, (index) {
                     return SizedBox(
-                      width: 45,
-                      height: 55,
+                      width: anchoRecuadro,
+                      height: anchoRecuadro * 55 / 45,
                       child: Focus(
                         onFocusChange: (_) => setState(() {}),
                         child: TextField(

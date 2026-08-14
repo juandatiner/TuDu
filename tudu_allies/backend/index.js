@@ -37,6 +37,19 @@ io.on('connection', (socket) => {
   const auth = socket.handshake.auth || {};
 
   const email = socket.data.auth.email;
+
+  // El panel de administración entra con un token de rol `admin`: no es un
+  // aliado, no tiene dispositivo registrado y lo único que necesita es la sala
+  // desde la que se avisa de lo que hay por revisar.
+  if (socket.data.auth.role === 'admin') {
+    socket.join('admins');
+    console.log(`🛡️  Panel de administración conectado: [${email}]`);
+    socket.on('disconnect', () => {
+      console.log(`🔌 Panel de administración desconectado: [${email}]`);
+    });
+    return;
+  }
+
   const deviceId = socket.data.auth.device_id || auth.device_id;
   socket.join(`ally:${String(email).toLowerCase()}`);
   if (deviceId) socket.join(salaDispositivo(email, deviceId));
@@ -73,6 +86,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const { signSession, requireAuth, createRefreshHandler, authenticateSocket } = require('./auth');
 const { limiteEnvioOtp, limiteVerificacionOtp } = require('./rate_limit');
+const { smsConfigurado, emitirCodigo, comprobarCodigo } = require('./sms_otp');
 
 // El socket exige el mismo JWT que la API REST.
 io.use(authenticateSocket);
@@ -87,6 +101,7 @@ const RUTAS_PUBLICAS = [
   '/check-ally',
   '/services',
   '/categories',
+  '/countries',
   '/ally-device-session/check',
   '/auth/refresh'
 ];
@@ -156,6 +171,24 @@ function fechaLimiteRegistroIncompleto() {
 /// es una experiencia contada.
 function contarPalabras(texto) {
   return String(texto || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+// ¿El texto trae datos de contacto? El perfil del aliado es público: un
+// teléfono o una dirección ahí sacan la conversación (y el pago) fuera de la
+// app. La app ya lo bloquea al escribir, pero la validación real va acá, que es
+// lo que un cliente modificado no puede saltarse.
+function tieneDatosDeContacto(texto) {
+  const t = String(texto || '').toLowerCase();
+
+  if (/[\w.\-]+@[\w\-]+\.\w+/.test(t)) return true;          // correo
+  if (/(https?:\/\/|www\.)/.test(t)) return true;            // enlace
+  if (/\d{7,}/.test(t.replace(/[\s\-.()+]/g, ''))) return true; // teléfono
+
+  // Dirección: "cra 15 #45-30", "calle 80", "mz 4 lote 2"...
+  if (/\b(calle|cll|carrera|cra|kra|krr|avenida|av|autopista|diagonal|diag|transversal|trans|tv|manzana|mz|lote|apto|apartamento|barrio|conjunto)\b\.?\s*\d/.test(t)) return true;
+  if (/#\s*\d/.test(t)) return true;
+
+  return false;
 }
 
 // Cierra sesiones de aliado sin actividad reciente.
@@ -384,9 +417,32 @@ app.post('/check-ally', async (req, res) => {
   return res.json({ exists: true, ally, kyc_status: kyc });
 });
 
+
+/// Años cumplidos a día de hoy. La app ya lo comprueba, pero el que decide es
+/// el servidor: un cliente modificado puede mandar cualquier fecha.
+function esMayorDeEdad(fecha) {
+  const nacimiento = new Date(fecha);
+  if (isNaN(nacimiento.getTime())) return false;
+
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const mes = hoy.getMonth() - nacimiento.getMonth();
+  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad -= 1;
+
+  return edad >= 18;
+}
+
 app.post('/register-ally', async (req, res) => {
   const { email, nombre, apellido, fecha_nacimiento } = req.body;
   if (!email || !nombre || !apellido) return res.status(400).json({ error: 'Faltan campos' });
+  if (!fecha_nacimiento) return res.status(400).json({ error: 'Falta la fecha de nacimiento' });
+
+  if (!esMayorDeEdad(fecha_nacimiento)) {
+    return res.status(400).json({
+      error: 'Debes ser mayor de 18 años para ser aliado',
+      code: 'MENOR_DE_EDAD'
+    });
+  }
 
   console.log(`📝 Registrando/Actualizando aliado: ${email}`);
 
@@ -460,11 +516,98 @@ app.post('/ally-profile', async (req, res) => {
     return res.status(400).json({ error: 'El resumen debe tener al menos 15 palabras' });
   }
 
+  const conContacto = [nombre_comercial, frase_presentacion, resumen]
+    .some(tieneDatosDeContacto);
+
+  if (conContacto) {
+    return res.status(400).json({
+      error: 'El perfil no puede incluir teléfonos, direcciones, correos ni enlaces',
+      code: 'DATOS_DE_CONTACTO'
+    });
+  }
+
   const cambios = {
     nombre_comercial: nombre_comercial.trim(),
     frase_presentacion: frase_presentacion.trim(),
     resumen: resumen.trim()
   };
+
+  // ¿Es el perfil inicial o una edición? El inicial se escribe directo: el
+  // aliado todavía está en revisión de KYC, no aparece en búsquedas y su texto
+  // se mira junto con la cuenta. Una edición posterior, en cambio, cambiaría en
+  // caliente lo que ya leen los usuarios, así que va a la cola del admin.
+  const { data: actual } = await supabase
+    .from('allies')
+    .select('nombre_comercial, frase_presentacion, resumen')
+    .eq('email', email)
+    .maybeSingle();
+
+  const yaTienePerfil = !!(actual && actual.nombre_comercial);
+
+  if (yaTienePerfil) {
+    const sinCambios =
+      actual.nombre_comercial === cambios.nombre_comercial &&
+      actual.frase_presentacion === cambios.frase_presentacion &&
+      actual.resumen === cambios.resumen;
+
+    if (sinCambios) {
+      return res.json({ message: 'Sin cambios', status: 'unchanged' });
+    }
+
+    const { data: pendiente } = await supabase
+      .from('ally_profile_change_requests')
+      .select('id')
+      .eq('ally_email', email)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (pendiente) {
+      return res.status(409).json({
+        error: 'Ya tienes un cambio de perfil en revisión. Espera la respuesta.',
+        code: 'CAMBIO_EN_REVISION'
+      });
+    }
+
+    // El nombre comercial es único: se comprueba también acá para no dejar al
+    // admin aprobando algo que el índice va a rechazar.
+    const { data: tomadoPorOtro } = await supabase
+      .from('allies')
+      .select('email')
+      .ilike('nombre_comercial', cambios.nombre_comercial)
+      .neq('email', email)
+      .maybeSingle();
+
+    if (tomadoPorOtro) {
+      return res.status(409).json({
+        error: 'Ese nombre comercial ya está en uso. Elige otro.',
+        code: 'NOMBRE_COMERCIAL_EN_USO'
+      });
+    }
+
+    const { data: solicitud, error: errorSolicitud } = await supabase
+      .from('ally_profile_change_requests')
+      .insert([{ ally_email: email, ...cambios }])
+      .select('id, created_at')
+      .single();
+
+    if (errorSolicitud) {
+      console.error('Error creando solicitud de perfil:', errorSolicitud.message);
+      return res.status(500).json({ error: 'Error enviando el cambio a revisión' });
+    }
+
+    // Solo al panel: es una cola de revisión, no le importa a ningún aliado.
+    io.to('admins').emit('newAllyProfileChangeRequest', {
+      id: solicitud.id,
+      ally_email: email
+    });
+
+    console.log(`📝 Cambio de perfil a revisión: ${email}`);
+    return res.json({
+      message: 'Tu cambio quedó en revisión',
+      status: 'pending_review',
+      request_id: solicitud.id
+    });
+  }
 
   // El nombre comercial identifica al aliado frente al usuario, así que no se
   // repite (índice único sobre `lower(trim(...))`). Se comprueba antes para
@@ -508,6 +651,196 @@ app.post('/ally-profile', async (req, res) => {
 
   console.log(`👤 Perfil comercial guardado: ${email}`);
   res.json({ message: 'Perfil guardado', data });
+});
+
+/// País por prefijo de marcación, para volver a pintar la bandera del selector
+/// de teléfono. Mismo endpoint que el backend de users, contra la misma tabla:
+/// el catálogo es de solo lectura, así que va como ruta pública.
+app.get('/countries/by-dial/:dial', async (req, res) => {
+  const prefijo = String(req.params.dial || '').replace(/^\+/, '');
+
+  const { data, error } = await supabase
+    .from('countries')
+    .select('iso_code, name, dial_code')
+    .or(`dial_code.eq.+${prefijo},dial_code.eq.${prefijo}`)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error buscando país por prefijo:', error.message);
+    return res.status(500).json({ error: 'Error consultando el país' });
+  }
+
+  if (!data) return res.status(404).json({ error: 'País no encontrado' });
+
+  res.json(data);
+});
+
+// ==========================================
+//  VERIFICACIÓN DEL TELÉFONO POR SMS
+// ==========================================
+//
+// Mismo flujo que en la app de usuarios: el número no cuenta como verificado
+// hasta que el aliado demuestra que lo controla. Con Twilio configurado llega
+// un SMS real; sin credenciales y con DEV_MODE=true no se manda nada y vale el
+// código maestro (`DEV_OTP`, 123456 por defecto). Sin ninguna de las dos cosas
+// responde 501 en vez de fingir que funcionó.
+
+app.post('/allies/phone/send-otp', limiteEnvioOtp, async (req, res) => {
+  const { email, phone } = req.body;
+  if (!email || !phone) return res.status(400).json({ error: 'Faltan email y teléfono' });
+
+  if (smsConfigurado()) {
+    try {
+      await emitirCodigo(email, phone);
+      return res.json({ message: 'Código enviado por SMS' });
+    } catch (e) {
+      console.error('Error enviando SMS:', e.message);
+      return res.status(502).json({
+        error: 'No se pudo enviar el SMS, intenta de nuevo',
+        code: 'SMS_FALLO_ENVIO'
+      });
+    }
+  }
+
+  if (process.env.DEV_MODE === 'true') {
+    console.log(`🔓 DEV_MODE: SMS omitido para ${phone} — usar el código ${OTP_DEV}`);
+    return res.json({ message: 'Código simulado en modo desarrollo', dev_mode: true });
+  }
+
+  console.warn(`⚠️  Verificación de teléfono solicitada para ${phone} sin proveedor de SMS configurado.`);
+  return res.status(501).json({
+    error: 'El envío de SMS todavía no está disponible',
+    code: 'SMS_NO_CONFIGURADO'
+  });
+});
+
+/// Comprueba el código y guarda el teléfono ya verificado.
+app.post('/allies/phone/verify-otp', limiteVerificacionOtp, async (req, res) => {
+  const { email, otp, country_code, country_name, phone_number } = req.body;
+
+  if (!email || !otp) return res.status(400).json({ error: 'Faltan email y código' });
+  if (!country_code || !phone_number) {
+    return res.status(400).json({ error: 'Faltan los datos del teléfono' });
+  }
+
+  const telefonoCompleto = `${country_code}${phone_number}`;
+
+  if (smsConfigurado()) {
+    const resultado = comprobarCodigo(email, telefonoCompleto, otp);
+    if (!resultado.ok) {
+      return res.status(400).json({ error: resultado.error, code: resultado.code });
+    }
+  } else if (!(process.env.DEV_MODE === 'true' && otp === OTP_DEV)) {
+    return res.status(400).json({ error: 'Código incorrecto', code: 'OTP_INVALIDO' });
+  }
+
+  const { error } = await supabase
+    .from('allies')
+    .update({
+      phone: telefonoCompleto,
+      country_code,
+      country_name: country_name || null,
+      phone_number,
+      phone_verified_at: new Date().toISOString()
+    })
+    .eq('email', email);
+
+  if (error) {
+    console.error('Error guardando teléfono verificado:', error.message);
+    return res.status(500).json({ error: 'Error guardando el teléfono' });
+  }
+
+  console.log(`📱 Teléfono verificado: ${email}`);
+  res.json({ success: true, phone: telefonoCompleto });
+});
+
+/// Datos de contacto del aliado: teléfono y género.
+///
+/// Van aparte del perfil comercial a propósito. El perfil es público y por eso
+/// pasa por revisión; esto no lo ve ningún usuario, así que se guarda directo.
+/// Nombre, apellidos y fecha de nacimiento no entran acá: los fija el KYC.
+app.put('/ally-contact', async (req, res) => {
+  const { email, phone, country_code, country_name, phone_number, genero } = req.body;
+
+  if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+  const numero = String(phone_number || '').trim();
+  if (numero && numero.replace(/\D/g, '').length < 6) {
+    return res.status(400).json({ error: 'El número de teléfono es muy corto' });
+  }
+
+  const { data, error } = await supabase
+    .from('allies')
+    .update({
+      phone: phone ? String(phone).trim() : null,
+      country_code: country_code || null,
+      country_name: country_name || null,
+      phone_number: numero || null,
+      genero: genero || null
+    })
+    .eq('email', email)
+    .select('email, phone, country_code, country_name, phone_number, genero')
+    .single();
+
+  if (error || !data) {
+    console.error('Error guardando contacto del aliado:', error?.message);
+    return res.status(500).json({ error: 'Error guardando tus datos' });
+  }
+
+  console.log(`📇 Contacto actualizado: ${email}`);
+  res.json({ message: 'Datos guardados', data });
+});
+
+/// Estado del cambio de perfil de un aliado.
+///
+/// Devuelve la solicitud en revisión, si la hay, y si no, la última resuelta
+/// que el aliado todavía no vio — así la app puede decir "te lo aprobaron" o
+/// "te lo rechazaron por esto" la próxima vez que entre.
+app.get('/ally-profile-request', async (req, res) => {
+  const email = req.query.email;
+  if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+  const { data: pendiente, error } = await supabase
+    .from('ally_profile_change_requests')
+    .select('*')
+    .eq('ally_email', email)
+    .eq('status', 'pending')
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error leyendo solicitud de perfil:', error.message);
+    return res.status(500).json({ error: 'Error consultando el estado' });
+  }
+
+  if (pendiente) return res.json({ request: pendiente });
+
+  const { data: resuelta } = await supabase
+    .from('ally_profile_change_requests')
+    .select('*')
+    .eq('ally_email', email)
+    .eq('ally_notified', false)
+    .in('status', ['approved', 'rejected'])
+    .order('reviewed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  res.json({ request: resuelta || null });
+});
+
+/// El aliado ya vio el resultado: no se le repite el aviso.
+app.put('/ally-profile-request/:id/notified', async (req, res) => {
+  const { error } = await supabase
+    .from('ally_profile_change_requests')
+    .update({ ally_notified: true })
+    .eq('id', req.params.id);
+
+  if (error) {
+    console.error('Error marcando solicitud como vista:', error.message);
+    return res.status(500).json({ error: 'Error actualizando la solicitud' });
+  }
+
+  res.json({ success: true });
 });
 
 // Guardar perfil del primer servicio del aliado
@@ -740,6 +1073,149 @@ app.put('/api/admin/kyc/:email', async (req, res) => {
   });
 
   console.log(`🪪 KYC de ${email}: ${status}${note ? ' — ' + note.trim() : ''}`);
+  res.json({ success: true, status });
+});
+
+// ==========================================
+//  REVISIÓN DE CAMBIOS DE PERFIL (PANEL DE ADMINISTRACIÓN)
+// ==========================================
+//
+// El perfil comercial de un aliado ya aprobado no cambia solo: cada edición
+// entra acá con el texto propuesto al lado del que está publicado, para que el
+// admin compare las dos versiones antes de dejarlo pasar.
+
+/// Cola de cambios de perfil. `?estado=pending` (por defecto) o `todos`.
+app.get('/api/admin/profile-changes', async (req, res) => {
+  const estado = req.query.estado || 'pending';
+
+  let consulta = supabase
+    .from('ally_profile_change_requests')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (estado !== 'todos') consulta = consulta.eq('status', estado);
+
+  const { data: solicitudes, error } = await consulta;
+
+  if (error) {
+    console.error('Error listando cambios de perfil:', error.message);
+    return res.status(500).json({ error: 'Error consultando los cambios' });
+  }
+
+  if (!solicitudes || solicitudes.length === 0) return res.json({ data: [] });
+
+  // Los valores publicados van en la misma respuesta: el admin necesita ver
+  // qué dice hoy el perfil para juzgar el cambio, no solo el texto nuevo.
+  const correos = [...new Set(solicitudes.map((s) => s.ally_email))];
+
+  const { data: aliados } = await supabase
+    .from('allies')
+    .select('email, nombre, apellido, avatar_image, nombre_comercial, frase_presentacion, resumen')
+    .in('email', correos);
+
+  const porCorreo = Object.fromEntries((aliados || []).map((a) => [a.email, a]));
+
+  const resultado = solicitudes.map((s) => {
+    const ally = porCorreo[s.ally_email] || {};
+    return {
+      ...s,
+      ally_nombre: [ally.nombre, ally.apellido].filter(Boolean).join(' '),
+      ally_avatar: ally.avatar_image || null,
+      actual: {
+        nombre_comercial: ally.nombre_comercial || null,
+        frase_presentacion: ally.frase_presentacion || null,
+        resumen: ally.resumen || null
+      }
+    };
+  });
+
+  res.json({ data: resultado });
+});
+
+/// Aprobar o rechazar un cambio de perfil. Al aprobar se copia a `allies`, que
+/// es el único momento en que el texto publicado cambia. Al rechazar, el motivo
+/// es obligatorio: el aliado tiene que saber qué corregir.
+app.put('/api/admin/profile-changes/:id', async (req, res) => {
+  const { status, rejection_reason } = req.body;
+
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: "El estado debe ser 'approved' o 'rejected'" });
+  }
+
+  if (status === 'rejected' && (!rejection_reason || !rejection_reason.trim())) {
+    return res.status(400).json({ error: 'Al rechazar hay que indicar el motivo' });
+  }
+
+  const { data: solicitud } = await supabase
+    .from('ally_profile_change_requests')
+    .select('*')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (!solicitud) return res.status(404).json({ error: 'Solicitud no encontrada' });
+
+  if (solicitud.status !== 'pending') {
+    return res.status(409).json({
+      error: `Esta solicitud ya fue revisada (estado: ${solicitud.status})`,
+      code: 'NO_PENDIENTE'
+    });
+  }
+
+  if (status === 'approved') {
+    const { error: errorPerfil } = await supabase
+      .from('allies')
+      .update({
+        nombre_comercial: solicitud.nombre_comercial,
+        frase_presentacion: solicitud.frase_presentacion,
+        resumen: solicitud.resumen
+      })
+      .eq('email', solicitud.ally_email);
+
+    // El nombre comercial pudo quedar tomado entre el envío y la aprobación.
+    if (errorPerfil?.code === '23505') {
+      return res.status(409).json({
+        error: 'Ese nombre comercial ya lo tiene otro aliado. Hay que rechazar el cambio.',
+        code: 'NOMBRE_COMERCIAL_EN_USO'
+      });
+    }
+
+    if (errorPerfil) {
+      console.error('Error aplicando cambio de perfil:', errorPerfil.message);
+      return res.status(500).json({ error: 'Error aplicando el cambio' });
+    }
+  }
+
+  const { error } = await supabase
+    .from('ally_profile_change_requests')
+    .update({
+      status,
+      rejection_reason: status === 'rejected' ? rejection_reason.trim() : null,
+      reviewed_by: req.auth?.email || 'admin',
+      reviewed_at: new Date().toISOString()
+    })
+    .eq('id', solicitud.id);
+
+  if (error) {
+    console.error('Error guardando revisión de perfil:', error.message);
+    return res.status(500).json({ error: 'Error guardando la revisión' });
+  }
+
+  // El aliado se entera sin recargar, igual que con el KYC.
+  io.to(`ally:${String(solicitud.ally_email).toLowerCase()}`).emit('allyProfileUpdated', {
+    id: solicitud.id,
+    status,
+    rejection_reason: status === 'rejected' ? rejection_reason.trim() : null
+  });
+
+  // Y el resto de paneles abiertos, para que la cola no muestre una solicitud
+  // que otro admin ya resolvió.
+  io.to('admins').emit('allyProfileReviewed', {
+    id: solicitud.id,
+    ally_email: solicitud.ally_email,
+    status
+  });
+
+  console.log(`📝 Cambio de perfil de ${solicitud.ally_email}: ${status}`);
   res.json({ success: true, status });
 });
 

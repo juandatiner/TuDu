@@ -42,6 +42,9 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: ^0.20.2
+  # Mismo selector de país que usa la app de usuarios, para que el teléfono se
+  # pida igual en las dos.
+  intl_phone_field: ^3.2.0
   socket_io_client: ^2.0.0
 
 dev_dependencies:

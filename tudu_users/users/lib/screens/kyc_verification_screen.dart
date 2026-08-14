@@ -7,9 +7,9 @@ import '../widgets/camera_capture_mixin.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
-import '../services/ally_api.dart';
+import '../services/user_api.dart';
 import 'registration_screen.dart';
-import 'service_setup_screen.dart';
+import 'welcome_screen.dart';
 
 class KycVerificationScreen extends StatefulWidget {
   final String email;
@@ -123,7 +123,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
       final cedulaReversoB64 = base64Encode(await _cedulaReverso!.readAsBytes());
       final selfieB64 = base64Encode(await _selfie!.readAsBytes());
 
-      await AliadoApi.enviarKyc(
+      await KycUsuarioApi.enviar(
         email: widget.email,
         cedulaFrente: cedulaFrenteB64,
         cedulaReverso: cedulaReversoB64,
@@ -137,7 +137,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => ServiceSetupScreen(email: widget.email),
+          pageBuilder: (_, __, ___) => WelcomeScreen(email: widget.email),
           transitionsBuilder: (_, animation, __, child) =>
               FadeTransition(opacity: animation, child: child),
           transitionDuration: const Duration(milliseconds: 300),
@@ -149,7 +149,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => ServiceSetupScreen(email: widget.email),
+          pageBuilder: (_, __, ___) => WelcomeScreen(email: widget.email),
           transitionsBuilder: (_, animation, __, child) =>
               FadeTransition(opacity: animation, child: child),
           transitionDuration: const Duration(milliseconds: 300),
@@ -379,7 +379,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
               ),
               const SizedBox(height: 24),
 
-              Validacion.aviso(_avisoGeneral),
+              Validacion.aviso(context, _avisoGeneral),
 
               // Botón continuar
               SizedBox(
@@ -684,9 +684,8 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
     return Column(
       children: [
         Row(
-          children: List.generate(4, (i) {
-            final completed = i + 1 < step;
-            final active = i + 1 == step;
+          children: List.generate(2, (i) {
+            final activo = i + 1 <= step;
             return Expanded(
               child: Row(
                 children: [
@@ -694,14 +693,14 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
                     child: Container(
                       height: 4,
                       decoration: BoxDecoration(
-                        color: completed || active
+                        color: activo
                             ? _brandColor
                             : Colors.black.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
-                  if (i < 3) const SizedBox(width: 4),
+                  if (i < 1) const SizedBox(width: 4),
                 ],
               ),
             );
@@ -713,21 +712,19 @@ class _KycVerificationScreenState extends State<KycVerificationScreen>
           children: [
             _stepLabel(context.tr('step_data'), step >= 1),
             _stepLabel(context.tr('step_verification'), step >= 2),
-            _stepLabel(context.tr('step_profile'), step >= 3),
-            _stepLabel(context.tr('step_service'), step >= 4),
           ],
         ),
       ],
     );
   }
 
-  Widget _stepLabel(String label, bool active) {
+  Widget _stepLabel(String label, bool activo) {
     return Text(
       label,
       style: TextStyle(
         fontSize: 11,
-        fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-        color: active ? _brandColor : Colors.black.withOpacity(0.4),
+        fontWeight: activo ? FontWeight.w600 : FontWeight.normal,
+        color: activo ? _brandColor : Colors.black.withOpacity(0.4),
       ),
     );
   }

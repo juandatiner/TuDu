@@ -3,7 +3,13 @@ import 'auth_store.dart';
 
 /// Flujo de acceso: envío y verificación del código, y alta del usuario.
 class AuthApi {
-  static Future<void> enviarCodigo(String email) => Api.post('/send-otp', {'email': email});
+  /// Pide el código por correo. Devuelve true si el backend lo simuló
+  /// (`DEV_MODE`): en ese caso no llega ningún correo y vale el código maestro,
+  /// así que la pantalla siguiente lo rellena sola.
+  static Future<bool> enviarCodigo(String email) async {
+    final data = await Api.post('/send-otp', {'email': email});
+    return data is Map && data['dev_mode'] == true;
+  }
 
   /// Verifica el código y guarda la sesión (token de acceso + refresco).
   static Future<void> verificarCodigo({
@@ -32,10 +38,12 @@ class AuthApi {
     required String email,
     required String nombre,
     required String apellido,
+    required String fechaNacimiento,
   }) =>
       Api.post('/register-user', {
         'email': email,
         'nombre': nombre,
         'apellido': apellido,
+        'fecha_nacimiento': fechaNacimiento,
       });
 }

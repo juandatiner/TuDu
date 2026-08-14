@@ -39,6 +39,42 @@ class AppLocalizations {
       'close': 'Cerrar',
       'back': 'Volver',
       'continue_button': 'Continuar',
+      'words_label': 'palabras',
+      'welcome_title': '¡Bienvenido a tudu!',
+      'welcome_body':
+          'Tu cuenta ya está lista. Puedes pedir servicios mientras nuestro equipo revisa tus documentos.',
+      'welcome_step_email': 'Correo verificado',
+      'welcome_step_data': 'Datos personales guardados',
+      'welcome_step_docs': 'Documentos enviados: los revisamos pronto',
+      'welcome_start': 'Empezar',
+      'upload_marked_documents': 'Sube los documentos marcados en rojo',
+      'tap_to_add': 'Toca para agregar',
+      'support_soon_title': '¿Tienes un problema?',
+      'support_soon_body':
+          'Muy pronto podrás escribirle directo a nuestro equipo de soporte desde aquí.',
+      'photo_added': '¡Foto agregada! Toca para cambiarla',
+      'documents_safe':
+          'Tus documentos están cifrados y seguros. Solo nuestro equipo de verificación los revisa.',
+      'camera_only': 'Solo cámara',
+      'camera_error':
+          'No se pudo acceder a la cámara. Revisa los permisos de la app o intenta de nuevo.',
+      'identity_verification': 'Verificación de identidad',
+      'kyc_intro':
+          'Necesitamos confirmar que eres tú.\nTus documentos son revisados por nuestro equipo.',
+      'kyc_disclaimer':
+          'Los datos deben ser reales y coincidir con tu identidad. Toma la foto directo a tu cédula física — no sirven capturas de pantalla, fotos de otra foto ni copias. Documentos falsos, alterados o ilegibles serán rechazados.',
+      'id_front': 'Cédula – Parte frontal',
+      'id_front_hint': 'Foto de tu cédula física, legible y sin reflejos',
+      'id_back': 'Cédula – Parte trasera',
+      'id_back_hint': 'Foto de tu cédula física, con todos los datos visibles',
+      'selfie': 'Selfie de verificación',
+      'selfie_hint': 'Se tomará con tu cámara frontal.\nNo se puede adjuntar de galería.',
+      'selfie_taken': '¡Selfie tomada! Toca para repetirla',
+      'kyc_rejected_title': 'Tu identidad no fue aprobada',
+      'personal_data': 'Datos personales',
+      'tell_us_about_you': 'Cuéntanos un poco sobre ti',
+      'step_data': 'Datos',
+      'step_verification': 'Verificación',
       'retry': 'Reintentar',
 
       // Autenticación
@@ -328,12 +364,14 @@ class AppLocalizations {
           'La imagen es demasiado grande. Máximo 4000x4000 píxeles.',
       'data_updated_success': 'Datos actualizados exitosamente',
       'error_saving_data': 'Error al guardar los datos',
-      'name': 'Nombre',
-      'please_enter_name': 'Por favor ingresa tu nombre',
-      'name_max_length': 'El nombre no puede exceder 20 caracteres',
-      'last_name': 'Apellido',
-      'please_enter_last_name': 'Por favor ingresa tu apellido',
-      'last_name_max_length': 'El apellido no puede exceder 20 caracteres',
+      // En plural, igual que en la app de aliados: una persona puede tener
+      // varios nombres y varios apellidos.
+      'name': 'Nombres',
+      'please_enter_name': 'Por favor ingresa tus nombres',
+      'name_max_length': 'Los nombres no pueden exceder 20 caracteres',
+      'last_name': 'Apellidos',
+      'please_enter_last_name': 'Por favor ingresa tus apellidos',
+      'last_name_max_length': 'Los apellidos no pueden exceder 20 caracteres',
       'phone': 'Teléfono',
       'phone_too_short': 'El número de teléfono es muy corto',
       'gender': 'Género',
@@ -544,6 +582,42 @@ class AppLocalizations {
       'close': 'Close',
       'back': 'Back',
       'continue_button': 'Continue',
+      'words_label': 'words',
+      'welcome_title': 'Welcome to tudu!',
+      'welcome_body':
+          'Your account is ready. You can request services while our team reviews your documents.',
+      'welcome_step_email': 'Email verified',
+      'welcome_step_data': 'Personal details saved',
+      'welcome_step_docs': 'Documents sent: we will review them soon',
+      'welcome_start': 'Get started',
+      'upload_marked_documents': 'Upload the documents marked in red',
+      'tap_to_add': 'Tap to add',
+      'support_soon_title': 'Having a problem?',
+      'support_soon_body':
+          'Soon you will be able to message our support team directly from here.',
+      'photo_added': 'Photo added! Tap to change it',
+      'documents_safe':
+          'Your documents are encrypted and safe. Only our verification team reviews them.',
+      'camera_only': 'Camera only',
+      'camera_error':
+          'Could not access the camera. Check the app permissions or try again.',
+      'identity_verification': 'Identity verification',
+      'kyc_intro':
+          'We need to confirm it is really you.\nYour documents are reviewed by our team.',
+      'kyc_disclaimer':
+          'Your data must be real and match your identity. Photograph your physical ID card directly — screenshots, photos of another photo, or copies are not accepted. Fake, altered, or unreadable documents will be rejected.',
+      'id_front': 'ID card – Front',
+      'id_front_hint': 'Photo of your physical ID card, readable and glare-free',
+      'id_back': 'ID card – Back',
+      'id_back_hint': 'Photo of your physical ID card, with all details visible',
+      'selfie': 'Verification selfie',
+      'selfie_hint': 'It will be taken with your front camera.\nGallery uploads are not allowed.',
+      'selfie_taken': 'Selfie taken! Tap to retake it',
+      'kyc_rejected_title': 'Your identity was not approved',
+      'personal_data': 'Personal details',
+      'tell_us_about_you': 'Tell us a bit about you',
+      'step_data': 'Details',
+      'step_verification': 'Verification',
       'retry': 'Retry',
 
       // Authentication

@@ -8,13 +8,21 @@ import '../l10n/app_localizations.dart';
 import '../services/api.dart';
 import '../services/ally_api.dart';
 import '../widgets/camera_capture_mixin.dart';
+import 'phone_otp_dialog.dart';
+import '../widgets/campo_caja.dart';
+import '../widgets/campo_telefono.dart';
 import '../widgets/validacion_formulario.dart';
-import 'home_screen.dart' show kAzulAliado;
 
-/// "Mis datos" del aliado: los mismos gestos que la pantalla equivalente de la
-/// app de usuarios — foto arriba, campos agrupados en tarjetas, guardado
-/// explícito — pero con lo que un aliado tiene: nombre, cómo se presenta al
-/// cliente y su experiencia.
+/// "Mis datos" del aliado: quién es y cómo contactarlo.
+///
+/// Se divide en dos bloques con reglas distintas y por eso se dicen aparte:
+///  - **Identidad** (nombres, apellidos, correo, fecha de nacimiento): la fijó
+///    la verificación de la cédula, se muestra en gris y no se toca.
+///  - **Contacto** (teléfono y género): lo pone el aliado y se guarda directo,
+///    porque no lo ve ningún usuario.
+///
+/// El perfil comercial —lo que sí es público— vive en su propia pantalla
+/// (`AllyBusinessProfileScreen`): allá cada cambio pasa por revisión del admin.
 ///
 /// La foto no se cambia en el acto: crea una solicitud que revisa el admin,
 /// igual que la de un cliente.
@@ -29,18 +37,11 @@ class AllyPersonalDataScreen extends StatefulWidget {
 
 class _AllyPersonalDataScreenState extends State<AllyPersonalDataScreen>
     with CameraCaptureMixin {
-  static const Color _brandColor = Color(0xFF78BF32);
-  static const Color _bgColor = Color(0xFFF4F2F2);
-
   /// Tope de peso de la foto, como en la app de usuarios: una imagen de 20 MB
   /// en base64 infla el cuerpo del request sin ninguna ganancia visible.
   static const int _maxMb = 5;
 
-  final _nombreController = TextEditingController();
-  final _apellidoController = TextEditingController();
-  final _nombreComercialController = TextEditingController();
-  final _fraseController = TextEditingController();
-  final _resumenController = TextEditingController();
+  final _telefonoController = TextEditingController();
 
   Map<String, dynamic> _ally = const {};
   Map<String, dynamic>? _fotoPendiente;
@@ -48,29 +49,43 @@ class _AllyPersonalDataScreenState extends State<AllyPersonalDataScreen>
   bool _cargando = true;
   bool _guardando = false;
 
-  String? _errorNombre;
-  String? _errorApellido;
-  String? _errorNombreComercial;
-  String? _errorFrase;
-  String? _errorResumen;
   String? _avisoGeneral;
+  String? _errorTelefono;
+
+  // Teléfono partido como en la app de usuarios: el número completo se manda al
+  // servidor, y el prefijo se guarda aparte para volver a pintar la bandera.
+  String _telefonoCompleto = '';
+  String _codigoPais = '';
+  String _nombrePais = '';
+  String _numero = '';
+  String _paisInicial = 'CO';
+  Key _telefonoKey = UniqueKey();
+
+  String? _genero;
+
+  String _origTelefono = '';
+  String? _origGenero;
 
   @override
   void initState() {
     super.initState();
     detectarDispositivo();
+    _telefonoController.addListener(() => setState(() {}));
     _cargar();
   }
 
   @override
   void dispose() {
-    _nombreController.dispose();
-    _apellidoController.dispose();
-    _nombreComercialController.dispose();
-    _fraseController.dispose();
-    _resumenController.dispose();
+    _telefonoController.dispose();
     super.dispose();
   }
+
+  List<Map<String, String>> _opcionesGenero() => [
+        {'value': 'mujer', 'label': context.tr('woman')},
+        {'value': 'hombre', 'label': context.tr('man')},
+        {'value': 'no_binario', 'label': context.tr('non_binary')},
+        {'value': 'ninguna', 'label': context.tr('none_of_above')},
+      ];
 
   Future<void> _cargar() async {
     try {
@@ -85,13 +100,30 @@ class _AllyPersonalDataScreenState extends State<AllyPersonalDataScreen>
       setState(() {
         _ally = ally;
         _fotoPendiente = pendiente;
-        _nombreController.text = ally['nombre'] ?? '';
-        _apellidoController.text = ally['apellido'] ?? '';
-        _nombreComercialController.text = ally['nombre_comercial'] ?? '';
-        _fraseController.text = ally['frase_presentacion'] ?? '';
-        _resumenController.text = ally['resumen'] ?? '';
+
+        _telefonoCompleto = ally['phone'] ?? '';
+        _codigoPais = ally['country_code'] ?? '';
+        _nombrePais = ally['country_name'] ?? '';
+        _numero = ally['phone_number'] ?? '';
+        _telefonoController.text = _numero;
+        _genero = ally['genero'];
+
+        _origTelefono = _telefonoCompleto;
+        _origGenero = _genero;
+
         _cargando = false;
       });
+
+      // El selector necesita el código ISO del país (CO, MX...), no el prefijo
+      // de marcación: se traduce con el catálogo de países del backend.
+      if (_codigoPais.isNotEmpty) {
+        final iso = await AliadoApi.isoDePrefijo(_codigoPais);
+        if (!mounted) return;
+        setState(() {
+          _paisInicial = iso;
+          _telefonoKey = UniqueKey();
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -108,6 +140,13 @@ class _AllyPersonalDataScreenState extends State<AllyPersonalDataScreen>
       );
 
   Future<void> _cambiarFoto() async {
+    // Con una solicitud en curso no se manda otra: la decide el admin, igual
+    // que en la app de usuarios.
+    if (_fotoPendiente != null) {
+      _avisar(context.tr('photo_under_review'));
+      return;
+    }
+
     await tomarFoto(
       etiqueta: 'PERFIL',
       source: ImageSource.gallery,
@@ -136,62 +175,65 @@ class _AllyPersonalDataScreenState extends State<AllyPersonalDataScreen>
     }
   }
 
+  /// Sin cambios no hay nada que guardar, así que el botón queda apagado y se
+  /// explica por qué. Solo cuenta lo editable: identidad no entra.
+  bool _hayCambios() =>
+      _telefonoCompleto != _origTelefono || _genero != _origGenero;
+
   Future<void> _guardar() async {
-    final nombre = _nombreController.text.trim();
-    final apellido = _apellidoController.text.trim();
-    final comercial = _nombreComercialController.text.trim();
-    final frase = _fraseController.text.trim();
-    final resumen = _resumenController.text.trim();
+    final numero = _telefonoController.text.trim();
 
-    final errorNombre = nombre.isEmpty ? Validacion.requerido : null;
-    final errorApellido = apellido.isEmpty ? Validacion.requerido : null;
-    final errorComercial = comercial.length < 3
-        ? context.tr('commercial_name_too_short')
-        : null;
-    final errorFrase =
-        Validacion.palabras(frase) < 3 ? context.tr('pitch_too_short') : null;
-    final errorResumen =
-        Validacion.palabras(resumen) < 15 ? context.tr('summary_too_short') : null;
-
-    final hayErrores = errorNombre != null ||
-        errorApellido != null ||
-        errorComercial != null ||
-        errorFrase != null ||
-        errorResumen != null;
+    final errorTelefono =
+        numero.isNotEmpty && numero.length < 6 ? context.tr('phone_too_short') : null;
 
     setState(() {
-      _errorNombre = errorNombre;
-      _errorApellido = errorApellido;
-      _errorNombreComercial = errorComercial;
-      _errorFrase = errorFrase;
-      _errorResumen = errorResumen;
-      _avisoGeneral = hayErrores ? Validacion.textoCamposFaltantes : null;
+      _errorTelefono = errorTelefono;
+      _avisoGeneral = errorTelefono != null ? Validacion.textoCamposFaltantes : null;
     });
 
-    if (hayErrores) return;
+    if (errorTelefono != null) return;
+
+    // El teléfono se verifica igual que el correo: si cambió, hay que demostrar
+    // que se controla el número antes de guardarlo. La verificación graba el
+    // teléfono por su cuenta, así que el guardado normal ya no lo toca.
+    final telefonoCambio =
+        _telefonoCompleto.isNotEmpty && _telefonoCompleto != _origTelefono;
+
+    if (telefonoCambio) {
+      final verificado = await mostrarVerificacionTelefono(
+        context,
+        email: widget.email,
+        countryCode: _codigoPais,
+        phoneNumber: numero,
+        countryName: _nombrePais,
+      );
+
+      // Canceló o falló: no se guarda nada, ni siquiera el género. Guardar a
+      // medias dejaría el formulario diciendo una cosa y la base otra.
+      if (verificado != true) return;
+      if (!mounted) return;
+
+      _origTelefono = _telefonoCompleto;
+    }
 
     setState(() => _guardando = true);
 
     try {
-      // Dos endpoints porque son dos cosas distintas: los datos personales
-      // viven en el registro del aliado y el perfil comercial es lo que ve el
-      // usuario. `register-ally` hace upsert, así que sirve para actualizar.
-      await AliadoApi.registrar(
+      await AliadoApi.guardarContacto(
         email: widget.email,
-        nombre: nombre,
-        apellido: apellido,
-        fechaNacimiento: _ally['fecha_nacimiento'] as String?,
-      );
-
-      await AliadoApi.guardarPerfil(
-        email: widget.email,
-        nombreComercial: comercial,
-        frasePresentacion: frase,
-        resumen: resumen,
+        phone: _telefonoCompleto.isEmpty ? null : _telefonoCompleto,
+        countryCode: _codigoPais.isEmpty ? null : _codigoPais,
+        countryName: _nombrePais.isEmpty ? null : _nombrePais,
+        phoneNumber: numero.isEmpty ? null : numero,
+        genero: _genero,
       );
 
       if (!mounted) return;
-      setState(() => _guardando = false);
+      setState(() {
+        _guardando = false;
+        _origTelefono = _telefonoCompleto;
+        _origGenero = _genero;
+      });
       _avisar(context.tr('data_saved'));
       Navigator.pop(context, true);
     } catch (e) {
@@ -199,9 +241,6 @@ class _AllyPersonalDataScreenState extends State<AllyPersonalDataScreen>
       setState(() {
         _guardando = false;
         _avisoGeneral = _mensajeError(e);
-        if (e is ApiException && e.code == 'NOMBRE_COMERCIAL_EN_USO') {
-          _errorNombreComercial = e.message;
-        }
       });
     }
   }
@@ -209,233 +248,321 @@ class _AllyPersonalDataScreenState extends State<AllyPersonalDataScreen>
   void _avisar(String mensaje, {bool esError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(mensaje),
-      backgroundColor: esError ? Colors.red : _brandColor,
+      backgroundColor: esError ? Colors.red : CampoColores.marca,
     ));
   }
 
   @override
   Widget build(BuildContext context) {
+    final hayCambios = _hayCambios();
+
     return Scaffold(
-      backgroundColor: _bgColor,
+      backgroundColor: CampoColores.fondo,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         elevation: 0,
-        foregroundColor: Colors.black87,
-        title: Text(context.tr('my_data'),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: CampoColores.marca),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          context.tr('my_data'),
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
       ),
-      body: Container(
-        color: _bgColor,
-        child: _cargando
-            ? const Center(child: CircularProgressIndicator(color: _brandColor))
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                children: [
-                  _buildFoto(),
-                  const SizedBox(height: 28),
-                  _tarjeta(
-                    titulo: context.tr('personal_data'),
-                    hijos: [
-                      _campo(
-                        controller: _nombreController,
-                        etiqueta: context.tr('first_name'),
-                        error: _errorNombre,
-                        onChanged: () => setState(() => _errorNombre = null),
-                      ),
-                      const SizedBox(height: 14),
-                      _campo(
-                        controller: _apellidoController,
-                        etiqueta: context.tr('last_name'),
-                        error: _errorApellido,
-                        onChanged: () => setState(() => _errorApellido = null),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  _tarjeta(
-                    titulo: context.tr('ally_profile_title'),
-                    ayuda: context.tr('ally_profile_intro'),
-                    hijos: [
-                      _campo(
-                        controller: _nombreComercialController,
-                        etiqueta: context.tr('commercial_name'),
-                        error: _errorNombreComercial,
-                        maxLength: 50,
-                        onChanged: () =>
-                            setState(() => _errorNombreComercial = null),
-                      ),
-                      const SizedBox(height: 14),
-                      _campo(
-                        controller: _fraseController,
-                        etiqueta: context.tr('pitch_label'),
-                        error: _errorFrase,
-                        maxLength: 80,
-                        onChanged: () => setState(() => _errorFrase = null),
-                      ),
-                      const SizedBox(height: 14),
-                      _campo(
-                        controller: _resumenController,
-                        etiqueta: context.tr('summary_label'),
-                        error: _errorResumen,
-                        maxLength: 400,
-                        lineas: 5,
-                        onChanged: () => setState(() => _errorResumen = null),
-                      ),
-                    ],
-                  ),
-                  if (_avisoGeneral != null) ...[
-                    const SizedBox(height: 16),
-                    Validacion.aviso(_avisoGeneral!),
-                  ],
-                  const SizedBox(height: 26),
-                  ElevatedButton(
-                    onPressed: _guardando ? null : _guardar,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _brandColor,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 52),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
+      body: _cargando
+          ? const Center(
+              child: CircularProgressIndicator(color: CampoColores.marca))
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 10),
+                    _buildFoto(),
+                    const SizedBox(height: 24),
+
+                    // ─── Identidad (la fija la cédula) ──────────────────────
+                    CampoBloqueado(
+                      icono: Icons.person_outline,
+                      etiqueta: context.tr('first_name'),
+                      valor: _ally['nombre'] ?? '',
                     ),
-                    child: _guardando
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : Text(context.tr('save_changes'),
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    CampoBloqueado(
+                      icono: Icons.person_outline,
+                      etiqueta: context.tr('last_name'),
+                      valor: _ally['apellido'] ?? '',
+                    ),
+                    const SizedBox(height: 16),
+                    CampoBloqueado(
+                      icono: Icons.email_outlined,
+                      etiqueta: context.tr('email'),
+                      valor: widget.email,
+                    ),
+                    const SizedBox(height: 16),
+                    CampoBloqueado(
+                      icono: Icons.cake_outlined,
+                      etiqueta: context.tr('birth_date'),
+                      valor: _fechaNacimiento(),
+                    ),
+                    const SizedBox(height: 8),
+                    NotaBloque(context.tr('verified_data_note')),
+                    const SizedBox(height: 26),
+
+                    // ─── Contacto (lo pone el aliado) ───────────────────────
+                    TituloBloque(context.tr('contact_data'),
+                        ayuda: context.tr('contact_data_note')),
+                    _campoTelefono(),
+                    Validacion.mensajeCampo(_errorTelefono),
+                    const SizedBox(height: 16),
+                    _campoGenero(),
+                    const SizedBox(height: 32),
+
+                    Validacion.aviso(_avisoGeneral),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed:
+                            _guardando || !hayCambios ? null : _guardar,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: CampoColores.marca,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 3,
+                        ),
+                        child: _guardando
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                context.tr('save_changes'),
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ),
+                    if (!hayCambios)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          context.tr('no_changes'),
+                          style:
+                              const TextStyle(color: Colors.red, fontSize: 12),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
+            ),
+    );
+  }
+
+  /// Fecha de nacimiento tal como la muestra la app de usuarios: dd/mm/aaaa.
+  String _fechaNacimiento() {
+    final crudo = (_ally['fecha_nacimiento'] as String?) ?? '';
+    if (crudo.isEmpty) return '';
+
+    final fecha = DateTime.tryParse(crudo);
+    if (fecha == null) return crudo;
+
+    final dia = fecha.day.toString().padLeft(2, '0');
+    final mes = fecha.month.toString().padLeft(2, '0');
+    return '$dia/$mes/${fecha.year}';
+  }
+
+  Widget _campoTelefono() {
+    return CampoTelefono(
+      key: _telefonoKey,
+      controller: _telefonoController,
+      isoInicial: _paisInicial,
+      error: _errorTelefono,
+      onChanged: (pais, numero, completo) {
+        setState(() {
+          _codigoPais = '+${pais.dialCode}';
+          _nombrePais = pais.name;
+          _numero = numero;
+          _telefonoCompleto = completo;
+          _errorTelefono = null;
+        });
+      },
+    );
+  }
+
+  Widget _campoGenero() {
+    final opciones = _opcionesGenero();
+    final elegido = _genero == null
+        ? null
+        : opciones.firstWhere((o) => o['value'] == _genero,
+            orElse: () => {'label': ''})['label'];
+
+    return CampoCaja(
+      icono: Icons.wc_outlined,
+      etiqueta: context.tr('gender'),
+      onTap: _elegirGenero,
+      trailing: const Icon(Icons.keyboard_arrow_down, color: CampoColores.marca),
+      hijo: Text(
+        (elegido == null || elegido.isEmpty) ? context.tr('select') : elegido,
+        style: TextStyle(
+          fontSize: 16,
+          color: (elegido == null || elegido.isEmpty)
+              ? CampoColores.textoSecundario
+              : Colors.black,
+        ),
       ),
     );
   }
 
-  /// Igual que en la pantalla de datos de la app de usuarios: círculo con
-  /// borde blanco y sombra, con la cámara abajo a la derecha. Sin etiquetas de
-  /// estado — el resultado de la revisión llega por su propio aviso.
+  void _elegirGenero() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                context.tr('select_your_gender'),
+                style: const TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const Divider(height: 1),
+            ..._opcionesGenero().map((opcion) {
+              final elegido = _genero == opcion['value'];
+              return InkWell(
+                onTap: () {
+                  setState(() => _genero = opcion['value']);
+                  Navigator.pop(context);
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 16),
+                  child: Row(
+                    children: [
+                      Icon(
+                        elegido
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                        color: elegido
+                            ? CampoColores.marca
+                            : CampoColores.textoSecundario,
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        opcion['label']!,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight:
+                              elegido ? FontWeight.w600 : FontWeight.normal,
+                          color: elegido ? CampoColores.marca : Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Misma geometría que el avatar de "Mis Datos" en la app de usuarios:
+  /// círculo de 100 con borde blanco de 4 y sombra, y la cámara de 32 abajo a
+  /// la derecha — la foto se toca desde ese botón, no desde el círculo.
   Widget _buildFoto() {
     final url = (_ally['avatar_image'] as String?) ?? '';
 
-    return Center(
-      child: GestureDetector(
-        onTap: _cambiarFoto,
-        child: Stack(
-          alignment: Alignment.bottomRight,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: url.isEmpty ? kAzulAliado.withOpacity(0.15) : Colors.transparent,
-                border: Border.all(color: Colors.white, width: 4),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.12),
-                    spreadRadius: 3,
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+    return Stack(
+      alignment: Alignment.bottomRight,
+      children: [
+        Container(
+          width: 100,
+          height: 100,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: url.isEmpty ? CampoColores.marca : Colors.transparent,
+            border: Border.all(color: Colors.white, width: 4),
+            boxShadow: [
+              BoxShadow(
+                color: CampoColores.sombra,
+                spreadRadius: 3,
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: url.isEmpty
+              ? const Icon(Icons.person, size: 50, color: Colors.white)
+              : Image.network(
+                  url,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: CampoColores.marca,
+                    child:
+                        const Icon(Icons.person, size: 50, color: Colors.white),
                   ),
-                ],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: url.isEmpty
-                  ? Icon(Icons.person, size: 52, color: kAzulAliado.withOpacity(0.7))
-                  : Image.network(url,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(Icons.person,
-                          size: 52, color: kAzulAliado.withOpacity(0.7))),
-            ),
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: kAzulAliado,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: const Icon(Icons.photo_camera, size: 15, color: Colors.white),
-            ),
-          ],
+                ),
         ),
-      ),
-    );
-  }
-
-  Widget _tarjeta({
-    required String titulo,
-    String? ayuda,
-    required List<Widget> hijos,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(titulo,
-              style: const TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87)),
-          if (ayuda != null) ...[
-            const SizedBox(height: 4),
-            Text(ayuda,
-                style: TextStyle(
-                    fontSize: 12, color: Colors.black.withOpacity(0.45), height: 1.4)),
-          ],
-          const SizedBox(height: 16),
-          ...hijos,
-        ],
-      ),
-    );
-  }
-
-  Widget _campo({
-    required TextEditingController controller,
-    required String etiqueta,
-    required VoidCallback onChanged,
-    String? error,
-    int? maxLength,
-    int lineas = 1,
-  }) {
-    return TextField(
-      controller: controller,
-      maxLength: maxLength,
-      maxLines: lineas,
-      textCapitalization: lineas > 1
-          ? TextCapitalization.sentences
-          : TextCapitalization.words,
-      onChanged: (_) => onChanged(),
-      decoration: Validacion.decorar(
-        InputDecoration(
-          labelText: etiqueta,
-          filled: true,
-          fillColor: const Color(0xFFFAFAFA),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.black12),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: _brandColor, width: 1.6),
+        GestureDetector(
+          onTap: _cambiarFoto,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: CampoColores.marca,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: CampoColores.sombra,
+                  spreadRadius: 1,
+                  blurRadius: 3,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
           ),
         ),
-        error: error,
-      ),
+      ],
     );
   }
 }

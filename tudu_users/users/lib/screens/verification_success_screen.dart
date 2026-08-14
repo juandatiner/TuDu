@@ -31,54 +31,49 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen> {
   }
 
   Future<void> _registerSessionAndNavigate() async {
-    // Registrar la sesión del dispositivo
-    final sessionService = Provider.of<SessionService>(context, listen: false);
-    await sessionService.registerSession(widget.email);
+    // Recién registrado: la fila ya existe, así que la sesión se puede guardar
+    // y de acá se pasa a la app.
+    if (widget.isAfterRegistration) {
+      await _registrarSesion();
+      _irA(() => HomeScreen(userEmail: widget.email));
+      return;
+    }
 
-    Timer(const Duration(seconds: 2), () {
-      if (widget.isAfterRegistration) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => HomeScreen(userEmail: widget.email),
-          ),
-        );
-      } else {
-        _checkUser();
-      }
-    });
+    // Viene del código del correo. Si la cuenta ya existe se abre la sesión y
+    // entra; si no, esta pantalla es solo el "verificación exitosa" antes del
+    // formulario — la sesión no se puede registrar todavía porque la fila del
+    // usuario aún no existe.
+    bool existe;
+    try {
+      existe = await AuthApi.existeUsuario(widget.email);
+    } catch (e) {
+      existe = false;
+    }
+
+    if (!mounted) return;
+
+    if (existe) {
+      await _registrarSesion();
+      _irA(() => HomeScreen(userEmail: widget.email));
+    } else {
+      _irA(() => RegistrationScreen(email: widget.email));
+    }
   }
 
-  Future<void> _checkUser() async {
-    try {
-      final existe = await AuthApi.existeUsuario(widget.email);
+  Future<void> _registrarSesion() async {
+    final sessionService = Provider.of<SessionService>(context, listen: false);
+    await sessionService.registerSession(widget.email);
+  }
 
-      if (!mounted) return;
-
-        if (existe) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => HomeScreen(userEmail: widget.email),
-            ),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => RegistrationScreen(email: widget.email),
-            ),
-          );
-        }
-    } catch (e) {
+  /// Deja el visto verde en pantalla el tiempo suficiente para leerlo.
+  void _irA(Widget Function() destino) {
+    Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => RegistrationScreen(email: widget.email),
-        ),
+        MaterialPageRoute(builder: (_) => destino()),
       );
-    }
+    });
   }
 
   @override

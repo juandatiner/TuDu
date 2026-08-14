@@ -59,6 +59,7 @@ class Api {
         ruta.startsWith('/api/admin/services') ||
         ruta.startsWith('/api/admin/categories') ||
         ruta.startsWith('/api/admin/portfolio-items') ||
+        ruta.startsWith('/api/admin/profile-changes') ||
         ruta.startsWith('/categories')) {
       return Config.alliesBaseUrl;
     }

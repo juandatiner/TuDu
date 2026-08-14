@@ -11,7 +11,11 @@ import 'registration_screen.dart';
 class OtpScreen extends StatefulWidget {
   final String email;
 
-  const OtpScreen({super.key, required this.email});
+  /// true cuando el backend simuló el envío (`DEV_MODE`): no llega ningún
+  /// correo, así que el código maestro se rellena solo.
+  final bool devMode;
+
+  const OtpScreen({super.key, required this.email, this.devMode = false});
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -34,10 +38,10 @@ class _OtpScreenState extends State<OtpScreen> {
   void initState() {
     super.initState();
     _startResendTimer();
-    // Pre-llenar con código de desarrollo solo para la cuenta de prueba
-    if (widget.email == 'cosmodavid2009@gmail.com') {
-      _fillDevCode();
-    }
+    // Pre-llenar solo cuando el backend dijo que el envío fue simulado. Antes
+    // estaba atado a una cuenta concreta escrita en el código, así que con
+    // cualquier otro correo había que teclear el maestro a mano.
+    if (widget.devMode) _fillDevCode();
   }
 
   void _fillDevCode() {
@@ -81,34 +85,17 @@ class _OtpScreenState extends State<OtpScreen> {
 
   String get _otpCode => _controllers.map((c) => c.text).join();
 
-  Future<void> _checkUserAfterOtp() async {
-    try {
-      final existe = await AuthApi.existeUsuario(widget.email);
-
-      if (existe) {
-        // Usuario existe, ir a verificación exitosa
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (context) =>
-                  VerificationSuccessScreen(email: widget.email)),
-        );
-      } else {
-        // Usuario no existe, ir a registro
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (context) => RegistrationScreen(email: widget.email)),
-        );
-      }
-    } catch (e) {
-      // Error de conexión, asumir no existe
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-            builder: (context) => RegistrationScreen(email: widget.email)),
-      );
-    }
+  /// El código quedó bien: se muestra el "verificación exitosa" siempre, exista
+  /// la cuenta o no. Antes, quien todavía no estaba registrado saltaba directo
+  /// al formulario y nunca veía que su correo había quedado verificado; esa
+  /// pantalla decide sola a dónde seguir.
+  void _checkUserAfterOtp() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VerificationSuccessScreen(email: widget.email),
+      ),
+    );
   }
 
   Future<void> _verifyOtp() async {
@@ -214,8 +201,28 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
+  /// Ancho de cada recuadro del código.
+  ///
+  /// Crece con el tamaño de letra del teléfono —si no, con Dynamic Type grande
+  /// el dígito quedaba apretado contra el borde— pero nunca más de lo que cabe:
+  /// son seis en fila y al pasarse se cortaban por los lados.
+  double _anchoRecuadro(BuildContext context) {
+    const base = 45.0;
+    const separacionMinima = 6.0;
+    const margenPantalla = 24.0 * 2;
+
+    final escala = MediaQuery.textScalerOf(context).scale(base) / base;
+    final disponible =
+        MediaQuery.sizeOf(context).width - margenPantalla - separacionMinima * 5;
+    final tope = disponible / 6;
+
+    return (base * escala).clamp(32.0, tope < 32.0 ? 32.0 : tope);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final anchoRecuadro = _anchoRecuadro(context);
+
     return Scaffold(
       body: Container(
         color: const Color(0xFFF4F2F2),
@@ -283,8 +290,8 @@ class _OtpScreenState extends State<OtpScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: List.generate(6, (index) {
                     return SizedBox(
-                      width: 45,
-                      height: 55,
+                      width: anchoRecuadro,
+                      height: anchoRecuadro * 55 / 45,
                       child: Focus(
                         onFocusChange: (_) => setState(() {}),
                         child: TextField(

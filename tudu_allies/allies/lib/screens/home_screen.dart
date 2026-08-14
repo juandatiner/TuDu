@@ -13,6 +13,7 @@ import '../services/ally_api.dart';
 import '../services/api.dart';
 import '../config.dart';
 import 'login_screen.dart';
+import 'ally_business_profile_screen.dart';
 import 'ally_personal_data_screen.dart';
 import 'service_fix_screen.dart';
 import 'service_setup_screen.dart';
@@ -1155,6 +1156,15 @@ class _PerfilTabState extends State<_PerfilTab> {
             ),
             const SizedBox(height: 24),
 
+            // El perfil comercial es lo público y tiene sus propias reglas
+            // (pasa por revisión), así que se abre aparte de "Mis datos".
+            _profileOption(
+              icon: Icons.storefront_outlined,
+              label: context.tr('business_profile'),
+              onTap: _abrirPerfilComercial,
+            ),
+            const SizedBox(height: 8),
+
             _profileOption(
               icon: Icons.star_outline,
               label: context.tr('my_ratings'),
@@ -1260,6 +1270,17 @@ class _PerfilTabState extends State<_PerfilTab> {
       ),
     );
     // Puede haber cambiado el nombre, el perfil o la foto.
+    if (mounted) _cargar();
+  }
+
+  Future<void> _abrirPerfilComercial() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AllyBusinessProfileScreen(email: widget.allyEmail),
+      ),
+    );
+    // El nombre comercial se muestra en el encabezado del perfil.
     if (mounted) _cargar();
   }
 

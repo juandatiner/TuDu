@@ -7,7 +7,7 @@ const { Server } = require('socket.io');
 const { createClient } = require('@supabase/supabase-js');
 const compression = require('compression'); // Compresión Zlib para B64
 const { corsOptions, corsSocket, avisarConfiguracion } = require('./cors_config');
-const { subirImagen } = require('./storage');
+const { subirImagen, urlFirmada } = require('./storage');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -261,14 +261,220 @@ app.post('/check-user', async (req, res) => {
   else res.json({ exists: false });
 });
 
-app.post('/register-user', async (req, res) => {
-  const { email, nombre, apellido } = req.body;
-  if (!email || !nombre || !apellido) return res.status(400).json({ error: 'Faltan campos' });
 
-  const { data, error } = await supabase.from('users').insert([{ email, nombre, apellido }]).select('id').single();
+/// Años cumplidos a día de hoy. La app ya lo comprueba, pero el que decide es
+/// el servidor: un cliente modificado puede mandar cualquier fecha.
+function esMayorDeEdad(fecha) {
+  const nacimiento = new Date(fecha);
+  if (isNaN(nacimiento.getTime())) return false;
+
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const mes = hoy.getMonth() - nacimiento.getMonth();
+  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad -= 1;
+
+  return edad >= 18;
+}
+
+app.post('/register-user', async (req, res) => {
+  const { email, nombre, apellido, fecha_nacimiento } = req.body;
+  if (!email || !nombre || !apellido) return res.status(400).json({ error: 'Faltan campos' });
+  if (!fecha_nacimiento) return res.status(400).json({ error: 'Falta la fecha de nacimiento' });
+
+  if (!esMayorDeEdad(fecha_nacimiento)) {
+    return res.status(400).json({
+      error: 'Debes ser mayor de 18 años para usar la aplicación',
+      code: 'MENOR_DE_EDAD'
+    });
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .insert([{ email, nombre, apellido, fecha_nacimiento }])
+    .select('id')
+    .single();
   if (error) return res.status(400).json({ error: 'Error registrando o usuario ya existe' });
 
   res.json({ message: 'Usuario registrado', id: data.id });
+});
+
+// ==========================================
+//  VERIFICACIÓN DE IDENTIDAD DEL CLIENTE (KYC)
+// ==========================================
+//
+// Mismo trámite que el del aliado y contra el mismo bucket privado: el cliente
+// también recibe a un desconocido en su casa, así que también dice quién es.
+// En la fila queda la ruta del archivo, nunca el base64 — un `select *` no
+// puede devolver la cédula de nadie.
+
+app.post('/user-kyc', async (req, res) => {
+  const { email, cedula_frente, cedula_reverso, selfie } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+  const [frente, reverso, foto] = await Promise.all([
+    subirImagen(supabase, { bucket: 'kyc', dueno: email, etiqueta: 'cedula-frente', valor: cedula_frente }),
+    subirImagen(supabase, { bucket: 'kyc', dueno: email, etiqueta: 'cedula-reverso', valor: cedula_reverso }),
+    subirImagen(supabase, { bucket: 'kyc', dueno: email, etiqueta: 'selfie', valor: selfie })
+  ]);
+
+  const { error } = await supabase.from('users').update({
+    kyc_cedula_frente: frente || null,
+    kyc_cedula_reverso: reverso || null,
+    kyc_selfie: foto || null,
+    kyc_status: 'submitted',
+    kyc_submitted_at: new Date().toISOString()
+  }).eq('email', email);
+
+  if (error) {
+    console.error('Error guardando KYC de usuario:', error.message);
+    return res.status(500).json({ error: 'Error guardando la verificación' });
+  }
+
+  io.emit('newUserKyc', { email });
+
+  console.log(`🪪 KYC de cliente enviado: ${email}`);
+  res.json({ message: 'Documentos enviados para revisión' });
+});
+
+/// En qué va la verificación del cliente. La app la consulta al arrancar para
+/// decidir si lo deja pasar, lo deja esperando o le pide corregir.
+app.get('/user-kyc/status', async (req, res) => {
+  const email = req.query.email;
+  if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('kyc_status, kyc_submitted_at, kyc_reviewed_at, kyc_reviewer_note')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error consultando KYC:', error.message);
+    return res.status(500).json({ error: 'Error consultando la verificación' });
+  }
+
+  res.json({ data: data || { kyc_status: 'pending' } });
+});
+
+// ── Cola del panel de administración ──────────────────────────────────────
+//
+// Rutas separadas de las del aliado (`/api/admin/kyc` en el backend 3002)
+// porque cada backend es dueño de su tabla; el panel usa la misma pantalla
+// apuntando a una u otra.
+
+const ESTADOS_KYC_USUARIO = ['approved', 'rejected'];
+
+app.get('/api/admin/user-kyc', async (req, res) => {
+  const estado = req.query.estado || 'submitted';
+
+  let consulta = supabase
+    .from('users')
+    .select('id, email, nombre, apellido, fecha_nacimiento, kyc_status, kyc_submitted_at, kyc_reviewed_at, kyc_reviewer_note, created_at')
+    .order('kyc_submitted_at', { ascending: true, nullsFirst: false });
+
+  if (estado !== 'todos') consulta = consulta.eq('kyc_status', estado);
+
+  const { data, error } = await consulta;
+  if (error) {
+    console.error('Error listando KYC de usuarios:', error.message);
+    return res.status(500).json({ error: 'Error obteniendo solicitudes de verificación' });
+  }
+
+  res.json({ success: true, data: data || [] });
+});
+
+/// Detalle con los tres documentos. El bucket es privado: lo guardado es una
+/// ruta y acá se cambia por una URL firmada que caduca en una hora.
+app.get('/api/admin/user-kyc/:email', async (req, res) => {
+  const { email } = req.params;
+
+  const { data: usuario, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', email)
+    .single();
+
+  if (error || !usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  const [frente, reverso, selfie] = await Promise.all([
+    urlFirmada(supabase, 'kyc', usuario.kyc_cedula_frente),
+    urlFirmada(supabase, 'kyc', usuario.kyc_cedula_reverso),
+    urlFirmada(supabase, 'kyc', usuario.kyc_selfie)
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      id: usuario.id,
+      email: usuario.email,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+      fecha_nacimiento: usuario.fecha_nacimiento,
+      phone: usuario.phone,
+      kyc_status: usuario.kyc_status,
+      kyc_submitted_at: usuario.kyc_submitted_at,
+      kyc_reviewed_at: usuario.kyc_reviewed_at,
+      kyc_reviewer_note: usuario.kyc_reviewer_note,
+      created_at: usuario.created_at,
+      cedula_frente: frente,
+      cedula_reverso: reverso,
+      selfie: selfie
+    }
+  });
+});
+
+/// Aprueba o rechaza. Al rechazar el motivo es obligatorio: el cliente tiene
+/// que saber qué corregir antes de volver a mandar las fotos.
+app.put('/api/admin/user-kyc/:email', async (req, res) => {
+  const { email } = req.params;
+  const { status, note } = req.body;
+
+  if (!ESTADOS_KYC_USUARIO.includes(status)) {
+    return res.status(400).json({ error: "El estado debe ser 'approved' o 'rejected'" });
+  }
+
+  if (status === 'rejected' && (!note || !note.trim())) {
+    return res.status(400).json({ error: 'Al rechazar hay que indicar el motivo' });
+  }
+
+  const { data: usuario } = await supabase
+    .from('users')
+    .select('email, kyc_status')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  if (usuario.kyc_status !== 'submitted') {
+    return res.status(409).json({
+      error: `Este usuario no está pendiente de revisión (estado actual: ${usuario.kyc_status})`,
+      code: 'NO_PENDIENTE'
+    });
+  }
+
+  const { error } = await supabase
+    .from('users')
+    .update({
+      kyc_status: status,
+      kyc_reviewed_at: new Date().toISOString(),
+      kyc_reviewer_note: note ? note.trim() : null
+    })
+    .eq('email', email);
+
+  if (error) {
+    console.error('Error revisando KYC de usuario:', error.message);
+    return res.status(500).json({ error: 'Error guardando la revisión' });
+  }
+
+  // La pantalla de espera del cliente reacciona sola.
+  io.emit('userKycUpdated', {
+    email,
+    status,
+    note: note ? note.trim() : null
+  });
+
+  console.log(`🪪 KYC de cliente ${email}: ${status}`);
+  res.json({ success: true, status });
 });
 
 // ==========================================

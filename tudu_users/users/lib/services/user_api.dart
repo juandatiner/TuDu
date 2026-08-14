@@ -160,3 +160,32 @@ class HistorialService {
 
   static Future<void> eliminar(int id) => Api.delete('/search-history/$id');
 }
+
+
+/// Verificación de identidad del cliente: cédula por las dos caras y selfie.
+///
+/// Mismo trámite que el del aliado y contra el mismo bucket privado. Las
+/// imágenes viajan en base64 y el backend las sube a Storage: en la fila queda
+/// la ruta, nunca la foto.
+class KycUsuarioApi {
+  static Future<void> enviar({
+    required String email,
+    required String cedulaFrente,
+    required String cedulaReverso,
+    required String selfie,
+  }) =>
+      Api.post('/user-kyc', {
+        'email': email,
+        'cedula_frente': cedulaFrente,
+        'cedula_reverso': cedulaReverso,
+        'selfie': selfie,
+      });
+
+  /// Estado actual: pending | submitted | approved | rejected, con el motivo
+  /// escrito por el admin cuando fue rechazada.
+  static Future<Map<String, dynamic>> estado(String email) async {
+    final data = await Api.get('/user-kyc/status', query: {'email': email});
+    final fila = (data is Map) ? data['data'] : null;
+    return fila == null ? <String, dynamic>{} : Map<String, dynamic>.from(fila);
+  }
+}

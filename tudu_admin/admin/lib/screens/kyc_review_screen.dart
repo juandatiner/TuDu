@@ -13,7 +13,12 @@ import '../services/admin_api.dart';
 /// quedaba para siempre, porque no había forma de aprobarlo salvo editar la
 /// fila a mano en Supabase.
 class KycReviewScreen extends StatefulWidget {
-  const KycReviewScreen({super.key});
+  /// Ruta de la cola a revisar: aliados (backend 3002) o clientes (3000). La
+  /// pantalla es la misma porque el trámite es el mismo — cédula por las dos
+  /// caras y selfie — y así no hay dos copias que mantener.
+  final String ruta;
+
+  const KycReviewScreen({super.key, this.ruta = KycAdminApi.rutaAliados});
 
   @override
   State<KycReviewScreen> createState() => _KycReviewScreenState();
@@ -38,7 +43,7 @@ class _KycReviewScreenState extends State<KycReviewScreen> {
     });
 
     try {
-      final datos = await KycAdminApi.listar(estado: _estado);
+      final datos = await KycAdminApi.listar(estado: _estado, ruta: widget.ruta);
       if (!mounted) return;
       setState(() {
         _aliados = datos;
@@ -62,7 +67,8 @@ class _KycReviewScreenState extends State<KycReviewScreen> {
   Future<void> _abrirDetalle(String email) async {
     final revisado = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => _DetalleKycScreen(email: email)),
+      MaterialPageRoute(
+          builder: (_) => _DetalleKycScreen(email: email, ruta: widget.ruta)),
     );
 
     if (revisado == true) _cargar();
@@ -296,7 +302,9 @@ class _KycReviewScreenState extends State<KycReviewScreen> {
 class _DetalleKycScreen extends StatefulWidget {
   final String email;
 
-  const _DetalleKycScreen({required this.email});
+  final String ruta;
+
+  const _DetalleKycScreen({required this.email, required this.ruta});
 
   @override
   State<_DetalleKycScreen> createState() => _DetalleKycScreenState();
@@ -316,7 +324,7 @@ class _DetalleKycScreenState extends State<_DetalleKycScreen> {
 
   Future<void> _cargar() async {
     try {
-      final datos = await KycAdminApi.detalle(widget.email);
+      final datos = await KycAdminApi.detalle(widget.email, ruta: widget.ruta);
       if (!mounted) return;
       setState(() {
         _aliado = datos;
@@ -344,7 +352,8 @@ class _DetalleKycScreenState extends State<_DetalleKycScreen> {
     setState(() => _enviando = true);
 
     try {
-      await KycAdminApi.revisar(widget.email, estado, motivo: motivo);
+      await KycAdminApi.revisar(widget.email, estado,
+          motivo: motivo, ruta: widget.ruta);
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(

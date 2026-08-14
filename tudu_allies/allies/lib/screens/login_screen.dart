@@ -108,14 +108,15 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         } else {
           // Necesita verificación, enviar OTP y navegar a la pantalla OTP
-          await AuthApi.enviarCodigo(_emailController.text);
+          final devMode = await AuthApi.enviarCodigo(_emailController.text);
 
           if (mounted) {
             // Navegar a la pantalla OTP
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => OtpScreen(email: _emailController.text),
+                builder: (context) =>
+                    OtpScreen(email: _emailController.text, devMode: devMode),
               ),
             );
           }

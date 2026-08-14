@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/contador_campo.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/user_api.dart';
@@ -16,10 +17,23 @@ class PublishServiceScreen extends StatefulWidget {
 }
 
 class _PublishServiceScreenState extends State<PublishServiceScreen> {
+  // El contador de cada campo con límite se ve solo mientras se escribe ahí.
+  final _focoTitulo = FocusNode();
+  final _focoDescripcion = FocusNode();
+  final _focoInfo = FocusNode();
+
   int _selectedQuantity = 1;
   int _selectedUnitIndex = 0;
   String _summary = '';
   bool _showMaxYearWarning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final f in [_focoTitulo, _focoDescripcion, _focoInfo]) {
+      f.addListener(() => setState(() {}));
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -197,6 +211,9 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
     _budgetController.dispose();
     _workerInfoController.dispose();
     _budgetFocusNode.dispose();
+    _focoTitulo.dispose();
+    _focoDescripcion.dispose();
+    _focoInfo.dispose();
     super.dispose();
   }
 
@@ -453,6 +470,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
               ),
               child: TextField(
                 controller: _titleController,
+                focusNode: _focoTitulo,
                 maxLines: null,
                 minLines: 1,
                 maxLength: 30,
@@ -481,6 +499,12 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                   error: _errorTitulo,
                 ),
               ),
+            ),
+            ContadorCampo(
+              controller: _titleController,
+              foco: _focoTitulo,
+              maxLength: 30,
+              minPalabras: 3,
             ),
             Validacion.mensajeCampo(_errorTitulo),
             const SizedBox(height: 12),
@@ -780,6 +804,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
               ),
               child: TextField(
                 controller: _descriptionController,
+                focusNode: _focoDescripcion,
                 maxLines: null,
                 minLines: 3,
                 maxLength: 200,
@@ -809,6 +834,12 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                 ),
               ),
             ),
+            ContadorCampo(
+              controller: _descriptionController,
+              foco: _focoDescripcion,
+              maxLength: 200,
+              minPalabras: 20,
+            ),
             Validacion.mensajeCampo(_errorDescripcion),
             const SizedBox(height: 12),
             Text(
@@ -824,6 +855,7 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
               ),
               child: TextField(
                 controller: _workerInfoController,
+                focusNode: _focoInfo,
                 onChanged: (_) => setState(() {
                   _errorInfoTrabajador = null;
                   _revisarAviso();
@@ -850,6 +882,11 @@ class _PublishServiceScreenState extends State<PublishServiceScreen> {
                   error: _errorInfoTrabajador,
                 ),
               ),
+            ),
+            ContadorCampo(
+              controller: _workerInfoController,
+              foco: _focoInfo,
+              maxLength: 100,
             ),
             Validacion.mensajeCampo(_errorInfoTrabajador),
             const SizedBox(height: 16),

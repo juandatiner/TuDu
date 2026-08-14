@@ -3,8 +3,13 @@ import 'auth_store.dart';
 
 /// Flujo de acceso del aliado.
 class AuthApi {
-  static Future<void> enviarCodigo(String email) =>
-      Api.post('/send-otp', {'email': email});
+  /// Pide el código por correo. Devuelve true si el backend lo simuló
+  /// (`DEV_MODE`): en ese caso no llega ningún correo y vale el código maestro,
+  /// así que la pantalla siguiente lo rellena sola.
+  static Future<bool> enviarCodigo(String email) async {
+    final data = await Api.post('/send-otp', {'email': email});
+    return data is Map && data['dev_mode'] == true;
+  }
 
   /// Verifica el código y guarda la sesión (acceso + refresco).
   static Future<void> verificarCodigo({
@@ -63,21 +68,75 @@ class AliadoApi {
   static Future<void> crearPerfilServicio(Map<String, dynamic> perfil) =>
       Api.post('/ally-service-profile', perfil);
 
-  /// Perfil comercial: se pide una sola vez, entre el KYC y el primer servicio.
-  /// La foto va aparte, por [SolicitudFotoAliadoService], porque la revisa el
-  /// admin antes de que se vea.
-  static Future<void> guardarPerfil({
+  /// Código ISO del país (CO, MX...) a partir del prefijo de marcación. El
+  /// selector de teléfono guarda el prefijo, pero para pintar la bandera pide
+  /// el ISO. Si falla, Colombia: es donde opera la app.
+  static Future<String> isoDePrefijo(String prefijo) async {
+    try {
+      final data = await Api.get('/countries/by-dial/$prefijo');
+      if (data is Map && data['iso_code'] is String) return data['iso_code'];
+    } catch (e) {
+      // Sin país no se rompe la pantalla: solo se muestra la bandera por defecto.
+    }
+    return 'CO';
+  }
+
+  /// Teléfono y género. No es perfil público, así que se guarda directo — sin
+  /// pasar por la revisión del admin.
+  static Future<void> guardarContacto({
+    required String email,
+    String? phone,
+    String? countryCode,
+    String? countryName,
+    String? phoneNumber,
+    String? genero,
+  }) =>
+      Api.put('/ally-contact', {
+        'email': email,
+        'phone': phone,
+        'country_code': countryCode,
+        'country_name': countryName,
+        'phone_number': phoneNumber,
+        'genero': genero,
+      });
+
+  /// Guarda el perfil comercial: se pide una sola vez, entre el KYC y el primer
+  /// servicio. La foto va aparte, por [SolicitudFotoAliadoService], porque la
+  /// revisa el admin antes de que se vea.
+  ///
+  /// Devuelve `'pending_review'` cuando el aliado ya tenía perfil publicado: en
+  /// ese caso el texto no se aplica, queda a la espera de que el admin lo
+  /// apruebe. El perfil inicial sí se guarda directo y responde `'saved'`.
+  static Future<String> guardarPerfil({
     required String email,
     required String nombreComercial,
     required String frasePresentacion,
     required String resumen,
-  }) =>
-      Api.post('/ally-profile', {
-        'email': email,
-        'nombre_comercial': nombreComercial,
-        'frase_presentacion': frasePresentacion,
-        'resumen': resumen,
-      });
+  }) async {
+    final data = await Api.post('/ally-profile', {
+      'email': email,
+      'nombre_comercial': nombreComercial,
+      'frase_presentacion': frasePresentacion,
+      'resumen': resumen,
+    });
+
+    if (data is Map && data['status'] is String) return data['status'];
+    return 'saved';
+  }
+}
+
+/// Cambios del perfil comercial pendientes de revisión del admin.
+class SolicitudPerfilAliadoService {
+  /// La que está en revisión o, si no hay, la última resuelta que el aliado
+  /// todavía no vio. `null` cuando no hay nada que mostrar.
+  static Future<Map<String, dynamic>?> estado(String email) async {
+    final data = await Api.get('/ally-profile-request', query: {'email': email});
+    final fila = (data is Map) ? data['request'] : null;
+    return fila == null ? null : Map<String, dynamic>.from(fila);
+  }
+
+  static Future<void> marcarNotificada(int id) =>
+      Api.put('/ally-profile-request/$id/notified');
 }
 
 /// Cambios de foto de perfil del aliado.

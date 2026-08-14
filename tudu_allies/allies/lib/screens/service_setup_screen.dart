@@ -44,6 +44,10 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
       TextEditingController();
   final TextEditingController _nuevoServicioNombreController =
       TextEditingController();
+  // El contador solo se ve mientras se escribe ese campo.
+  final _focoServicioNombre = FocusNode();
+  final _focoServicioDescripcion = FocusNode();
+
   final TextEditingController _nuevoServicioDescripcionController =
       TextEditingController();
 
@@ -84,6 +88,9 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
   @override
   void initState() {
     super.initState();
+    for (final f in [_focoServicioNombre, _focoServicioDescripcion]) {
+      f.addListener(() => setState(() {}));
+    }
     detectarDispositivo();
     _fetchCategorias();
     _categoriaSearchController.addListener(_filterCategorias);
@@ -95,6 +102,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     _nuevaCategoriaController.dispose();
     _nuevoServicioNombreController.dispose();
     _nuevoServicioDescripcionController.dispose();
+    _focoServicioNombre.dispose();
+    _focoServicioDescripcion.dispose();
     super.dispose();
   }
 
@@ -580,7 +589,7 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
             // y el resto del formulario scrollean.
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-              child: _buildProgressIndicator(step: 3),
+              child: _buildProgressIndicator(step: 4),
             ),
 
             Expanded(
@@ -1045,6 +1054,7 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
               const SizedBox(height: 10),
               TextField(
                 controller: _nuevoServicioNombreController,
+                focusNode: _focoServicioNombre,
                 textCapitalization: TextCapitalization.words,
                 maxLength: 60,
                 onChanged: (_) => setState(() => _errorNuevoServicioNombre = null),
@@ -1056,9 +1066,12 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
                   error: _errorNuevoServicioNombre,
                 ),
               ),
+              _contador(_nuevoServicioNombreController, _focoServicioNombre, 60,
+                  minCaracteres: 3),
               const SizedBox(height: 10),
               TextField(
                 controller: _nuevoServicioDescripcionController,
+                focusNode: _focoServicioDescripcion,
                 maxLength: 120,
                 maxLines: 2,
                 textCapitalization: TextCapitalization.sentences,
@@ -1071,6 +1084,9 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
                   error: _errorNuevoServicioDescripcion,
                 ),
               ),
+              _contador(_nuevoServicioDescripcionController,
+                  _focoServicioDescripcion, 120,
+                  minPalabras: 5),
               const SizedBox(height: 14),
               _buildPortafolio(),
               if (_errorPortafolio != null) ...[
@@ -1251,7 +1267,7 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
     return Column(
       children: [
         Row(
-          children: List.generate(3, (i) {
+          children: List.generate(4, (i) {
             final completed = i + 1 < step;
             final active = i + 1 == step;
             return Expanded(
@@ -1268,7 +1284,7 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
                       ),
                     ),
                   ),
-                  if (i < 2) const SizedBox(width: 4),
+                  if (i < 3) const SizedBox(width: 4),
                 ],
               ),
             );
@@ -1280,7 +1296,8 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
           children: [
             _stepLabel(context.tr('step_data'), step >= 1),
             _stepLabel(context.tr('step_verification'), step >= 2),
-            _stepLabel(context.tr('step_service'), step >= 3),
+            _stepLabel(context.tr('step_profile'), step >= 3),
+            _stepLabel(context.tr('step_service'), step >= 4),
           ],
         ),
       ],
@@ -1294,6 +1311,52 @@ class _ServiceSetupScreenState extends State<ServiceSetupScreen>
         fontSize: 11,
         fontWeight: active ? FontWeight.w600 : FontWeight.normal,
         color: active ? _brandColor : Colors.black.withOpacity(0.4),
+      ),
+    );
+  }
+
+  /// Cuánto llevas de lo que el campo exige.
+  ///
+  /// Mientras no alcanza el mínimo cuenta hacia él ("3/5 palabras"): es lo que
+  /// la persona necesita saber para poder enviar. Cumplido el mínimo pasa a
+  /// mostrar el espacio que queda ("87/120"). Pasarse del tope no se avisa
+  /// porque no puede ocurrir: `maxLength` deja de aceptar teclas.
+  ///
+  /// Solo se ve mientras se escribe ese campo, y nunca en rojo: el rojo lo pone
+  /// el error del campo al enviar.
+  Widget _contador(
+    TextEditingController controller,
+    FocusNode foco,
+    int maxLength, {
+    int? minPalabras,
+    int? minCaracteres,
+  }) {
+    if (!foco.hasFocus) return const SizedBox.shrink();
+
+    final texto = controller.text;
+    final caracteres = texto.characters.length;
+
+    String etiqueta;
+    if (minPalabras != null) {
+      final palabras = Validacion.palabras(texto);
+      etiqueta = palabras < minPalabras
+          ? '$palabras/$minPalabras ${context.tr('words_label')}'
+          : '$caracteres/$maxLength';
+    } else if (minCaracteres != null && caracteres < minCaracteres) {
+      etiqueta = '$caracteres/$minCaracteres';
+    } else {
+      etiqueta = '$caracteres/$maxLength';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, right: 4),
+      child: SizedBox(
+        width: double.infinity,
+        child: Text(
+          etiqueta,
+          textAlign: TextAlign.right,
+          style: TextStyle(fontSize: 11.5, color: Colors.black.withOpacity(0.45)),
+        ),
       ),
     );
   }

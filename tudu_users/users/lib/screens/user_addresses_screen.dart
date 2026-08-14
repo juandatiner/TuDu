@@ -5,6 +5,7 @@ import '../services/api.dart';
 import '../services/user_api.dart';
 import '../providers/theme_provider.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/contador_campo.dart';
 import '../widgets/validacion_formulario.dart';
 
 class UserAddressesScreen extends StatefulWidget {
@@ -818,6 +819,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         counterText: '', // Oculta el contador
                       ),
                       maxLength: 25,
+                      buildCounter: contadorDeCampo(),
                       onChanged: (value) {
                         if (_addressNameError != null) {
                           setDialogState(() {
@@ -1158,6 +1160,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ),
                             keyboardType: TextInputType.text,
                             maxLength: 8,
+                            buildCounter: contadorDeCampo(),
                             onChanged: (value) {
                               if (_numberPrincipalError != null) {
                                 setDialogState(() {
@@ -1241,6 +1244,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ),
                             keyboardType: TextInputType.text,
                             maxLength: 8,
+                            buildCounter: contadorDeCampo(),
                             onChanged: (value) {
                               if (_numberSecondaryError != null) {
                                 setDialogState(() {
@@ -1308,6 +1312,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ),
                             keyboardType: TextInputType.text,
                             maxLength: 8,
+                            buildCounter: contadorDeCampo(),
                             onChanged: (value) {
                               if (_numberFinalError != null) {
                                 setDialogState(() {
@@ -1386,6 +1391,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ),
                       maxLines: null, // Permite múltiples líneas
                       maxLength: 60, // Límite de 60 caracteres
+                      buildCounter: contadorDeCampo(),
                       keyboardType: TextInputType.multiline,
                       onChanged: (value) {
                         if (_additionalInfoError != null) {
@@ -1719,6 +1725,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                         counterText: '', // Oculta el contador
                       ),
                       maxLength: 25,
+                      buildCounter: contadorDeCampo(),
                       onChanged: (value) {
                         if (_addressNameError != null) {
                           setDialogState(() {
@@ -2059,6 +2066,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ),
                             keyboardType: TextInputType.text,
                             maxLength: 8,
+                            buildCounter: contadorDeCampo(),
                             onChanged: (value) {
                               if (_numberPrincipalError != null) {
                                 setDialogState(() {
@@ -2142,6 +2150,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ),
                             keyboardType: TextInputType.text,
                             maxLength: 8,
+                            buildCounter: contadorDeCampo(),
                             onChanged: (value) {
                               if (_numberSecondaryError != null) {
                                 setDialogState(() {
@@ -2209,6 +2218,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                             ),
                             keyboardType: TextInputType.text,
                             maxLength: 8,
+                            buildCounter: contadorDeCampo(),
                             onChanged: (value) {
                               if (_numberFinalError != null) {
                                 setDialogState(() {
@@ -2287,6 +2297,7 @@ class _UserAddressesScreenState extends State<UserAddressesScreen> {
                       ),
                       maxLines: null, // Permite múltiples líneas
                       maxLength: 60, // Límite de 60 caracteres
+                      buildCounter: contadorDeCampo(),
                       keyboardType: TextInputType.multiline,
                       onChanged: (value) {
                         if (_additionalInfoError != null) {

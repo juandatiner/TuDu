@@ -4,8 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
-import 'package:intl_phone_field/intl_phone_field.dart';
-import 'package:intl_phone_field/country_picker_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +13,9 @@ import '../services/user_api.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_avatar_provider.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/contador_campo.dart';
 import '../widgets/validacion_formulario.dart';
+import '../widgets/campo_telefono.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class MyDataScreen extends StatefulWidget {
@@ -40,6 +40,13 @@ class _MyDataScreenState extends State<MyDataScreen> {
   String _phoneNumber = ''; // Número sin código de país
   String _initialCountryCode = 'CO'; // Código de país inicial para el selector
   Key _phoneFieldKey = UniqueKey(); // Key para forzar reconstrucción del campo
+  // El teléfono ya no es un `TextFormField` del formulario, así que su error se
+  // guarda acá y se pinta bajo la caja.
+  String? _phoneError;
+
+  // El contador de cada campo con tope se ve solo mientras se escribe ahí.
+  final _focoNombre = FocusNode();
+  final _focoApellido = FocusNode();
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -72,6 +79,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
   DateTime? _birthDate;
   DateTime? _originalBirthDate;
   String? _birthDateError;
+  // Se llena al intentar guardar, no al abrir la pantalla.
+  String? _generoError;
   // Aviso general del formulario: no nombra campos, cada campo se marca solo.
   String? _avisoGeneral;
 
@@ -93,6 +102,10 @@ class _MyDataScreenState extends State<MyDataScreen> {
     _nameController.addListener(() => setState(() {}));
     _lastNameController.addListener(() => setState(() {}));
 
+    for (final f in [_focoNombre, _focoApellido]) {
+      f.addListener(() => setState(() {}));
+    }
+
     _loadCachedAvatar();
     _loadUserData();
   }
@@ -103,6 +116,8 @@ class _MyDataScreenState extends State<MyDataScreen> {
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _focoNombre.dispose();
+    _focoApellido.dispose();
     super.dispose();
   }
 
@@ -264,11 +279,29 @@ class _MyDataScreenState extends State<MyDataScreen> {
   Future<void> _saveUserData() async {
     // Se valida todo de una: los campos con problema quedan marcados en rojo y
     // abajo aparece un solo aviso.
-    if (!_formKey.currentState!.validate()) {
-      setState(() => _avisoGeneral = Validacion.textoCamposFaltantes(context));
+    final loc0 = AppLocalizations.of(context)!;
+    final numero = _phoneController.text.trim();
+    final errorTelefono =
+        numero.isNotEmpty && numero.length < 6 ? loc0.t('phone_too_short') : null;
+
+    final errorGenero =
+        _selectedGender == null ? loc0.t('please_select_gender') : null;
+
+    if (!_formKey.currentState!.validate() ||
+        errorTelefono != null ||
+        errorGenero != null) {
+      setState(() {
+        _phoneError = errorTelefono;
+        _generoError = errorGenero;
+        _avisoGeneral = Validacion.textoCamposFaltantes(context);
+      });
       return;
     }
-    setState(() => _avisoGeneral = null);
+    setState(() {
+      _phoneError = null;
+      _generoError = null;
+      _avisoGeneral = null;
+    });
 
     final loc = AppLocalizations.of(context)!;
 
@@ -988,6 +1021,7 @@ class _MyDataScreenState extends State<MyDataScreen> {
                     onTap: () {
                       setState(() {
                         _selectedGender = option['value'];
+                        _generoError = null;
                       });
                       Navigator.pop(context);
                     },
@@ -1210,6 +1244,156 @@ class _MyDataScreenState extends State<MyDataScreen> {
     return Color(int.parse('FF$hexColor', radix: 16));
   }
 
+  /// Caja de un dato: ícono a la izquierda, etiqueta arriba y valor debajo,
+  /// las dos dentro de la tarjeta.
+  ///
+  /// Antes la etiqueta era la flotante de `InputDecoration`, que con
+  /// `InputBorder.none` sube por encima del borde y queda pisando el fondo: la
+  /// tarjeta se veía cortada por arriba. Acá la etiqueta es texto propio, así
+  /// que el rectángulo queda entero y todos los campos miden lo mismo, sean
+  /// editables, de solo lectura o selectores.
+  Widget _caja({
+    required IconData icono,
+    required String etiqueta,
+    required Widget hijo,
+    bool bloqueado = false,
+    bool hayError = false,
+    VoidCallback? onTap,
+    Widget? trailing,
+  }) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    final caja = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        // El gris del dato bloqueado tiene que leerse contra el fondo de la
+        // pantalla (#F4F2F2), y `grey[100]` (#F5F5F5) es prácticamente el mismo
+        // color: se veía blanco.
+        color: bloqueado
+            ? (themeProvider.isDarkMode
+                ? const Color(0xFF2C2C2E)
+                : const Color(0xFFE6E4E4))
+            : themeProvider.cardBgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: hayError
+            ? Border.all(color: Validacion.colorError, width: 1.5)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: themeProvider.shadowColor,
+            spreadRadius: 1,
+            blurRadius: 3,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icono,
+            size: 21,
+            color: bloqueado
+                ? themeProvider.secondaryTextColor
+                : const Color(0xFF78BF32),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  etiqueta,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: themeProvider.secondaryTextColor,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                hijo,
+              ],
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+
+    if (onTap == null) return caja;
+
+    return GestureDetector(onTap: onTap, child: caja);
+  }
+
+  /// El campo de texto de dentro de la caja: sin borde ni relleno propios, para
+  /// que el rectángulo lo dibuje `_caja` y no se encimen dos.
+  Widget _textoEditable({
+    required TextEditingController controller,
+    required String hint,
+    FocusNode? foco,
+    int? maxLength,
+    bool habilitado = true,
+    String? Function(String?)? validator,
+    void Function(String)? onChanged,
+  }) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    return TextFormField(
+      controller: controller,
+      focusNode: foco,
+      enabled: habilitado,
+      maxLength: maxLength,
+      onChanged: onChanged,
+      style: TextStyle(
+        fontSize: 16,
+        color: habilitado
+            ? themeProvider.textColor
+            : themeProvider.secondaryTextColor,
+      ),
+      // Todas las líneas de valor miden lo mismo aunque el texto cambie, así
+      // las tarjetas quedan a la misma altura entre sí.
+      strutStyle: const StrutStyle(
+          fontSize: 16, height: 1.35, forceStrutHeight: true),
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: EdgeInsets.zero,
+        // El tema pone `filled: true` con fondo blanco: dentro de la tarjeta
+        // gris del correo eso dibujaba un rectángulo blanco encima.
+        filled: false,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        disabledBorder: InputBorder.none,
+        errorBorder: InputBorder.none,
+        focusedErrorBorder: InputBorder.none,
+        counterText: '',
+        hintText: hint,
+        hintStyle: TextStyle(
+          fontSize: 16,
+          color: themeProvider.secondaryTextColor.withOpacity(0.6),
+        ),
+        errorStyle: const TextStyle(fontSize: 12),
+      ),
+      validator: validator,
+    );
+  }
+
+  /// Valor de un selector (género, fecha): se ve igual que el texto editable,
+  /// pero no se escribe.
+  Widget _textoSeleccionado(String? valor, String vacio) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final hay = valor != null && valor.isNotEmpty;
+
+    return Text(
+      hay ? valor : vacio,
+      strutStyle: const StrutStyle(
+          fontSize: 16, height: 1.35, forceStrutHeight: true),
+      style: TextStyle(
+        fontSize: 16,
+        color: hay ? themeProvider.textColor : themeProvider.secondaryTextColor,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -1374,35 +1558,15 @@ class _MyDataScreenState extends State<MyDataScreen> {
                       ),
                       const SizedBox(height: 24),
                       // Campo Nombre
-                      Container(
-                        decoration: BoxDecoration(
-                          color: themeProvider.cardBgColor,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: themeProvider.shadowColor,
-                              spreadRadius: 1,
-                              blurRadius: 3,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: TextFormField(
+                      _caja(
+                        icono: Icons.person_outline,
+                        etiqueta: loc.t('name'),
+                        hijo: _textoEditable(
                           controller: _nameController,
+                          foco: _focoNombre,
+                          hint: loc.t('name'),
                           maxLength: 20,
                           onChanged: (_) => _revisarAviso(),
-                          style: TextStyle(color: themeProvider.textColor),
-                          decoration: InputDecoration(
-                            labelText: loc.t('name'),
-                            labelStyle: TextStyle(
-                                color: themeProvider.secondaryTextColor),
-                            prefixIcon: const Icon(Icons.person_outline,
-                                color: Color(0xFF78BF32)),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 16),
-                            counterText: '', // Oculta el contador
-                          ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return loc.t('please_enter_name');
@@ -1414,37 +1578,22 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           },
                         ),
                       ),
+                      ContadorCampo(
+                        controller: _nameController,
+                        foco: _focoNombre,
+                        maxLength: 20,
+                      ),
                       const SizedBox(height: 16),
                       // Campo Apellido
-                      Container(
-                        decoration: BoxDecoration(
-                          color: themeProvider.cardBgColor,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: themeProvider.shadowColor,
-                              spreadRadius: 1,
-                              blurRadius: 3,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: TextFormField(
+                      _caja(
+                        icono: Icons.person_outline,
+                        etiqueta: loc.t('last_name'),
+                        hijo: _textoEditable(
                           controller: _lastNameController,
+                          foco: _focoApellido,
+                          hint: loc.t('last_name'),
                           maxLength: 20,
                           onChanged: (_) => _revisarAviso(),
-                          style: TextStyle(color: themeProvider.textColor),
-                          decoration: InputDecoration(
-                            labelText: loc.t('last_name'),
-                            labelStyle: TextStyle(
-                                color: themeProvider.secondaryTextColor),
-                            prefixIcon: const Icon(Icons.person_outline,
-                                color: Color(0xFF78BF32)),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 16),
-                            counterText: '', // Oculta el contador
-                          ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return loc.t('please_enter_last_name');
@@ -1456,245 +1605,86 @@ class _MyDataScreenState extends State<MyDataScreen> {
                           },
                         ),
                       ),
+                      ContadorCampo(
+                        controller: _lastNameController,
+                        foco: _focoApellido,
+                        maxLength: 20,
+                      ),
                       const SizedBox(height: 16),
                       // Campo Email (solo lectura)
-                      Container(
-                        decoration: BoxDecoration(
-                          color: themeProvider.isDarkMode
-                              ? const Color(0xFF2C2C2E)
-                              : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: themeProvider.shadowColor,
-                              spreadRadius: 1,
-                              blurRadius: 3,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: TextFormField(
+                      _caja(
+                        icono: Icons.email_outlined,
+                        etiqueta: loc.t('email'),
+                        bloqueado: true,
+                        hijo: _textoEditable(
                           controller: _emailController,
-                          enabled: false,
-                          style: TextStyle(
-                              color: themeProvider.secondaryTextColor),
-                          decoration: InputDecoration(
-                            labelText: loc.t('email'),
-                            labelStyle: TextStyle(
-                                color: themeProvider.secondaryTextColor),
-                            prefixIcon: Icon(Icons.email_outlined,
-                                color: themeProvider.secondaryTextColor),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 16),
-                            disabledBorder: InputBorder.none,
-                          ),
+                          hint: loc.t('email'),
+                          habilitado: false,
                         ),
                       ),
                       const SizedBox(height: 16),
                       // Campo Teléfono con selector de país
-                      Container(
-                        decoration: BoxDecoration(
-                          color: themeProvider.cardBgColor,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: themeProvider.shadowColor,
-                              spreadRadius: 1,
-                              blurRadius: 3,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: IntlPhoneField(
+                      _caja(
+                        icono: Icons.phone_outlined,
+                        etiqueta: loc.t('phone'),
+                        hayError: _phoneError != null,
+                        hijo: CampoTelefono(
                           key: _phoneFieldKey,
                           controller: _phoneController,
-                          style: TextStyle(
-                              fontSize: 16, color: themeProvider.textColor),
-                          decoration: InputDecoration(
-                            labelText: loc.t('phone'),
-                            labelStyle: TextStyle(
-                                color: themeProvider.secondaryTextColor),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 16),
-                            counterText: '', // Oculta el contador
-                            prefixIcon: const Icon(Icons.phone_outlined,
-                                color: Color(0xFF78BF32)),
-                          ),
-                          keyboardType: TextInputType.phone,
-                          dropdownIcon: const Icon(Icons.arrow_drop_down,
-                              color: Color(0xFF78BF32)),
-                          dropdownIconPosition: IconPosition.trailing,
-                          showCountryFlag: true,
-                          showDropdownIcon: true,
-                          initialCountryCode: _initialCountryCode,
-                          languageCode: loc.locale.languageCode,
-                          pickerDialogStyle: PickerDialogStyle(
-                            searchFieldInputDecoration: InputDecoration(
-                              labelText: loc.t('search_country'),
-                              suffixIcon: const Icon(Icons.search),
-                            ),
-                          ),
-                          onChanged: (phone) {
+                          isoInicial: _initialCountryCode,
+                          onChanged: (pais, numero, completo) {
                             setState(() {
-                              _completePhone = phone.completeNumber;
-                              // phone.countryCode es el código de marcación (ej: +57)
-                              _countryCode = phone.countryCode;
-                              _phoneNumber = phone.number;
+                              _countryCode = '+${pais.dialCode}';
+                              _countryName = pais.name;
+                              _phoneNumber = numero;
+                              _completePhone = completo;
+                              _phoneError = null;
                             });
-                          },
-                          onCountryChanged: (country) {
-                            // Al cambiar de país, limpiar el número
-                            setState(() {
-                              _countryCode = '+${country.dialCode}';
-                              _countryName = country.name;
-                              _phoneNumber = '';
-                              _completePhone = '';
-                              _phoneController.clear();
-                            });
-                          },
-                          validator: (phone) {
-                            if (phone != null && phone.number.isNotEmpty) {
-                              // Validación básica del número
-                              if (phone.number.length < 6) {
-                                return loc.t('phone_too_short');
-                              }
-                            }
-                            return null;
                           },
                         ),
                       ),
+                      Validacion.mensajeCampo(_phoneError),
                       const SizedBox(height: 16),
                       // Campo Género
-                      GestureDetector(
+                      _caja(
+                        icono: Icons.wc_outlined,
+                        etiqueta: loc.t('gender'),
                         onTap: _showGenderPicker,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: themeProvider.cardBgColor,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: themeProvider.shadowColor,
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: InputDecorator(
-                            decoration: InputDecoration(
-                              labelText: loc.t('gender'),
-                              labelStyle: TextStyle(
-                                  color: themeProvider.secondaryTextColor),
-                              prefixIcon: const Icon(Icons.wc_outlined,
-                                  color: Color(0xFF78BF32)),
-                              // Rojo cuando falta el dato: es un selector, no
-                              // un campo de texto, así que el borde va acá.
-                              border: _selectedGender == null
-                                  ? const OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                          color: Validacion.colorError,
-                                          width: 2),
-                                    )
-                                  : InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              focusedErrorBorder: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 16),
-                              errorText: _selectedGender == null
-                                  ? loc.t('please_select_gender')
-                                  : null,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  _selectedGender != null
-                                      ? _getGenderOptions(loc).firstWhere(
-                                          (opt) =>
-                                              opt['value'] == _selectedGender,
-                                          orElse: () => {'label': ''},
-                                        )['label']!
-                                      : loc.t('select'),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: _selectedGender != null
-                                        ? themeProvider.textColor
-                                        : themeProvider.secondaryTextColor,
-                                  ),
-                                ),
-                                const Icon(Icons.keyboard_arrow_up,
-                                    color: Color(0xFF78BF32)),
-                              ],
-                            ),
-                          ),
+                        // Rojo solo después de intentar guardar, como en la app
+                        // de aliados: al entrar por primera vez el campo está
+                        // vacío porque nadie lo ha llenado todavía, no porque
+                        // haya un error.
+                        hayError: _generoError != null,
+                        trailing: const Icon(Icons.keyboard_arrow_down,
+                            color: Color(0xFF78BF32)),
+                        hijo: _textoSeleccionado(
+                          _selectedGender != null
+                              ? _getGenderOptions(loc).firstWhere(
+                                  (opt) => opt['value'] == _selectedGender,
+                                  orElse: () => {'label': ''},
+                                )['label']
+                              : null,
+                          loc.t('select'),
                         ),
                       ),
+                      Validacion.mensajeCampo(_generoError),
                       const SizedBox(height: 16),
                       // Campo Fecha de Nacimiento
-                      GestureDetector(
+                      _caja(
+                        icono: Icons.cake_outlined,
+                        etiqueta: loc.t('birth_date'),
                         onTap: _showBirthDatePicker,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: themeProvider.cardBgColor,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: themeProvider.shadowColor,
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: InputDecorator(
-                            decoration: InputDecoration(
-                              labelText: loc.t('birth_date'),
-                              labelStyle: TextStyle(
-                                  color: themeProvider.secondaryTextColor),
-                              prefixIcon: const Icon(Icons.cake_outlined,
-                                  color: Color(0xFF78BF32)),
-                              // Rojo cuando falta el dato: es un selector, no
-                              // un campo de texto, así que el borde va acá.
-                              border: _birthDateError != null
-                                  ? const OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                          color: Validacion.colorError,
-                                          width: 2),
-                                    )
-                                  : InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              focusedErrorBorder: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 16),
-                              errorText: _birthDateError,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  _birthDate != null
-                                      ? '${_birthDate!.day.toString().padLeft(2, '0')}/${_birthDate!.month.toString().padLeft(2, '0')}/${_birthDate!.year}'
-                                      : loc.t('select'),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: _birthDate != null
-                                        ? themeProvider.textColor
-                                        : themeProvider.secondaryTextColor,
-                                  ),
-                                ),
-                                const Icon(Icons.calendar_today_outlined,
-                                    color: Color(0xFF78BF32)),
-                              ],
-                            ),
-                          ),
+                        hayError: _birthDateError != null,
+                        trailing: const Icon(Icons.calendar_today_outlined,
+                            color: Color(0xFF78BF32)),
+                        hijo: _textoSeleccionado(
+                          _birthDate != null
+                              ? '${_birthDate!.day.toString().padLeft(2, '0')}/${_birthDate!.month.toString().padLeft(2, '0')}/${_birthDate!.year}'
+                              : null,
+                          loc.t('select'),
                         ),
                       ),
+                      Validacion.mensajeCampo(_birthDateError),
                       const SizedBox(height: 32),
                       Validacion.aviso(context, _avisoGeneral),
                       // Botón Guardar

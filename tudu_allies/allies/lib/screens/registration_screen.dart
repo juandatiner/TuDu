@@ -406,9 +406,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(
+                      // Verde siempre, como el resto de íconos del formulario:
+                      // en gris parecía un campo deshabilitado.
+                      const Icon(
                         Icons.calendar_today_outlined,
-                        color: _fechaNacimiento != null ? _brandColor : Colors.black.withOpacity(0.4),
+                        color: _brandColor,
                         size: 20,
                       ),
                       const SizedBox(width: 12),
@@ -493,7 +495,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return Column(
       children: [
         Row(
-          children: List.generate(3, (i) {
+          children: List.generate(4, (i) {
             final completed = i + 1 < step;
             final active = i + 1 == step;
             return Expanded(
@@ -508,7 +510,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
                     ),
                   ),
-                  if (i < 2) const SizedBox(width: 4),
+                  if (i < 3) const SizedBox(width: 4),
                 ],
               ),
             );
@@ -520,7 +522,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           children: [
             _stepLabel(context.tr('step_data'), step >= 1),
             _stepLabel(context.tr('step_verification'), step >= 2),
-            _stepLabel(context.tr('step_service'), step >= 3),
+            _stepLabel(context.tr('step_profile'), step >= 3),
+            _stepLabel(context.tr('step_service'), step >= 4),
           ],
         ),
       ],

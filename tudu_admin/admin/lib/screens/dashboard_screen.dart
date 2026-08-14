@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../config.dart';
 import 'kyc_review_screen.dart';
+import 'profile_changes_review_screen.dart';
 import 'services_review_screen.dart';
 import 'services_catalog_screen.dart';
 import '../services/admin_api.dart';
+import '../services/auth_store.dart';
 import 'photo_change_requests_screen.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
@@ -23,8 +25,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _unreadRequestsCount = 0;   // solicitudes pendientes NO leídas
   int _pendingKycCount = 0;       // verificaciones de identidad sin revisar
   int _pendingServiciosCount = 0; // categorías/servicios propuestos sin revisar
+  int _pendingPerfilesCount = 0;  // cambios de perfil de aliado sin revisar
+  int _pendingKycUsuariosCount = 0; // verificaciones de identidad de clientes
   bool _isLoading = true;
-  late IO.Socket _socket;
+  late IO.Socket _socket;         // users (3000): solicitudes de foto
+  late IO.Socket _socketAliados;  // aliados (3002): cambios de perfil
 
   @override
   void initState() {
@@ -32,45 +37,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadPendingRequestsCount();
     _loadPendingKycCount();
     _loadPendingServiciosCount();
+    _loadPendingPerfilesCount();
+    _loadPendingKycUsuariosCount();
     _connectSocket();
   }
 
+  /// El panel escucha dos backends porque las colas viven en dos sitios: las
+  /// fotos en el de users (3000) y todo lo de aliados en el suyo (3002).
+  ///
+  /// Los dos exigen el token en el handshake (`io.use(authenticateSocket)`):
+  /// sin él la conexión se rechaza con `unauthorized` y los contadores solo se
+  /// refrescaban al volver a entrar a la pantalla.
   void _connectSocket() {
-    // Conectar al servidor Socket.io
-    _socket = IO.io(
-        Config.baseUrl
-            .replaceAll('http://', 'ws://')
-            .replaceAll('https://', 'wss://'),
-        {
-          'transports': ['websocket'],
-          'autoConnect': true,
-          'forceNew': true,
-        });
+    _socket = _abrirSocket(Config.baseUrl, 'users');
+    _socket.on('newPhotoChangeRequest', (_) => _loadPendingRequestsCount());
+    _socket.on('photoRequestUpdated', (_) => _loadPendingRequestsCount());
+    _socket.on('newUserKyc', (_) => _loadPendingKycUsuariosCount());
+    _socket.on('userKycUpdated', (_) => _loadPendingKycUsuariosCount());
 
-    _socket.onConnect((_) {
-      print('Conectado al servidor Socket.io');
-    });
+    _socketAliados = _abrirSocket(Config.alliesBaseUrl, 'aliados');
+    _socketAliados.on(
+        'newAllyProfileChangeRequest', (_) => _loadPendingPerfilesCount());
+    _socketAliados.on(
+        'allyProfileReviewed', (_) => _loadPendingPerfilesCount());
+  }
 
-    _socket.onConnectError((error) {
-      print('Error de conexión Socket.io: $error');
-    });
+  IO.Socket _abrirSocket(String base, String nombre) {
+    final socket = IO.io(
+      base.replaceAll('http://', 'ws://').replaceAll('https://', 'wss://'),
+      {
+        'transports': ['websocket'],
+        'autoConnect': true,
+        'forceNew': true,
+        'auth': {'token': AuthStore.token},
+      },
+    );
 
-    _socket.onDisconnect((_) {
-      print('Desconectado del servidor Socket.io');
-    });
+    socket.onConnect((_) => print('Socket.io conectado ($nombre)'));
+    socket.onConnectError((e) => print('Socket.io error ($nombre): $e'));
+    socket.onDisconnect((_) => print('Socket.io desconectado ($nombre)'));
 
-    _socket.on('newPhotoChangeRequest', (_) {
-      _loadPendingRequestsCount();
-    });
-
-    _socket.on('photoRequestUpdated', (_) {
-      _loadPendingRequestsCount();
-    });
+    return socket;
   }
 
   @override
   void dispose() {
     _socket.disconnect();
+    _socketAliados.disconnect();
     super.dispose();
   }
 
@@ -81,6 +94,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadPendingRequestsCount();
     _loadPendingKycCount();
     _loadPendingServiciosCount();
+    _loadPendingPerfilesCount();
+    _loadPendingKycUsuariosCount();
+  }
+
+  /// Clientes que subieron sus documentos y todavía nadie revisó.
+  Future<void> _loadPendingKycUsuariosCount() async {
+    try {
+      final pendientes = await KycAdminApi.listar(
+          estado: 'submitted', ruta: KycAdminApi.rutaUsuarios);
+      if (!mounted) return;
+      setState(() => _pendingKycUsuariosCount = pendientes.length);
+    } catch (e) {
+      print('Error loading pending user KYC count: $e');
+    }
+  }
+
+  /// Cambios de perfil comercial que un aliado propuso y nadie revisó.
+  Future<void> _loadPendingPerfilesCount() async {
+    try {
+      final pendientes = await CambiosPerfilAdminApi.listar(estado: 'pending');
+      if (!mounted) return;
+      setState(() => _pendingPerfilesCount = pendientes.length);
+    } catch (e) {
+      print('Error loading pending profile changes count: $e');
+    }
   }
 
   /// Aliados con documentos subidos y todavía sin decisión.
@@ -158,6 +196,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const PhotoChangeRequestsScreen(),
                         _pendingRequestsCount,
                       ),
+                      _buildDashboardCard(
+                        'Verificación de Identidad',
+                        '',
+                        Icons.badge,
+                        Colors.green,
+                        const _KycUsuariosPage(),
+                        _pendingKycUsuariosCount,
+                      ),
                     ],
                   );
                 },
@@ -201,6 +247,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Colors.purple,
                         const _ServiciosReviewPage(),
                         _pendingServiciosCount,
+                      ),
+                      _buildDashboardCard(
+                        'Cambios de perfil',
+                        '',
+                        Icons.fact_check_outlined,
+                        Colors.teal,
+                        const _CambiosPerfilPage(),
+                        _pendingPerfilesCount,
                       ),
                     ],
                   );
@@ -473,6 +527,39 @@ class _KycReviewPage extends StatelessWidget {
         title: const Text('Verificación de Identidad'),
       ),
       body: const KycReviewScreen(),
+    );
+  }
+}
+
+/// Verificación de identidad de los clientes: misma pantalla que la de
+/// aliados, apuntando a la cola del backend de users.
+class _KycUsuariosPage extends StatelessWidget {
+  const _KycUsuariosPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Config.backgroundColor,
+      appBar: AppBar(
+        title: const Text('Verificación de Identidad'),
+      ),
+      body: const KycReviewScreen(ruta: KycAdminApi.rutaUsuarios),
+    );
+  }
+}
+
+/// Cambios al perfil comercial de un aliado, misma envoltura que KYC.
+class _CambiosPerfilPage extends StatelessWidget {
+  const _CambiosPerfilPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Config.backgroundColor,
+      appBar: AppBar(
+        title: const Text('Cambios de perfil'),
+      ),
+      body: const CambiosPerfilReviewScreen(),
     );
   }
 }

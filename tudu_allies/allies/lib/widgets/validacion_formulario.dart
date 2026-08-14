@@ -20,6 +20,35 @@ class Validacion {
   static int palabras(String texto) =>
       texto.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).length;
 
+  /// ¿El texto trae datos de contacto? El perfil del aliado es público y pasa
+  /// por revisión: un teléfono o una dirección ahí saca la conversación (y el
+  /// pago) fuera de la app, así que se bloquea antes de enviarlo.
+  ///
+  /// Se detecta lo que un revisor rechazaría igual: números largos (con o sin
+  /// separadores), correos, enlaces y las palabras con las que empieza una
+  /// dirección en Colombia.
+  static bool tieneDatosDeContacto(String texto) {
+    final t = texto.toLowerCase();
+
+    // Correo o enlace.
+    if (RegExp(r'[\w.\-]+@[\w\-]+\.\w+').hasMatch(t)) return true;
+    if (RegExp(r'(https?://|www\.)').hasMatch(t)) return true;
+
+    // Teléfono: 7 dígitos o más una vez quitados espacios, guiones, puntos y
+    // paréntesis — así "300 123 4567" y "(1)234-5678" también caen.
+    final soloNumeros = t.replaceAll(RegExp(r'[\s\-.()+]'), '');
+    if (RegExp(r'\d{7,}').hasMatch(soloNumeros)) return true;
+
+    // Dirección: "cra 15 #45-30", "calle 80", "mz 4 lote 2"...
+    final direccion = RegExp(
+      r'\b(calle|cll|carrera|cra|kra|krr|avenida|av|autopista|diagonal|diag|transversal|trans|tv|manzana|mz|lote|apto|apartamento|barrio|conjunto)\b\.?\s*\d',
+    );
+    if (direccion.hasMatch(t)) return true;
+    if (RegExp(r'#\s*\d').hasMatch(t)) return true;
+
+    return false;
+  }
+
   /// Aviso general, pensado para ir pegado al botón de enviar.
   static Widget aviso(String? mensaje) {
     if (mensaje == null) return const SizedBox.shrink();

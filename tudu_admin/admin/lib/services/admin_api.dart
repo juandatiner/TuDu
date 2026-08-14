@@ -70,23 +70,53 @@ class AdminsApi {
 /// Revisión de la verificación de identidad de los aliados.
 /// Vive en el backend de aliados (3002), que es el dueño de la tabla `allies`.
 class KycAdminApi {
+  /// Ruta base de la cola: la de aliados vive en el backend 3002 y la de
+  /// clientes en el de users (3000). `Api` enruta sola según el prefijo.
+  static const rutaAliados = '/api/admin/kyc';
+  static const rutaUsuarios = '/api/admin/user-kyc';
+
   /// [estado] `submitted` para los pendientes, `todos` para el historial.
-  static Future<List<Map<String, dynamic>>> listar({String estado = 'submitted'}) async {
-    final data = await Api.get('/api/admin/kyc', query: {'estado': estado});
+  static Future<List<Map<String, dynamic>>> listar({
+    String estado = 'submitted',
+    String ruta = rutaAliados,
+  }) async {
+    final data = await Api.get(ruta, query: {'estado': estado});
     final filas = (data is Map) ? data['data'] : data;
     return List<Map<String, dynamic>>.from(filas ?? []);
   }
 
   /// Detalle con los tres documentos. Las URLs vienen firmadas y caducan en una
   /// hora: el bucket de KYC es privado.
-  static Future<Map<String, dynamic>> detalle(String email) async {
-    final data = await Api.get('/api/admin/kyc/$email');
+  static Future<Map<String, dynamic>> detalle(String email,
+      {String ruta = rutaAliados}) async {
+    final data = await Api.get('$ruta/$email');
     return Map<String, dynamic>.from((data as Map)['data'] ?? {});
   }
 
   /// Al rechazar, el motivo es obligatorio: el aliado necesita saber qué corregir.
-  static Future<void> revisar(String email, String estado, {String? motivo}) =>
-      Api.put('/api/admin/kyc/$email', {'status': estado, 'note': motivo});
+  static Future<void> revisar(String email, String estado,
+          {String? motivo, String ruta = rutaAliados}) =>
+      Api.put('$ruta/$email', {'status': estado, 'note': motivo});
+}
+
+/// Revisión de los cambios que un aliado hace a su perfil comercial. Vive en
+/// el backend de aliados (3002), dueño de la tabla `allies`.
+class CambiosPerfilAdminApi {
+  /// [estado] `pending` (por defecto) o `todos` para el historial. Cada fila
+  /// trae el texto propuesto y, en `actual`, el que está publicado hoy.
+  static Future<List<Map<String, dynamic>>> listar({String estado = 'pending'}) async {
+    final data = await Api.get('/api/admin/profile-changes', query: {'estado': estado});
+    final filas = (data is Map) ? data['data'] : data;
+    return List<Map<String, dynamic>>.from(filas ?? []);
+  }
+
+  /// Al aprobar, el backend copia el texto al perfil del aliado y se lo avisa
+  /// por socket. Al rechazar, el motivo es obligatorio.
+  static Future<void> revisar(int id, String estado, {String? motivo}) =>
+      Api.put('/api/admin/profile-changes/$id', {
+        'status': estado,
+        'rejection_reason': motivo,
+      });
 }
 
 /// Revisión de servicios propuestos por aliados (categoría + nombre +
